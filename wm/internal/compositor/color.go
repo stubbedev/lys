@@ -89,7 +89,7 @@ func (c *Compositor) paintFrame(o *output.Output, sc *scene, f backend.Frame, bo
 		if err != nil {
 			return nil, err
 		}
-		sc.cur.replayOnPrimary(p, c.sdrOut(o))
+		sc.cur.replayOnPrimary(p, c.sdrOut(o), &c.holes)
 		c.tintComposited(p, bounds)
 		return repaint, p.End()
 	}
@@ -102,7 +102,7 @@ func (c *Compositor) paintFrame(o *output.Output, sc *scene, f backend.Frame, bo
 	if err != nil {
 		return nil, err
 	}
-	sc.cur.replay(p, c.sceneOut(o))
+	sc.cur.replayWatched(p, c.sceneOut(o), &c.holes)
 	if err := p.End(); err != nil {
 		return nil, err
 	}
@@ -111,7 +111,9 @@ func (c *Compositor) paintFrame(o *output.Output, sc *scene, f backend.Frame, bo
 	}
 	size := bounds.Size()
 	p.SetColor(c.plans.Of(hc.working.Description(), hc.signal))
-	p.DrawTexture(sc.working.Texture(), render.FRect{W: float64(size.X), H: float64(size.Y)}, bounds, render.Normal, 1, render.Mask{})
+	c.holes.covering(func() {
+		p.DrawTexture(sc.working.Texture(), render.FRect{W: float64(size.X), H: float64(size.Y)}, bounds, render.Normal, 1, render.Mask{})
+	})
 	c.tintComposited(p, bounds)
 	return repaint, p.End()
 }

@@ -182,7 +182,7 @@ func (c *Compositor) sceneOf(o *output.Output) *scene {
 
 func (c *Compositor) render(o *output.Output) error {
 	c.frameTime = c.aimed(o, c.clock())
-	c.incompleteAtFrame = c.renderer.Counts().Incomplete
+	c.holes = holeWatch{r: c.renderer}
 	c.prepareSwitch(o)
 	if err := c.settleOverview(c.frameTime); err != nil {
 		return err
@@ -238,7 +238,7 @@ func (c *Compositor) render(o *output.Output) error {
 	}
 	sc.noteDrawn(&sc.cur)
 	sc.cur.clip()
-	c.resolveBlurs(o, &sc.cur, 0)
+	c.resolveBlurs(o, &sc.cur, 0, &c.holes)
 	sc.noteKept(&sc.cur)
 	if err := c.drawnNow(o, shown); err != nil {
 		return err

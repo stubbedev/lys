@@ -292,8 +292,17 @@ func TestAPassBeforeItsPipelineExistsSkipsTheDrawAndSaysSo(t *testing.T) {
 			t.Fatal(err)
 		}
 		p.Clear(color.RGBA{A: 0xff})
+		cleared := p.Skipped()
 		p.FillRect(image.Rect(0, 0, 8, 8), red, Mask{})
+		p.FillRect(image.Rect(2, 2, 6, 6), red, Mask{})
 		incomplete := p.Incomplete()
+		want := uint64(0)
+		if incomplete {
+			want = 2
+		}
+		if cleared != 0 || p.Skipped() != want {
+			t.Errorf("a pass counted %d skipped draws after its clear and %d after two fills, want 0 and %d", cleared, p.Skipped(), want)
+		}
 		if err := p.End(); err != nil {
 			t.Fatal(err)
 		}

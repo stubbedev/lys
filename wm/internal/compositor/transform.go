@@ -53,7 +53,9 @@ func (c *Compositor) present(o *output.Output, sc *scene, repaint render.Region)
 		o.Backend().AbortFrame()
 		return false, err
 	}
-	p.DrawTexture(sc.composed.Texture(), render.FRect{W: float64(size.X), H: float64(size.Y)}, image.Rectangle{Max: o.Backend().State().Mode.Size}, t, 1, render.Mask{})
+	c.holes.covering(func() {
+		p.DrawTexture(sc.composed.Texture(), render.FRect{W: float64(size.X), H: float64(size.Y)}, image.Rectangle{Max: o.Backend().State().Mode.Size}, t, 1, render.Mask{})
+	})
 	if err := p.End(); err != nil {
 		o.Backend().AbortFrame()
 		return false, err
@@ -66,7 +68,7 @@ func (c *Compositor) present(o *output.Output, sc *scene, repaint render.Region)
 }
 
 func (c *Compositor) presentComplete(o *output.Output, repaint render.Region) (bool, error) {
-	if c.renderer.Counts().Incomplete != c.incompleteAtFrame {
+	if c.holes.found {
 		o.Backend().AbortFrame()
 		c.frames.Drop(o.Backend().Name())
 		return false, nil

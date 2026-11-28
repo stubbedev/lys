@@ -399,7 +399,7 @@ func TestABlurRedrawAllocatesNothingOnceItsChainExists(t *testing.T) {
 	pb := &pendingBlur{cache: &blurCache{}, spec: chainSpec{offset: 2, passes: 2}, area: area}
 	below := []drawOp{{tex: tex, src: render.FRect{W: 64, H: 48}, dst: area, alpha: 1}}
 	redraw := func() {
-		if err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, nil); err != nil {
+		if _, err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -484,7 +484,7 @@ func TestAnOverlaidOpIsLeftOutOfThePrimaryPlaneButNotACapture(t *testing.T) {
 		}
 		return b.Pix[0]
 	}
-	if got := draw(func(p render.Pass) { f.replayOnPrimary(p, colorOut{}) }); got != 0 {
+	if got := draw(func(p render.Pass) { f.replayOnPrimary(p, colorOut{}, nil) }); got != 0 {
 		t.Fatalf("the primary plane drew the overlaid op: %#x", got)
 	}
 	if got := draw(func(p render.Pass) { f.replayFrom(p, image.Point{}, colorOut{}) }); got != 0xff {

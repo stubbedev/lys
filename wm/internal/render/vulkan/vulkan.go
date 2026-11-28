@@ -76,6 +76,9 @@ func (r *Renderer) Counts() render.Counts {
 	counts.GPUWaits = r.waits + r.d.BlockingWaits()
 	counts.Submits = r.submits + r.d.Submissions()
 	counts.Programs = r.builds + r.d.PipelineBuilds()
+	if r.pass != nil {
+		counts.Skipped += r.pass.p.Skipped()
+	}
 	return counts
 }
 
@@ -1035,6 +1038,7 @@ func (p *pass) End() error {
 	p.r.pass = nil
 	if p.p.Incomplete() {
 		p.r.counts.Incomplete++
+		p.r.counts.Skipped += p.p.Skipped()
 	}
 	return errors.Join(p.err, p.r.note(p.p.End()))
 }

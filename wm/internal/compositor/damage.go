@@ -117,18 +117,19 @@ func (op drawOp) covers() bool {
 	return op.opaque && op.mask == (render.Mask{})
 }
 
+func (op *drawOp) hides() bool {
+	return op.opaque || op.surface != nil && op.alpha == 1 && op.size.X > 0 && op.size.Y > 0 && !op.surface.Opaque().Empty()
+}
+
 func (op drawOp) solid(add func(image.Rectangle)) {
+	if !op.hides() {
+		return
+	}
 	if op.opaque {
 		op.addUnmasked(op.dst, add)
 		return
 	}
-	if op.surface == nil || op.alpha != 1 || op.size.X <= 0 || op.size.Y <= 0 {
-		return
-	}
 	g := op.surface.Opaque()
-	if g.Empty() {
-		return
-	}
 	whole := op.mapped()
 	w, h := whole.Dx(), whole.Dy()
 	for i := range g.Len() {
@@ -422,14 +423,18 @@ func (f *frame) replay(p render.Pass, to colorOut) {
 }
 
 func (f *frame) replayFrom(p render.Pass, origin image.Point, to colorOut) {
-	replayOps(f.ops, p, origin, to, false)
+	replayOps(f.ops, p, origin, to, false, nil)
 }
 
-func (f *frame) replayOnPrimary(p render.Pass, to colorOut) {
-	replayOps(f.ops, p, image.Point{}, to, true)
+func (f *frame) replayWatched(p render.Pass, to colorOut, w *holeWatch) {
+	replayOps(f.ops, p, image.Point{}, to, false, w)
 }
 
-func replayOps(ops []drawOp, p render.Pass, origin image.Point, to colorOut, skipOverlay bool) {
+func (f *frame) replayOnPrimary(p render.Pass, to colorOut, w *holeWatch) {
+	replayOps(f.ops, p, image.Point{}, to, true, w)
+}
+
+func replayOps(ops []drawOp, p render.Pass, origin image.Point, to colorOut, skipOverlay bool, w *holeWatch) {
 	var transform *render.ColorTransform
 	var last *colorspace.Description
 	settled := false
@@ -458,36 +463,38 @@ func replayOps(ops []drawOp, p render.Pass, origin image.Point, to colorOut, ski
 			}
 			cutTex, cut = op.cutTex, c
 		}
-		m := shiftMask(op.mask, origin)
-		if g := op.goo; !g.A.Rect.Empty() {
-			g.A.Rect, g.B.Rect = g.A.Rect.Sub(origin), g.B.Rect.Sub(origin)
-			p.FillGoo(op.dst.Sub(origin), op.color, g)
+		if op.hides() {
+			w.covering(func() { replayOp(p, op, origin) })
 			continue
 		}
-		if op.gradient.Stops != nil {
-			p.FillGradient(op.dst.Sub(origin), mapGradient(op.gradient, func(v [2]float32) [2]float32 {
-				return [2]float32{v[0] - float32(origin.X), v[1] - float32(origin.Y)}
-			}), m)
-			continue
-		}
-		if op.fill && op.color == (render.Color{}) {
-			continue
-		}
-		if op.fill {
-			p.FillRect(op.dst.Sub(origin), op.color, m)
-			continue
-		}
-		if op.glass != (unique.Handle[render.Glass]{}) {
-			p.DrawGlass(op.tex, op.pieceSrc(), op.dst.Sub(origin), op.alpha, m, op.glass.Value())
-			continue
-		}
-		p.DrawTexture(op.tex, op.pieceSrc(), op.dst.Sub(origin), op.transform, op.alpha, m)
+		replayOp(p, op, origin)
 	}
 	if transform != nil {
 		p.SetColor(nil)
 	}
 	if cutTex != nil {
 		p.ClearCut()
+	}
+}
+
+func replayOp(p render.Pass, op *drawOp, origin image.Point) {
+	m := shiftMask(op.mask, origin)
+	switch {
+	case !op.goo.A.Rect.Empty():
+		g := op.goo
+		g.A.Rect, g.B.Rect = g.A.Rect.Sub(origin), g.B.Rect.Sub(origin)
+		p.FillGoo(op.dst.Sub(origin), op.color, g)
+	case op.gradient.Stops != nil:
+		p.FillGradient(op.dst.Sub(origin), mapGradient(op.gradient, func(v [2]float32) [2]float32 {
+			return [2]float32{v[0] - float32(origin.X), v[1] - float32(origin.Y)}
+		}), m)
+	case op.fill && op.color == (render.Color{}):
+	case op.fill:
+		p.FillRect(op.dst.Sub(origin), op.color, m)
+	case op.glass != (unique.Handle[render.Glass]{}):
+		p.DrawGlass(op.tex, op.pieceSrc(), op.dst.Sub(origin), op.alpha, m, op.glass.Value())
+	default:
+		p.DrawTexture(op.tex, op.pieceSrc(), op.dst.Sub(origin), op.transform, op.alpha, m)
 	}
 }
 

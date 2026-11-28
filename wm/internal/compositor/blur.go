@@ -389,7 +389,7 @@ func (c *Compositor) drawBlur(pass *frame, o *output.Output, g glassDraw) {
 	pass.addRim(g, m, under, o)
 }
 
-func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int) {
+func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int, w *holeWatch) {
 	if len(f.blurs) == 0 {
 		return
 	}
@@ -419,7 +419,7 @@ func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int) {
 			continue
 		}
 		p.resolved = true
-		below := f.settle(f.below[p.from:p.to])
+		below, _ := f.settle(f.below[p.from:p.to])
 		p.to = p.from + len(below)
 		p.cache.used = true
 		var damage *region.Set
@@ -434,9 +434,12 @@ func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int) {
 				continue
 			}
 		}
-		if err := c.renderBlur(func(size image.Point) (render.TextureTarget, error) { return c.newSceneTarget(o, size) }, p, below, to, damage); err != nil {
-			p.failed = true
+		drawn, err := c.renderBlur(func(size image.Point) (render.TextureTarget, error) { return c.newSceneTarget(o, size) }, p, below, to, damage)
+		if err != nil {
 			c.report(fmt.Errorf("compositor: redraw a blur: %w", err))
+		}
+		if !drawn {
+			p.failed = true
 			continue
 		}
 		if p.cache.partial {
@@ -445,7 +448,10 @@ func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int) {
 			}
 		}
 	}
-	kept := f.settle(f.ops[from:])
+	kept, holed := f.settle(f.ops[from:])
+	if holed && w != nil {
+		w.found = true
+	}
 	removed := len(f.ops) - from - len(kept)
 	f.ops = f.ops[:from+len(kept)]
 	if f.cursorFrom > from {
@@ -453,22 +459,23 @@ func (c *Compositor) resolveBlurs(o *output.Output, f *frame, from int) {
 	}
 }
 
-func (f *frame) settle(ops []drawOp) []drawOp {
-	kept := ops[:0]
+func (f *frame) settle(ops []drawOp) (kept []drawOp, holed bool) {
+	kept = ops[:0]
 	for _, op := range ops {
 		if op.pending != 0 {
 			p := &f.blurs[op.pending-1]
 			if p.failed || len(p.cache.chain) == 0 {
+				holed = holed || op.hides()
 				continue
 			}
 			op.tex, op.version, op.touched, op.pending = p.cache.chain[0].Texture(), p.cache.version, p.cache.touched, 0
 		}
 		kept = append(kept, op)
 	}
-	return kept
+	return kept, holed
 }
 
-func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarget, error), pb *pendingBlur, below []drawOp, to colorOut, damage *region.Set) error {
+func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarget, error), pb *pendingBlur, below []drawOp, to colorOut, damage *region.Set) (bool, error) {
 	b, area := pb.cache, pb.area
 	sizes := append(b.sizes[:0], area.Size())
 	for range pb.spec.passes {
@@ -479,12 +486,12 @@ func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarge
 	if b.area.Size() != area.Size() || len(b.chain) != len(sizes) || b.to != to {
 		damage = nil
 		if err := b.destroy(); err != nil {
-			return err
+			return false, err
 		}
 		for _, s := range sizes {
 			t, err := newTarget(s)
 			if err != nil {
-				return errors.Join(err, b.destroy())
+				return false, errors.Join(err, b.destroy())
 			}
 			b.chain = append(b.chain, t)
 		}
@@ -492,30 +499,37 @@ func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarge
 	b.levelsFor(damage, pb.spec)
 	p, err := c.renderer.Begin(b.chain[0], b.levels[0])
 	if err != nil {
-		return err
+		return false, err
 	}
 	p.Clear(render.Color{})
-	replayOps(below, p, area.Min, to, false)
+	replayOps(below, p, area.Min, to, false, nil)
 	if err := p.End(); err != nil {
-		return err
+		return false, err
 	}
+	levels := holeWatch{r: c.renderer}
 	step := func(from, into int, up bool) error {
 		p, err := c.renderer.Begin(b.chain[into], b.levels[into])
 		if err != nil {
 			return err
 		}
-		c.kawase(p, b.chain[from].Texture(), image.Rectangle{Max: sizes[into]}, b.levels[into], pb.spec.offset, up)
+		levels.covering(func() {
+			c.kawase(p, b.chain[from].Texture(), image.Rectangle{Max: sizes[into]}, b.levels[into], pb.spec.offset, up)
+		})
 		return p.End()
 	}
 	for i := 1; i < len(sizes); i++ {
 		if err := step(i-1, i, false); err != nil {
-			return err
+			return false, err
 		}
 	}
 	for i := len(sizes) - 1; i > 0; i-- {
 		if err := step(i, i-1, true); err != nil {
-			return err
+			return false, err
 		}
+	}
+	if levels.found {
+		b.stale = true
+		return false, nil
 	}
 	c.blurGen++
 	b.touched, b.partial, b.stale = c.blurGen, damage != nil, false
@@ -523,7 +537,7 @@ func (c *Compositor) renderBlur(newTarget func(image.Point) (render.TextureTarge
 		b.version = c.blurGen
 	}
 	b.area, b.below, b.to, b.spec = area, append(b.below[:0], below...), to, pb.spec
-	return nil
+	return true, nil
 }
 
 func (b *blurCache) levelsFor(damage *region.Set, spec chainSpec) {

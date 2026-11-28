@@ -37,18 +37,22 @@ type Pass struct {
 	// cutTex and cutSet are what SetCut last set, for the shaders.
 	cutTex *Texture
 	cutSet vk.DescriptorSet
-	// incomplete is whether a draw was skipped, its pipeline still on the
-	// worker Prepare started.
-	incomplete bool
+	// skipped counts the draws skipped, their pipelines still on the worker
+	// Prepare started.
+	skipped uint64
 }
 
 // Incomplete reports a draw skipped because its pipeline is still being built
 // (Prepare): the caller keeps this pass's damage for its next frame.
-func (p *Pass) Incomplete() bool { return p.incomplete }
+func (p *Pass) Incomplete() bool { return p.skipped > 0 }
+
+// Skipped counts the draws this pass has skipped so far, as Incomplete: a
+// caller compares it around one draw to learn whether that draw was skipped.
+func (p *Pass) Skipped() uint64 { return p.skipped }
 
 func (p *Pass) add(op passOp) {
 	if op.pipe == 0 && op.kind != opClear {
-		p.incomplete = true
+		p.skipped++
 		return
 	}
 	p.ops = append(p.ops, op)

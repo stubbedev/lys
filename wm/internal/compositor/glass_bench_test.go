@@ -50,7 +50,7 @@ func BenchmarkBlurChainRedraw(b *testing.B) {
 			below := []drawOp{{tex: tex, src: render.FRect{W: 1000, H: 600}, dst: area, alpha: 1}}
 			b.Cleanup(func() { _ = pb.cache.destroy() })
 			for b.Loop() {
-				if err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, nil); err != nil {
+				if _, err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, nil); err != nil {
 					b.Fatal(err)
 				}
 				if f, ok := r.(finisher); ok {

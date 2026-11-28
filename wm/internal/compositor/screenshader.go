@@ -132,7 +132,7 @@ func (c *Compositor) sceneImage(o *output.Output, sc *scene, bounds image.Rectan
 	if err != nil {
 		return err
 	}
-	sc.cur.replay(p, colorOut{plans: &c.plans})
+	sc.cur.replayWatched(p, colorOut{plans: &c.plans}, &c.holes)
 	return p.End()
 }
 
@@ -162,7 +162,9 @@ func (c *Compositor) renderShaded(o *output.Output, sc *scene, s *screenShader, 
 		return err
 	}
 	p.Clear(opaque)
-	p.DrawScreenShader(s.shader, sc.image.Texture(), bounds, float32(math.Mod(c.frameTime.Seconds(), screenShaderPeriod)))
+	c.holes.covering(func() {
+		p.DrawScreenShader(s.shader, sc.image.Texture(), bounds, float32(math.Mod(c.frameTime.Seconds(), screenShaderPeriod)))
+	})
 	if err := p.End(); err != nil {
 		o.Backend().AbortFrame()
 		if backend.Fatal(err) {

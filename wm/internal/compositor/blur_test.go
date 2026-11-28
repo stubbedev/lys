@@ -75,6 +75,29 @@ func TestABlurAreaFollowsAShapeWithoutReallocating(t *testing.T) {
 	}
 }
 
+func TestABlurWhoseLevelsAreSkippedIsDroppedAndRedrawnWhole(t *testing.T) {
+	r := &offThreadRenderer{Renderer: soft.New()}
+	c := &Compositor{renderer: r}
+	newTarget := func(size image.Point) (render.TextureTarget, error) { return r.NewTextureTarget(size) }
+	b := &blurCache{}
+	area := image.Rect(0, 0, 64, 64)
+	below := []drawOp{{fill: true, dst: area, color: render.Color{R: 0xff, A: 0xff}, opaque: true}}
+	spec := chainSpec{offset: 2, passes: 2}
+	for _, skipping := range []bool{true, false} {
+		r.skipping = skipping
+		drawn, err := c.renderBlur(newTarget, &pendingBlur{cache: b, spec: spec, area: area}, below, colorOut{plans: &c.plans}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if drawn == skipping {
+			t.Fatalf("a blur whose levels were skipped %v reported drawn %v", skipping, drawn)
+		}
+		if stale := blurStale(b, spec, area, below, colorOut{plans: &c.plans}); stale != skipping {
+			t.Errorf("a blur whose levels were skipped %v is stale %v after, want %v", skipping, stale, skipping)
+		}
+	}
+}
+
 func TestAGrowingBlurAllocatesItsChainABoundedNumberOfTimes(t *testing.T) {
 	r := soft.New()
 	c := &Compositor{renderer: r}
@@ -87,8 +110,8 @@ func TestAGrowingBlurAllocatesItsChainABoundedNumberOfTimes(t *testing.T) {
 	for w := 100; w <= 400; w += 6 {
 		frames++
 		pb := &pendingBlur{cache: b, spec: spec, area: b.areaFor(image.Rect(100, 100, 100+w, 100+w/2), bounds)}
-		if err := c.renderBlur(newTarget, pb, nil, colorOut{}, nil); err != nil {
-			t.Fatal(err)
+		if drawn, err := c.renderBlur(newTarget, pb, nil, colorOut{}, nil); err != nil || !drawn {
+			t.Fatalf("a blur drew %v: %v", drawn, err)
 		}
 		if len(b.chain) != spec.passes+1 {
 			t.Fatalf("a chain of %d passes holds %d targets, want %d", spec.passes, len(b.chain), spec.passes+1)
@@ -115,9 +138,15 @@ func TestPendingOpsOfAFailedBlurAreDropped(t *testing.T) {
 	b := &blurCache{}
 	p := f.pend(b, chainSpec{}, image.Rect(0, 0, 4, 4), nil, false)
 	f.blurs[p-1].failed = true
-	kept := f.settle([]drawOp{{pending: p}, {fill: true}})
+	kept, holed := f.settle([]drawOp{{pending: p}, {fill: true}})
 	if len(kept) != 1 || !kept[0].fill {
 		t.Fatalf("settled to %+v, want only the fill", kept)
+	}
+	if holed {
+		t.Error("dropping a translucent glass draw left a hole")
+	}
+	if _, holed := f.settle([]drawOp{{pending: p, opaque: true}}); !holed {
+		t.Error("dropping an opaque glass draw, which hid what is beneath it, left no hole")
 	}
 }
 
@@ -134,7 +163,7 @@ func TestSharedChainsPendOnce(t *testing.T) {
 func blurOf(t *testing.T, c *Compositor, r *soft.Renderer, pb *pendingBlur, below []drawOp, damage *region.Set) []byte {
 	t.Helper()
 	newTarget := func(size image.Point) (render.TextureTarget, error) { return r.NewTextureTarget(size) }
-	if err := c.renderBlur(newTarget, pb, below, colorOut{plans: &c.plans}, damage); err != nil {
+	if _, err := c.renderBlur(newTarget, pb, below, colorOut{plans: &c.plans}, damage); err != nil {
 		t.Fatal(err)
 	}
 	b, ok := pb.cache.chain[0].(*soft.TextureTarget)
@@ -200,13 +229,13 @@ func TestAPartialBlurRedrawAllocatesNothing(t *testing.T) {
 	c := &Compositor{renderer: r}
 	pb := &pendingBlur{cache: &blurCache{}, spec: chainSpec{offset: 2, passes: 2}, area: area}
 	below := []drawOp{{tex: tex, src: render.FRect{W: 128, H: 96}, dst: area, alpha: 1}}
-	if err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, nil); err != nil {
+	if _, err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, nil); err != nil {
 		t.Fatal(err)
 	}
 	damage := region.Capped(maxDamageRects)
 	damage.Add(image.Rect(40, 40, 50, 50))
 	redraw := func() {
-		if err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, &damage); err != nil {
+		if _, err := c.renderBlur(r.NewTextureTarget, pb, below, colorOut{plans: &c.plans}, &damage); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -222,7 +251,7 @@ func TestOnlyTheFirstLevelOfABlurChainIsCleared(t *testing.T) {
 	c := &Compositor{renderer: r}
 	pb := &pendingBlur{cache: &blurCache{}, spec: chainSpec{offset: 2, passes: 3}, area: area}
 	before := r.Counts().Clears
-	if err := c.renderBlur(r.NewTextureTarget, pb, []drawOp{{fill: true, dst: area}}, colorOut{plans: &c.plans}, nil); err != nil {
+	if _, err := c.renderBlur(r.NewTextureTarget, pb, []drawOp{{fill: true, dst: area}}, colorOut{plans: &c.plans}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if got := r.Counts().Clears - before; got != 1 {

@@ -166,7 +166,7 @@ func (c *Compositor) zoomScene(o *output.Output, sc *scene, bounds image.Rectang
 	if err != nil {
 		return err
 	}
-	(&frame{ops: sc.cur.ops[:sc.cur.cursorFrom]}).replay(p, c.sceneOut(o))
+	(&frame{ops: sc.cur.ops[:sc.cur.cursorFrom]}).replayWatched(p, c.sceneOut(o), &c.holes)
 	return p.End()
 }
 
@@ -177,7 +177,7 @@ func (c *Compositor) drawZoom(p render.Pass, o *output.Output, sc *scene, bounds
 		p.SetColor(c.plans.Of(hc.working.Description(), hc.signal))
 		to.to = hc.signal
 	}
-	p.DrawTexture(sc.working.Texture(), sc.zoom.shown, bounds, render.Normal, 1, render.Mask{})
+	c.holes.covering(func() { p.DrawTexture(sc.working.Texture(), sc.zoom.shown, bounds, render.Normal, 1, render.Mask{}) })
 	if err := c.zoomCursor(o, sc, z); err != nil {
 		return err
 	}

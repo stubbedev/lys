@@ -404,6 +404,7 @@ type Counts struct {
 	Programs    uint64
 	ColdDraws   uint64
 	Incomplete  uint64
+	Skipped     uint64
 }
 
 type OffThreadBuilder interface {
