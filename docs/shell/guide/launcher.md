@@ -126,6 +126,20 @@ Person and hand emoji use `launcher.emoji.skin-tone`. The actions panel on such 
 
 `-show wallpaper`, or the Choose Wallpaper row, opens a grid of the images in `wallpaper.picker-directories` (default: the cycling directory and the `Wallpapers` folder in your pictures directory), filtered as you type. The selected image is previewed on the picker's monitor, and with `styling.theme-provider: wallpaper` re-themes the shell. `Enter` keeps it for that monitor, `Ctrl+Enter` for every monitor, `Esc` restores the previous one. The choice is saved to the config. Thumbnails are shared freedesktop thumbnails in `$XDG_CACHE_HOME/thumbnails/large`.
 
+## Files in combi
+
+`-show combi` finds files by name beside the other modes' rows, from the [file index](#file-index). With an empty query it lists your recently used files; as you type, recent files come first, then the best name matches: the whole name, then its start, then the start of a word in it, then anywhere inside it; then the shorter name, then the shallower file. A query of one character looks only at recent files, and until it is four characters long file rows follow the other modes' rows instead of competing with them. Each row shows the file's name and, dimmed, its folder (`~` for your home), with a thumbnail where one can be made.
+
+Type `!files` before a query to list files alone. `Enter` opens the file in its default app; `Shift+Enter` (the `accept-alt` action in `launcher.keybindings`) shows it selected in its folder in the file manager, lys-files on a lys desktop.
+
+File rows are on by default. Set `launcher.combi.files: false` to leave them out, even when `launcher.combi.modes` names `files`:
+
+```yaml
+launcher:
+  combi:
+    files: false
+```
+
 ## File index
 
 lys-shell keeps one index of file names for the search panel and combi's file search, opened the first time either asks for files and kept for the shell's lifetime. It is walked once, breadth first from each root (default: home), at most 50,000 entries and 8 levels, on one filesystem, skipping hidden names, the names a folder's `.hidden` file lists and `node_modules`, `vendor`, `target`, `build`, `dist`, `venv`, `__pycache__` and `result`; after that it follows every indexed folder through inotify, so a file created, renamed or deleted shows in the next search without a walk. Recent files from `recently-used.xbel` rank higher. Set `launcher.search.file-roots` when the home directory is too large to index fully, and `launcher.search.file-exclude` for more folder names to skip.
