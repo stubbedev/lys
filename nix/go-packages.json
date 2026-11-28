@@ -333,6 +333,18 @@
       "testing"
     ]
   },
+  "desktop/dochelper/dochelpertest": {
+    "imports": [
+      "desktop/dochelper",
+      "desktop/docrender"
+    ],
+    "external": [
+      "fmt",
+      "os",
+      "path/filepath",
+      "testing"
+    ]
+  },
   "desktop/dochelper/memorytest": {
     "imports": [
       "desktop/dochelper",
@@ -2056,6 +2068,7 @@
   },
   "desktop/shell/preview": {
     "imports": [
+      "desktop/dochelper",
       "desktop/i18n",
       "desktop/imagedecode",
       "desktop/mime",
@@ -2080,6 +2093,7 @@
       "io",
       "io/fs",
       "log",
+      "math",
       "os",
       "path/filepath",
       "slices",
@@ -2550,6 +2564,7 @@
     "imports": [
       "desktop/config",
       "desktop/desktopentry",
+      "desktop/dochelper",
       "desktop/fileops",
       "desktop/fileuri",
       "desktop/i18n",
@@ -10503,6 +10518,7 @@
       "desktop/compositor",
       "desktop/config",
       "desktop/desktopentry",
+      "desktop/dochelper",
       "desktop/feed",
       "desktop/fileuri",
       "desktop/geo",
@@ -10842,6 +10858,8 @@
   },
   "shell/shell/filebrowser": {
     "imports": [
+      "desktop/config",
+      "desktop/dochelper",
       "desktop/fileops",
       "desktop/fileuri",
       "desktop/fswatch",
@@ -10849,6 +10867,7 @@
       "desktop/i18n",
       "desktop/mime",
       "desktop/shell/preview",
+      "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
       "desktop/thumbnail",
@@ -10863,6 +10882,8 @@
       "shell/internal/statefile",
       "shell/service/udisks",
       "shell/shell/keys",
+      "shell/shell/quicklook",
+      "ui/anim",
       "ui/app",
       "ui/transfer",
       "ui/widget",
@@ -10896,7 +10917,7 @@
       "unsafe"
     ],
     "testImports": [
-      "desktop/config",
+      "desktop/dochelper/dochelpertest",
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "desktop/thumbnail/thumbnailtest",
@@ -13756,7 +13777,7 @@
       "unicode"
     ],
     "testImports": [
-      "desktop/docrender",
+      "desktop/dochelper/dochelpertest",
       "desktop/resources",
       "desktop/shell/treetest",
       "lib/fdtest",
