@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/xdg"
 
 	"github.com/stubbedev/lys/ui/widget/css"
 )
@@ -155,12 +156,12 @@ func runOffLoop(load, done func()) {
 }
 
 // NewFileChooser returns a chooser in mode starting at startDir (the
-// home directory when empty), filtered by filters (a nil or empty list
+// home directory, or the filesystem root without one, when empty), filtered by filters (a nil or empty list
 // accepts everything; more than one shows a dropdown).
 func NewFileChooser(face render.Font, sizePx float64, mode FileMode, startDir string, filters []FileFilter) *FileChooser {
 	face = requireFace("widget.NewFileChooser", face)
 	if startDir == "" {
-		startDir, _ = os.UserHomeDir()
+		startDir = homeDir()
 	}
 	if len(filters) == 0 {
 		filters = []FileFilter{{Name: Tr("All files")}}
@@ -504,6 +505,15 @@ func (c *FileChooser) SetStatus(text string) {
 	c.status.SetVisible(text != "")
 }
 
+// homeDir is the user's home directory, or the filesystem root when
+// $HOME names none.
+func homeDir() string {
+	if home, ok := xdg.OS.Home(); ok {
+		return home
+	}
+	return "/"
+}
+
 // buildPlaces rebuilds the place buttons for the wired sources into
 // the places row, keeping the row's slot in the layout.
 func (c *FileChooser) buildPlaces() {
@@ -512,12 +522,8 @@ func (c *FileChooser) buildPlaces() {
 	} else {
 		c.places.Clear()
 	}
-	home := func() {
-		dir, _ := os.UserHomeDir()
-		c.navigate(dir)
-	}
 	c.places.Append(c.placeButton(Tr("Up"), c.climb), false)
-	c.places.Append(c.placeButton(Tr("Home"), home), false)
+	c.places.Append(c.placeButton(Tr("Home"), func() { c.navigate(homeDir()) }), false)
 	c.places.Append(c.placeButton(Tr("Filesystem"), func() { c.navigate("/") }), false)
 	if c.recents != nil {
 		c.places.Append(c.placeButton(Tr("Recent"), func() { c.navigate("") }), false)

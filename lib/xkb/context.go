@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"unsafe"
+
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // defaultRoot is the xkeyboard-config data directory a distribution build
@@ -412,13 +414,11 @@ func (c *Context) appendExtensions(path string, skip map[string]bool) bool {
 // it exists.
 func (c *Context) AppendDefaultIncludePaths() bool {
 	ok := false
-	home := c.getenv("HOME")
-	if xdg := c.getenv("XDG_CONFIG_HOME"); xdg != "" {
-		ok = c.appendPath(filepath.Join(xdg, "xkb")) || ok
-	} else if home != "" {
-		ok = c.appendPath(filepath.Join(home, ".config", "xkb")) || ok
+	env := xdg.Env(c.getenv)
+	if config, has := env.ConfigHome(); has {
+		ok = c.appendPath(filepath.Join(config, "xkb")) || ok
 	}
-	if home != "" {
+	if home, has := env.Home(); has {
 		ok = c.appendPath(filepath.Join(home, ".xkb")) || ok
 	}
 	ok = c.appendPath(c.extraPath()) || ok

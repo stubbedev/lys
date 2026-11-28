@@ -3380,7 +3380,8 @@
   },
   "lib/dmabuf": {
     "imports": [
-      "lib/fourcc"
+      "lib/fourcc",
+      "lib/internal/ioctl"
     ],
     "external": [
       "errors",
@@ -3441,7 +3442,8 @@
   },
   "lib/drm": {
     "imports": [
-      "lib/fourcc"
+      "lib/fourcc",
+      "lib/internal/ioctl"
     ],
     "external": [
       "bytes",
@@ -3963,6 +3965,16 @@
       "strings"
     ],
     "testExternal": [
+      "testing"
+    ]
+  },
+  "lib/internal/ioctl": {
+    "external": [
+      "golang.org/x/sys/unix",
+      "unsafe"
+    ],
+    "testExternal": [
+      "errors",
       "testing"
     ]
   },
@@ -4788,7 +4800,8 @@
   "lib/pulse/native": {
     "imports": [
       "lib/intconv",
-      "lib/internal/goroutine"
+      "lib/internal/goroutine",
+      "lib/xdg"
     ],
     "external": [
       "bufio",
@@ -6056,7 +6069,8 @@
   },
   "lib/xkb": {
     "imports": [
-      "lib/glibclocale"
+      "lib/glibclocale",
+      "lib/xdg"
     ],
     "external": [
       "debug/elf",
@@ -9845,6 +9859,7 @@
     "imports": [
       "desktop/feed",
       "desktop/fswatch",
+      "lib/xdg",
       "shell/internal/clock"
     ],
     "external": [
@@ -10239,6 +10254,7 @@
       "lib/intconv",
       "lib/third_party/gomath",
       "lib/wmipc",
+      "lib/xdg",
       "shell/internal/gvariant",
       "shell/service/fileindex",
       "shell/service/launcher",
@@ -11642,6 +11658,7 @@
       "desktop/styling",
       "desktop/thumbnail",
       "lib/render",
+      "lib/xdg",
       "lib/xkb",
       "shell/internal/launcheripc",
       "shell/service/fileindex",
@@ -14232,6 +14249,7 @@
       "lib/render",
       "lib/text",
       "lib/third_party/gomath",
+      "lib/xdg",
       "lib/xkb",
       "ui/anim",
       "ui/internal/animclock",

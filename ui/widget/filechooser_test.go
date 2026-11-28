@@ -223,6 +223,22 @@ func TestFileChooserClimbAndPlaces(t *testing.T) {
 	c.SetSource(src)
 }
 
+func TestFileChooserStartsAtHomeOrTheRoot(t *testing.T) {
+	for home, want := range map[string]string{"/home": "/home", "": "/", "relative": "/"} {
+		t.Setenv("HOME", home)
+		c := NewFileChooser(chooserFace(t), 14, FileModeOpen, "", nil)
+		c.SetSource(fixtureSource)
+		if c.Dir() != want {
+			t.Errorf("HOME=%q: started in %q, want %q", home, c.Dir(), want)
+		}
+		c.navigate("/home/Documents")
+		c.places.Children()[1].(*Button).OnClick()
+		if c.Dir() != want {
+			t.Errorf("HOME=%q: the home place went to %q, want %q", home, c.Dir(), want)
+		}
+	}
+}
+
 // TestFileChooserRecents covers the recents view: the place exists,
 // the listing shows base names, and activation applies the full path.
 func TestFileChooserRecents(t *testing.T) {

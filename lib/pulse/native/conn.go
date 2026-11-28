@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/internal/goroutine"
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 // ProtocolVersion is the native protocol version this client speaks.
@@ -143,7 +144,7 @@ func newConn(nc net.Conn, opts Options) *Conn {
 func (c *Conn) handshake(ctx context.Context, clientName string) error {
 	var auth Writer
 	auth.U32(ProtocolVersion)
-	auth.Arbitrary(loadCookie())
+	auth.Arbitrary(loadCookie(xdg.OS))
 	r, err := c.request(ctx, CmdAuth, &auth, nil)
 	if err != nil {
 		return err
@@ -586,23 +587,19 @@ func isLocalMachine(id string) bool {
 }
 
 // loadCookie reads the auth cookie like libpulse: $PULSE_COOKIE, then
-// the per-user cookie files. A missing or malformed cookie sends zeros,
-// as libpulse does ("attempting to connect without"); servers that
-// need no auth (pipewire-pulse, auth-anonymous) accept it.
-func loadCookie() []byte {
+// the per-user cookie files under env's config home and home. A missing
+// or malformed cookie sends zeros, as libpulse does ("attempting to
+// connect without"); servers that need no auth (pipewire-pulse,
+// auth-anonymous) accept it.
+func loadCookie(env xdg.Env) []byte {
 	var paths []string
-	if p := os.Getenv("PULSE_COOKIE"); p != "" {
+	if p := env("PULSE_COOKIE"); p != "" {
 		paths = append(paths, p)
 	}
-	config := os.Getenv("XDG_CONFIG_HOME")
-	home, _ := os.UserHomeDir()
-	if config == "" && home != "" {
-		config = filepath.Join(home, ".config")
-	}
-	if config != "" {
+	if config, ok := env.ConfigHome(); ok {
 		paths = append(paths, filepath.Join(config, "pulse", "cookie"))
 	}
-	if home != "" {
+	if home, ok := env.Home(); ok {
 		paths = append(paths, filepath.Join(home, ".pulse-cookie"))
 	}
 	for _, p := range paths {
