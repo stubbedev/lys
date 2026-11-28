@@ -107,13 +107,24 @@ kicks. With nothing dirty and nothing scheduled the loop uses no CPU.
   (`gpu.Carry`). A frame the device refuses (`gpu.ErrBusy`) stays owed.
 - Arrange records a paint bound for each audited kit widget
   (widget/paintink.go), and `PaintChild` skips children outside the
-  clip. Unknown types, including every `widget.Base` widget, are always
-  visited.
+  clip. A type embedding a kit widget keeps its ink while no type on the
+  way down declares its own `Paint`. Other unknown types, including
+  every `widget.Base` widget, are always visited.
 - A scroll step that provably yields the same picture moves pixels
   instead of repainting (widget/scrollshift.go): the viewport is copied
-  and only the exposed strip paints. A non-flat backdrop, an
-  overlapping sibling, an effect on an ancestor or a step between
-  device pixels repaints the whole viewport.
+  and only the exposed strip paints. The content follows the offset by
+  moving its layout, through a `Clamp` and past repaints below; a Box
+  whose own layout went stale lays out again. A container passes the
+  copy up when it says what it paints besides the view (`shiftHost`:
+  Box, Overlay, a resting Stack, Clamp, Sidebar, a closed Sheet,
+  Morph); a sibling over the view is repainted where it stands and
+  where the copy carried it. A non-flat backdrop, an effect on an
+  ancestor, any other container, content deferring paint past the
+  view's clip (an open dropdown) or a switching Stack repaints the whole
+  viewport. Offsets keep to the device grid: at scale 1.5 they move in
+  steps of two logical pixels, so every step copies.
+- A Stack switch keeps both pages in layers for its run: each page
+  paints once, and again only after it owed damage.
 
 ### 4. Resize before acquire; resize commits bypass pacing
 

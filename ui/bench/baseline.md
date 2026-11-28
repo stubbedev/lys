@@ -123,6 +123,31 @@ deadline, so the compositor does not hear of it. lys-ui-gallery's spinner
 costs 1.2-1.6% of a core at 60 frames a second, about 13 syscalls a frame
 under strace, 8 allocations.
 
+## Settings window frames
+
+The real lys-settings window, drawn headless by its frame driver
+(settings/internal/settings/framecost_test.go) as a window draws it:
+layout, damage drain, moves copied, owed regions painted. Same machine,
+measured 2026-11-28, median of the scenario's frames (a cross-fade is
+11 frames at 120 Hz):
+
+    LYS_FRAMECOST=1 go test -run TestFrameCostReport -v ./settings/internal/settings
+    LYS_TEST_GPU=lavapipe ...                       # adds the Vulkan rows
+
+CPU renderer, before #471 and after:
+
+| frame | 2880x1800 at 1.5 | 1920x1080 |
+|---|---|---|
+| launcher wheel step | 61.0 ms, 4.49 Mpx, 7,524 allocs -> 4.9 ms, 0.47 Mpx, 39 | 37.2 ms, 1.80 Mpx -> 3.0 ms, 0.19 Mpx |
+| launcher touchpad step (7.3 px) | 76.4 ms, 4.49 Mpx -> 3.6 ms, 64 kpx | 46.6 ms -> 15.1 ms (#474), 26 kpx |
+| cross-fade frame | 113-165 ms, 8,473 allocs -> 55-56 ms, 1 | 59-61 ms -> 22-23 ms |
+| switch, first frame | 151-167 ms -> 133-154 ms | 77-138 ms -> 65-80 ms |
+
+On the GPU path a cross-fade frame now records 7 ops (1,342 before)
+and a touchpad step 32. A switch's first frame is the page build and its
+first layout (#473). `TestScrollAndSwitchFramesDoBoundedWork` gates the
+pixels, ops and allocations; the times are not gated.
+
 ## Budgets
 
 Each budget is the ceiling of 1.2x the measured count, and a change
