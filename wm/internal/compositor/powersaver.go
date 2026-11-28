@@ -28,6 +28,16 @@ func (c *Compositor) panelLit() bool {
 	})
 }
 
+func (c *Compositor) startingSaver(b backend.Output) bool {
+	in, ok := b.(backend.Inheriting)
+	if !ok || !in.Inherited() || c.powerSaverRate <= 0 {
+		return c.powerSaver
+	}
+	lit := b.State().Mode
+	low, err := lowRefreshMode{within: c.configuredRule(b).mode(), hz: c.powerSaverRate}.choose(b.Modes(), lit)
+	return err == nil && low == lit
+}
+
 func (c *Compositor) settlePanelSaver(o *output.Output) error {
 	if !internalPanel(o.Backend().Name()) || c.panelSaver == c.powerSaver {
 		return nil

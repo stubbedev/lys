@@ -124,3 +124,40 @@ func TestPowerSaverChangesTheLitPanelsModeOnlyWhenItNextLights(t *testing.T) {
 		t.Fatalf("the panel lit again out of power saver in %d mHz, want 120000", got)
 	}
 }
+
+// A panel that took over the frame the last master left (the greeter's,
+// or the session's at logout) is lit: under power saver at start it
+// keeps the mode the frame is in, so taking the frame over is no
+// modeset, and changes mode only when it next lights. Picking the slow
+// mode there modeset over the frame on every login on battery (#348).
+func TestAPanelThatInheritedItsFrameStartsInTheFramesMode(t *testing.T) {
+	big := image.Pt(2880, 1800)
+	var b *headless.Backend
+	r := setupWith(t, func(l *loop.Loop, _ *spyRenderer) backend.Backend {
+		b = headless.New(l)
+		b.InheritFrames()
+		if _, err := b.AddNamedOutput("eDP-1", backend.Mode{Size: big, RefreshMHz: 120000, Preferred: true}, backend.Mode{Size: big, RefreshMHz: 60000}); err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}, func(cfg *Config) { cfg.PowerSaverAtStart = true })
+	var got backend.Mode
+	var inherited bool
+	r.on(func() {
+		o := b.Outputs()[0]
+		got, inherited = o.State().Mode, o.Inherited()
+	})
+	if got.RefreshMHz != 120000 || !inherited {
+		t.Fatalf("a panel that inherited a 120 Hz frame started under power saver in %d mHz (still inherited: %v), want 120000 and the frame kept", got.RefreshMHz, inherited)
+	}
+	r.on(func() {
+		o := r.comp.outputs[0]
+		if err := errors.Join(r.comp.SetPower(o, false), r.comp.SetPower(o, true)); err != nil {
+			t.Fatal(err)
+		}
+		got = b.Outputs()[0].State().Mode
+	})
+	if got.RefreshMHz != 60000 {
+		t.Fatalf("the panel lit again under power saver in %d mHz, want 60000", got.RefreshMHz)
+	}
+}
