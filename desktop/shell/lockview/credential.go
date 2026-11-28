@@ -136,10 +136,9 @@ type Prompt struct {
 	layoutText *widget.Label
 	peeked     bool
 	iconPx     int
-	// scaleWatch sees the device scale each frame paints at, which is fractional
-	// where the compositor says so and known to nothing before the first paint.
-	scaleWatch *widget.DrawingArea
-	preloaded  [2]int
+	// scaleWatch learns the device scale the tree presents at, which is
+	// fractional where the compositor says so.
+	scaleWatch *widget.ScaleWatch
 }
 
 // newPrompt assembles a prompt (CredentialBox::build); onSubmit fires with
@@ -161,9 +160,7 @@ func newPrompt(o Options, onSubmit func(string)) *Prompt {
 	p.Entry.SetEcho(widget.EchoPassword)
 	p.iconPx = int(textPx)
 	p.Entry.SetTrailingIcon(peekReveal, textPx, p.togglePeek)
-	p.scaleWatch = widget.NewDrawingArea(0, 0)
-	p.scaleWatch.AddClass("lock-scale-watch")
-	p.scaleWatch.OnDraw = func(cv *render.Canvas, _ render.Rect) { p.preloadAt(cv.DeviceScale()) }
+	p.scaleWatch = widget.NewScaleWatch(p.preloadAt)
 	p.Entry.OnActivate = onSubmit
 	p.Error.SetVisible(false)
 	p.layoutText = label(o.Font, textPx)
@@ -299,13 +296,9 @@ func (p *Prompt) PreloadIcons(num, denom int) error {
 }
 
 // preloadAt decodes both peek icons for the device scale num/denom the first time
-// a frame paints at it, since the first click would otherwise read and rasterize one
+// the tree presents at it, since the first click would otherwise read and rasterize one
 // on the UI loop. It reads the disk, so it runs off it.
 func (p *Prompt) preloadAt(num, denom int) {
-	if p.preloaded == [2]int{num, denom} {
-		return
-	}
-	p.preloaded = [2]int{num, denom}
 	go func() {
 		if err := p.PreloadIcons(num, denom); err != nil {
 			log.Print(err)

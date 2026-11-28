@@ -184,7 +184,7 @@ func TestThePeekIconsNeedNoDiskAfterThePromptIsBuilt(t *testing.T) {
 		p := newPrompt(Options{Font: treetest.Font(t)}, func(string) {})
 		pix := make([]byte, 4*64*64)
 		cv := render.NewScaled(pix, 4*64, 64, 64, num, denom)
-		widget.PaintChild(cv, p.scaleWatch)
+		widget.SetDeviceScale(p.Reveal, num, denom)
 		waittest.Until(t, func() bool {
 			if widget.ThemeIconPreloaded(peekReveal, p.iconPx, num, denom) && widget.ThemeIconPreloaded(peekConceal, p.iconPx, num, denom) {
 				return true
