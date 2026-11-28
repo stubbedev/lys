@@ -38,7 +38,7 @@ func NewColorButton(face render.Font, sizePx float64, c render.Color) *ColorButt
 	sw.SetVAlign(AlignCenter)
 	b := &ColorButton{Button: *NewButton(sw, 0, 0), face: face, sizePx: sizePx, swatch: sw, Presets: DefaultSwatches()}
 	b.AddClass(css.Outline, css.Icon, "colorbutton")
-	b.SetAccessibleName(FormatColor(c))
+	b.SetAccessibleName(render.FormatHex(c))
 	b.OnClick = b.open
 	return b
 }
@@ -65,7 +65,7 @@ func (b *ColorButton) Color() render.Color { return b.swatch.color }
 // SetColor shows c without firing OnColorSet.
 func (b *ColorButton) SetColor(c render.Color) {
 	b.swatch.SetColor(c)
-	b.SetAccessibleName(FormatColor(c))
+	b.SetAccessibleName(render.FormatHex(c))
 }
 
 // Choose applies a color the user picked: it shows it and fires

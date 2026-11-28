@@ -172,69 +172,16 @@ func ResolveColor(cv config.ColorValue, p *Palette) (render.Color, bool) {
 	case config.ColorTransparent:
 		return transparent, true
 	case config.ColorCustom:
-		return parseHex(cv.Hex)
+		return render.ParseHex(cv.Hex)
 	case config.ColorToken:
 		return p.Token(cv.Token)
 	}
 	return 0, false
 }
 
-// ParseHex is parseHex for callers outside styling: a CSS hex color
-// as a premultiplied render.Color.
-func ParseHex(s string) (render.Color, bool) { return parseHex(s) }
-
-// parseHex decodes #rgb, #rgba, #rrggbb, or #rrggbbaa (straight alpha,
-// the CSS form) into a premultiplied render.Color.
-func parseHex(s string) (render.Color, bool) {
-	if len(s) != 4 && len(s) != 5 && len(s) != 7 && len(s) != 9 {
-		return 0, false
-	}
-	digits := s[1:]
-	if len(digits) <= 4 { // #rgb/#rgba expand each nibble, per CSS
-		long := make([]byte, 0, 2*len(digits))
-		for i := range len(digits) {
-			long = append(long, digits[i], digits[i])
-		}
-		digits = string(long)
-	}
-	var vals [4]uint8
-	bytes := len(digits) / 2
-	for i := range bytes {
-		hi := hexVal(digits[i*2])
-		lo := hexVal(digits[i*2+1])
-		if hi < 0 || lo < 0 {
-			return 0, false
-		}
-		vals[i] = uint8((hi<<4 | lo) & 0xff)
-	}
-	a := uint8(255)
-	if bytes == 4 {
-		a = vals[3]
-	}
-	return rgbaStraight(vals[0], vals[1], vals[2], a), true
-}
-
-func hexVal(b byte) int {
-	switch {
-	case b >= '0' && b <= '9':
-		return int(b - '0')
-	case b >= 'a' && b <= 'f':
-		return int(b-'a') + 10
-	case b >= 'A' && b <= 'F':
-		return int(b-'A') + 10
-	}
-	return -1
-}
-
-// rgbaStraight converts straight-alpha sRGB bytes to premultiplied
-// render.Color (0xAARRGGBB).
-func rgbaStraight(r, g, b, a uint8) render.Color {
-	af := float64(a) / 255
-	pre := func(c uint8) uint8 {
-		return uint8(math.Round(float64(c) * af))
-	}
-	return render.Color(uint32(a)<<24 | uint32(pre(r))<<16 | uint32(pre(g))<<8 | uint32(pre(b)))
-}
+// ParseHex is [render.ParseHex], the hex form a custom color value
+// holds.
+func ParseHex(s string) (render.Color, bool) { return render.ParseHex(s) }
 
 // WidthStyle is the inline style that makes a widget exactly px wide,
 // its border included: lys-ui's explicit width for content that fills
@@ -268,21 +215,5 @@ func RoundingRadiusPx(level config.RoundingLevel, scale float64) int {
 	}
 }
 
-// HexRGBA renders a premultiplied color as the straight-alpha #rrggbbaa
-// (or #rrggbb when opaque) form lys-ui stylesheets parse.
-func HexRGBA(c render.Color) string {
-	a := uint8(uint32(c) >> 24)
-	hex := func(v uint8) string {
-		const digits = "0123456789abcdef"
-		return string([]byte{digits[v>>4], digits[v&0xF]})
-	}
-	if a == 255 {
-		return "#" + hex(uint8(uint32(c)>>16&0xff)) + hex(uint8(uint32(c)>>8&0xff)) + hex(uint8(uint32(c)&0xff))
-	}
-	af := float64(a) / 255
-	unpre := func(v uint8) uint8 {
-		return uint8(math.Round(float64(v) / af))
-	}
-	return "#" + hex(unpre(uint8(uint32(c)>>16&0xff))) + hex(unpre(uint8(uint32(c)>>8&0xff))) +
-		hex(unpre(uint8(uint32(c)&0xff))) + hex(a)
-}
+// HexRGBA is [render.FormatHex], the hex form [ParseHex] reads back.
+func HexRGBA(c render.Color) string { return render.FormatHex(c) }

@@ -1,6 +1,7 @@
 package styling
 
 import (
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -22,7 +23,7 @@ func HighContrastPalette(dark bool) config.Palette {
 		return highContrastDark
 	}
 	t := widget.HighContrastTheme()
-	hex := widget.FormatColor
+	hex := render.FormatHex
 	return config.Palette{
 		Bg: hex(t.Bg), Surface: hex(t.Surface), Elevated: hex(t.Surface),
 		Fg: hex(t.Text), FgMuted: hex(t.TextMuted), Primary: hex(t.Accent),
@@ -57,7 +58,7 @@ func ShellPalette(s config.StylingConfig) (config.Palette, *Palette, error) {
 // isLightHex reports a background bright enough for dark text; an
 // unparsable one counts as dark.
 func isLightHex(bg string) bool {
-	c, ok := parseHex(bg)
+	c, ok := render.ParseHex(bg)
 	if !ok {
 		return false
 	}

@@ -71,8 +71,8 @@ type MarkupRun struct {
 // double-quoted. A span takes Pango's attributes: foreground (fgcolor,
 // color), background (bgcolor), alpha (fgalpha), weight, style, size,
 // font_family (face), underline, strikethrough, letter_spacing and
-// font_features; colors are a CSS name or #rgb, #rrggbb, #rrggbbaa
-// hex. Anything else - an unknown tag or attribute, a malformed value,
+// font_features; colors are a CSS name or #rgb, #rgba, #rrggbb,
+// #rrggbbaa hex. Anything else - an unknown tag or attribute, a malformed value,
 // a stray or mismatched close tag, an unclosed tag, self-closing
 // syntax, uppercase tags - fails the parse.
 //
@@ -377,49 +377,4 @@ func (p *markupParser) quoted() (string, bool) {
 		}
 	}
 	return "", false
-}
-
-// parseHexColor reads the allowlisted color forms into a premultiplied
-// render.Color, expanding #rgb the way CSS does.
-func parseHexColor(s string) (render.Color, bool) {
-	if len(s) == 0 || s[0] != '#' {
-		return 0, false
-	}
-	hex := s[1:]
-	nib := func(c byte) (uint8, bool) {
-		switch {
-		case c >= '0' && c <= '9':
-			return c - '0', true
-		case c >= 'a' && c <= 'f':
-			return c - 'a' + 10, true
-		case c >= 'A' && c <= 'F':
-			return c - 'A' + 10, true
-		default:
-			return 0, false
-		}
-	}
-	switch len(hex) {
-	case 3:
-		r, ok1 := nib(hex[0])
-		g, ok2 := nib(hex[1])
-		b, ok3 := nib(hex[2])
-		if !ok1 || !ok2 || !ok3 {
-			return 0, false
-		}
-		return render.RGBA(r*0x11, g*0x11, b*0x11, 0xff), true
-	case 6, 8:
-		var c [4]uint8
-		c[3] = 0xff
-		for j := range len(hex) / 2 {
-			hi, ok1 := nib(hex[j*2])
-			lo, ok2 := nib(hex[j*2+1])
-			if !ok1 || !ok2 {
-				return 0, false
-			}
-			c[j] = hi<<4 | lo
-		}
-		return render.RGBA(c[0], c[1], c[2], c[3]), true
-	default:
-		return 0, false
-	}
 }

@@ -262,7 +262,7 @@ func TestTheLysLogoIsDrawnInTheColourAsked(t *testing.T) {
 				a := uint32(img.Pix[i+3])
 				want := [3]uint8{uint8(uint32(c.R()) * a / 255), uint8(uint32(c.G()) * a / 255), uint8(uint32(c.B()) * a / 255)}
 				if got := [3]uint8(img.Pix[i : i+3]); got != want {
-					t.Fatalf("scale %d: a logo pixel of alpha %d is %v, want %s at that alpha, %v", scale, a, got, FormatColor(c), want)
+					t.Fatalf("scale %d: a logo pixel of alpha %d is %v, want %s at that alpha, %v", scale, a, got, render.FormatHex(c), want)
 				}
 				if a == 0xff {
 					opaque++
@@ -385,11 +385,11 @@ func TestColorsRoundTrip(t *testing.T) {
 	t.Parallel()
 	for _, s := range []string{"#000000", "#e0947a", "#ffffff"} {
 		c, err := ParseColor(s)
-		if err != nil || FormatColor(c) != s {
-			t.Errorf("ParseColor(%q) = %#08x, %v; formats back as %q", s, uint32(c), err, FormatColor(c))
+		if err != nil || render.FormatHex(c) != s {
+			t.Errorf("ParseColor(%q) = %#08x, %v; formats back as %q", s, uint32(c), err, render.FormatHex(c))
 		}
 	}
-	for _, s := range []string{"000000", "#00000", "#gg0000", "#0000000"} {
+	for _, s := range []string{"000000", "#00000", "#gg0000", "#0000000", "#fff", "#ffffff80"} {
 		if _, err := ParseColor(s); err == nil {
 			t.Errorf("ParseColor(%q) succeeded", s)
 		}

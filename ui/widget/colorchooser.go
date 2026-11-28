@@ -20,7 +20,7 @@ const colorStep = 1.0 / 64
 //
 // Pointer: drags on the square and both strips track the pointer; a
 // click on a swatch picks it; the hex entry parses on change (#RGB,
-// #RRGGBB, #RRGGBBAA, with or without the #). Keyboard: arrows move
+// #RGBA, #RRGGBB, #RRGGBBAA, with or without the #). Keyboard: arrows move
 // saturation (horizontal) and value (vertical), shift+arrows move the
 // hue, PageUp/PageDown step alpha, and the entry types hex directly -
 // the chooser is fully operable without the pointer.
@@ -120,10 +120,10 @@ func (c *ColorChooser) colorChanged(fromHex bool) {
 }
 
 // hexText renders the current color as #rrggbb (alpha ff omitted).
-func (c *ColorChooser) hexText() string { return FormatColor(c.Color()) }
+func (c *ColorChooser) hexText() string { return render.FormatHex(c.Color()) }
 
-// applyHex parses typed text and applies the color it names (markup's
-// #RGB/#RRGGBB/#RRGGBBAA reader, the # optional here); anything
+// applyHex parses typed text and applies the color it names ([render.ParseHex],
+// the # optional here); anything
 // unparseable is ignored - the entry keeps typing, the color stands.
 func (c *ColorChooser) applyHex(s string) {
 	if c.mirroring {
@@ -133,7 +133,7 @@ func (c *ColorChooser) applyHex(s string) {
 	if !strings.HasPrefix(s, "#") {
 		s = "#" + s
 	}
-	col, ok := parseHexColor(s)
+	col, ok := render.ParseHex(s)
 	if !ok {
 		return
 	}

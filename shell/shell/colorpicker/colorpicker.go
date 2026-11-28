@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
@@ -289,15 +288,12 @@ func saveHistory(path string, h []RGB) {
 
 // parseHex reads one "#RRGGBB" line.
 func parseHex(line string) (RGB, bool) {
-	hex, ok := strings.CutPrefix(strings.TrimSpace(line), "#")
-	if !ok || len(hex) != 6 {
+	line = strings.TrimSpace(line)
+	c, ok := render.ParseHex(line)
+	if !ok || len(line) != len("#RRGGBB") {
 		return RGB{}, false
 	}
-	v, err := strconv.ParseUint(hex, 16, 32)
-	if err != nil {
-		return RGB{}, false
-	}
-	return RGB{uint8(v >> 16 & 0xff), uint8(v >> 8 & 0xff), uint8(v & 0xff)}, true
+	return RGB{c.R(), c.G(), c.B()}, true
 }
 
 // pixel reads img at frame coordinates as an opaque 8-bit color.

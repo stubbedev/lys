@@ -157,7 +157,7 @@ func pangoColor(v string) (render.Color, bool) {
 	if c, ok := style.NamedColor(strings.ToLower(v)); ok {
 		return c, true
 	}
-	return parseHexColor(v)
+	return render.ParseHex(v)
 }
 
 // pangoAlpha reads an alpha as a percentage or out of 65535.

@@ -9,10 +9,8 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/stubbedev/lys/lib/render"
@@ -43,7 +41,7 @@ func (s *swatch) SetColor(c render.Color) {
 }
 
 func (s *swatch) hex() string {
-	return sprintfHex(s.col)
+	return render.FormatHex(s.col)
 }
 
 func (s *swatch) DragContent() *widget.DragContent {
@@ -61,7 +59,7 @@ func (s *swatch) Drop(mime string, data []byte, _ widget.Point) {
 	if mime != transfer.MimeText {
 		return
 	}
-	if c, ok := parseHex(string(data)); ok {
+	if c, ok := render.ParseHex(strings.TrimSpace(string(data))); ok {
 		s.SetColor(c)
 	}
 }
@@ -128,18 +126,4 @@ var palette = [2][3]render.Color{
 
 func nextColor(c render.Color) render.Color {
 	return render.RGB(c.R()^0x55, c.G(), c.B())
-}
-
-func sprintfHex(c render.Color) string {
-	return fmt.Sprintf("#%02x%02x%02x", c.R(), c.G(), c.B())
-}
-
-func parseHex(s string) (render.Color, bool) {
-	s = strings.TrimSpace(s)
-	if len(s) == 7 && s[0] == '#' {
-		if v, err := strconv.ParseUint(s[1:], 16, 32); err == nil {
-			return render.RGB(uint8(v>>16&0xff), uint8(v>>8&0xff), uint8(v&0xff)), true
-		}
-	}
-	return 0, false
 }

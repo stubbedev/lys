@@ -118,7 +118,7 @@ func checkerboard() render.StillImage {
 func (s *ColorSwatch) HitTest(p Point) Widget { return s.HitLeaf(s, p) }
 
 // a11yName is the color as hex.
-func (s *ColorSwatch) a11yName() string { return FormatColor(s.color) }
+func (s *ColorSwatch) a11yName() string { return render.FormatHex(s.color) }
 
 // DefaultSwatches is the preset palette a ColorButton offers: neutrals
 // then the hues around the wheel.
@@ -211,7 +211,7 @@ func (p *SwatchPicker) fillGrid(grid *Box, colors []render.Color) {
 		sw := NewColorSwatch(c)
 		b := NewButton(sw, 0, 0)
 		b.AddClass("swatch")
-		b.SetAccessibleName(FormatColor(c))
+		b.SetAccessibleName(render.FormatHex(c))
 		b.OnClick = func() { p.pick(c) }
 		row.Append(b, false)
 	}

@@ -37,6 +37,22 @@ func TestTheThresholdBarHasAStopPerBound(t *testing.T) {
 	}
 }
 
+func TestAThresholdPaintsEveryHexFormTheConfigTakes(t *testing.T) {
+	_, e := thresholdKit(t)
+	for hex, want := range map[string]render.Color{
+		"#f808":     render.RGBA(0xff, 0x88, 0x00, 0x88),
+		"#ff880088": render.RGBA(0xff, 0x88, 0x00, 0x88),
+		"#f80":      render.RGB(0xff, 0x88, 0x00),
+	} {
+		if got := e.bar.colorOf(map[string]any{"icon-color": hex}); got != want {
+			t.Errorf("icon-color %s paints %#08x, want %#08x", hex, uint32(got), uint32(want))
+		}
+	}
+	if got := e.bar.colorOf(map[string]any{"icon-color": "#f0"}); got != widget.Current().Accent {
+		t.Errorf("a malformed colour paints %#08x, want the accent", uint32(got))
+	}
+}
+
 func TestDraggingAStopWritesItsBound(t *testing.T) {
 	k, e := thresholdKit(t)
 	stop := e.bar.stops[0].Bounds()

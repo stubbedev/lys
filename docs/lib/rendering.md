@@ -7,7 +7,9 @@ fallback when `gpu.Open` fails.
 
 A `Canvas` paints into a caller-owned buffer: rows of `Stride(width)` bytes of
 premultiplied ARGB8888 in `wl_shm` byte order. `Color` uses the same layout,
-`0xAARRGGBB`; `RGB` and `RGBA` build one.
+`0xAARRGGBB`; `RGB` and `RGBA` build one, `ParseHex` reads one from CSS hex
+(`#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa`, straight alpha) and `FormatHex`
+writes it back.
 
 ```go
 package main

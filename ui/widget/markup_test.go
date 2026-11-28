@@ -13,9 +13,9 @@ import (
 // bug in the decoder itself.
 func mustColor(tb testing.TB, hex string) render.Color {
 	tb.Helper()
-	col, ok := parseHexColor(hex)
+	col, ok := render.ParseHex(hex)
 	if !ok {
-		tb.Fatalf("parseHexColor(%q) failed", hex)
+		tb.Fatalf("render.ParseHex(%q) failed", hex)
 	}
 	return col
 }
@@ -94,14 +94,14 @@ func TestParseMarkup(t *testing.T) {
 	})
 
 	t.Run("span colors", func(t *testing.T) {
-		for _, c := range []string{"#f00", "#12AB34", "#123456", "#12345678"} {
+		for _, c := range []string{"#f00", "#f008", "#12AB34", "#123456", "#12345678"} {
 			runs, ok := ParseMarkup(`<span color="` + c + `">x</span>`)
 			if !ok {
 				t.Fatalf("%s rejected", c)
 			}
-			want, ok := parseHexColor(c)
+			want, ok := render.ParseHex(c)
 			if !ok {
-				t.Fatalf("parseHexColor(%q) rejected", c)
+				t.Fatalf("render.ParseHex(%q) rejected", c)
 			}
 			if runs[0].Style.Color != want {
 				t.Errorf("%s: color = %v, want %v", c, runs[0].Style.Color, want)

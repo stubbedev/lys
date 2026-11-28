@@ -118,11 +118,11 @@ func TestResolveColorVariants(t *testing.T) {
 }
 
 func TestParseHexAlphaForms(t *testing.T) {
-	full, ok := parseHex("#112233")
+	full, ok := ParseHex("#112233")
 	if !ok || full != render.RGB(0x11, 0x22, 0x33) {
 		t.Errorf("#112233 = %#08x, want the opaque color", full)
 	}
-	half, ok := parseHex("#ffffff80")
+	half, ok := ParseHex("#ffffff80")
 	if !ok {
 		t.Fatal("#ffffff80: not parsed")
 	}
@@ -132,8 +132,13 @@ func TestParseHexAlphaForms(t *testing.T) {
 	if channel := half >> 16 & 0xFF; channel != 0x80 {
 		t.Errorf("#ffffff80 red = %#02x, want premultiplied 80", channel)
 	}
-	if _, ok := parseHex("#12345"); ok {
-		t.Error("#12345: want a parse failure")
+	if c, ok := ParseHex("#f808"); !ok || c != render.RGBA(0xff, 0x88, 0x00, 0x88) {
+		t.Errorf("#f808 = %#08x, %v; want the short form with alpha", c, ok)
+	}
+	for _, s := range []string{"#12345", "x112233", "112233a"} {
+		if c, ok := ParseHex(s); ok {
+			t.Errorf("%s = %#08x, want a parse failure", s, c)
+		}
 	}
 }
 
@@ -169,8 +174,8 @@ func TestHexRGBARoundTrips(t *testing.T) {
 	if got := HexRGBA(half); got != "#ffffff80" {
 		t.Errorf("HexRGBA(half) = %q, want #ffffff80", got)
 	}
-	back, ok := parseHex(HexRGBA(half))
+	back, ok := ParseHex(HexRGBA(half))
 	if !ok || back != half {
-		t.Errorf("HexRGBA then parseHex = %#08x, want %#08x", back, half)
+		t.Errorf("HexRGBA then ParseHex = %#08x, want %#08x", back, half)
 	}
 }

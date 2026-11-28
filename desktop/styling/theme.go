@@ -122,7 +122,7 @@ func PaletteFromHex(p config.Palette) (*Palette, error) {
 		if _, err := config.ParseHexColor(slot.hex); err != nil {
 			return nil, fmt.Errorf("styling: palette %s: %w", slot.name, err)
 		}
-		c, _ := parseHex(slot.hex) // validated above
+		c, _ := render.ParseHex(slot.hex) // validated above
 		*slot.dst = c
 	}
 	return out, nil

@@ -135,7 +135,7 @@ func parseColor(ts []token, cx *ctx) (colorVal, bool) {
 		if len(ts) != 1 {
 			return colorVal{}, false
 		}
-		c, ok := hexColor(t.s)
+		c, ok := render.ParseHex("#" + t.s)
 		return colorVal{c: c}, ok
 	case tkIdent:
 		if len(ts) != 1 {
@@ -190,46 +190,6 @@ func parseColor(ts []token, cx *ctx) (colorVal, bool) {
 		}
 	}
 	return colorVal{}, false
-}
-
-// hexColor decodes #rgb, #rgba, #rrggbb, or #rrggbbaa (straight alpha)
-// into a premultiplied color.
-func hexColor(h string) (render.Color, bool) {
-	nib := func(c byte) (uint8, bool) {
-		switch {
-		case c >= '0' && c <= '9':
-			return c - '0', true
-		case c >= 'a' && c <= 'f':
-			return c - 'a' + 10, true
-		case c >= 'A' && c <= 'F':
-			return c - 'A' + 10, true
-		}
-		return 0, false
-	}
-	var ch [4]uint8
-	ch[3] = 0xff
-	switch len(h) {
-	case 3, 4:
-		for i := range len(h) {
-			v, ok := nib(h[i])
-			if !ok {
-				return 0, false
-			}
-			ch[i] = v * 0x11
-		}
-	case 6, 8:
-		for i := range len(h) / 2 {
-			hi, ok1 := nib(h[2*i])
-			lo, ok2 := nib(h[2*i+1])
-			if !ok1 || !ok2 {
-				return 0, false
-			}
-			ch[i] = hi<<4 | lo
-		}
-	default:
-		return 0, false
-	}
-	return render.RGBA(ch[0], ch[1], ch[2], ch[3]), true
 }
 
 // commaToWS rewrites top-level commas to whitespace, so the legacy

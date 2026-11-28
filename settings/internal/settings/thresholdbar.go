@@ -134,7 +134,7 @@ func (b *thresholdBar) colorOf(m map[string]any) render.Color {
 				return c
 			}
 		case config.ColorCustom:
-			if c, err := widget.ParseColor(cv.Hex); err == nil {
+			if c, ok := render.ParseHex(cv.Hex); ok {
 				return c
 			}
 		case config.ColorAuto, config.ColorTransparent:

@@ -24,7 +24,7 @@ func TestParseHex(t *testing.T) {
 	if c, ok := parseHex("  #000000 "); !ok || c != (RGB{}) {
 		t.Errorf("padded = %v %v", c, ok)
 	}
-	for _, bad := range []string{"FF8000", "#FFF", "#GGGGGG", "", "#FF80001"} {
+	for _, bad := range []string{"FF8000", "#FFF", "#GGGGGG", "", "#FF80001", "#FF800080"} {
 		if _, ok := parseHex(bad); ok {
 			t.Errorf("%q parsed", bad)
 		}

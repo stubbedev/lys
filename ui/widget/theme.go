@@ -232,26 +232,16 @@ func HighContrastTheme() *Theme {
 	}
 }
 
-// ParseColor reads a hex color — #rgb, #rrggbb, or #rrggbbaa, the same
-// forms the markup parser accepts — into a premultiplied Color. It
+// ParseColor reads a hex color — #rgb, #rgba, #rrggbb or #rrggbbaa, by
+// [render.ParseHex] — into a premultiplied Color. It
 // reports malformed input instead of defaulting, so a config file's
 // mistake fails loudly at theme-construction time.
 func ParseColor(s string) (Color, error) {
-	c, ok := parseHexColor(s)
+	c, ok := render.ParseHex(s)
 	if !ok {
-		return 0, fmt.Errorf("lys-ui: invalid color %q: want #rgb, #rrggbb, or #rrggbbaa", s)
+		return 0, fmt.Errorf("lys-ui: invalid color %q: want #rgb, #rgba, #rrggbb or #rrggbbaa", s)
 	}
 	return c, nil
-}
-
-// FormatColor writes c as the hex form ParseColor reads back:
-// #rrggbb when opaque, #rrggbbaa otherwise (straight alpha).
-func FormatColor(c Color) string {
-	col := c.Straight()
-	if col[3] == 0xff {
-		return fmt.Sprintf("#%02x%02x%02x", col[0], col[1], col[2])
-	}
-	return fmt.Sprintf("#%02x%02x%02x%02x", col[0], col[1], col[2], col[3])
 }
 
 // with copies t and applies f to the copy. Every With* goes through
@@ -299,7 +289,7 @@ func (t *Theme) WithSurfaceDisabled(c Color) *Theme {
 func (t *Theme) WithAccent(c Color) *Theme { return t.with(func(n *Theme) { n.Accent = c }) }
 
 // WithAccentHex returns a copy with the accent parsed from a hex
-// string (#rgb, #rrggbb, #rrggbbaa). A malformed string is an error,
+// string (#rgb, #rgba, #rrggbb, #rrggbbaa). A malformed string is an error,
 // never a silent default — theme construction is where a config
 // mistake must surface.
 func (t *Theme) WithAccentHex(s string) (*Theme, error) {

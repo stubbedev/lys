@@ -153,7 +153,7 @@ func namedColors(t *Theme) [][2]string {
 	}
 	out := make([][2]string, len(pairs))
 	for i, p := range pairs {
-		out[i] = [2]string{p.name, FormatColor(p.c)}
+		out[i] = [2]string{p.name, render.FormatHex(p.c)}
 	}
 	return out
 }

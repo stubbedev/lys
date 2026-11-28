@@ -176,6 +176,7 @@
     "imports": [
       "desktop/compositor",
       "desktop/daytime",
+      "desktop/fswatch",
       "desktop/geo",
       "desktop/glob",
       "desktop/i18n",
@@ -202,7 +203,6 @@
       "errors",
       "fmt",
       "go.yaml.in/yaml/v3",
-      "golang.org/x/sys/unix",
       "io",
       "io/fs",
       "log",
@@ -218,8 +218,7 @@
       "strings",
       "sync",
       "time",
-      "unicode",
-      "unsafe"
+      "unicode"
     ],
     "testImports": [
       "desktop/config/internal/schemadoc",
@@ -555,6 +554,9 @@
     ]
   },
   "desktop/i18n/i18ntest": {
+    "imports": [
+      "desktop/i18n"
+    ],
     "external": [
       "fmt",
       "go/ast",
@@ -565,10 +567,12 @@
       "path/filepath",
       "regexp",
       "slices",
-      "strings"
+      "strings",
+      "testing"
     ],
     "testExternal": [
-      "testing"
+      "sync",
+      "testing/fstest"
     ]
   },
   "desktop/i18n/locales/greeter": {
@@ -2399,7 +2403,6 @@
     "imports": [
       "desktop/tokens",
       "lib/atomicfile",
-      "lib/intconv",
       "lib/render"
     ],
     "external": [
@@ -3071,8 +3074,7 @@
     ],
     "external": [
       "embed",
-      "io/fs",
-      "sync"
+      "io/fs"
     ],
     "embeds": [
       "files/internal/locale/locales"
@@ -8419,8 +8421,7 @@
     ],
     "external": [
       "embed",
-      "io/fs",
-      "sync"
+      "io/fs"
     ],
     "embeds": [
       "settings/internal/locale/locales"
@@ -11039,6 +11040,7 @@
     "imports": [
       "desktop/config",
       "desktop/feed",
+      "desktop/fswatch",
       "desktop/service/wallpaper/extract",
       "desktop/styling/material",
       "lib/dbusx",
@@ -11048,7 +11050,6 @@
     ],
     "external": [
       "context",
-      "encoding/binary",
       "errors",
       "fmt",
       "golang.org/x/sys/unix",
@@ -11357,7 +11358,6 @@
       "os",
       "path/filepath",
       "slices",
-      "strconv",
       "strings"
     ],
     "testImports": [
@@ -12914,10 +12914,8 @@
     ],
     "external": [
       "errors",
-      "fmt",
       "log",
       "slices",
-      "strconv",
       "strings"
     ]
   },
@@ -14327,8 +14325,7 @@
     ],
     "external": [
       "embed",
-      "io/fs",
-      "sync"
+      "io/fs"
     ],
     "embeds": [
       "viewer/internal/locale/locales"
@@ -14337,7 +14334,6 @@
       "desktop/i18n/i18ntest"
     ],
     "testExternal": [
-      "strings",
       "testing"
     ]
   },

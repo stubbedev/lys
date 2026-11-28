@@ -8,10 +8,8 @@ import (
 	"image"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/stubbedev/lys/lib/atomicfile"
-	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 )
 
@@ -66,21 +64,14 @@ type wireFrame struct {
 	Outputs       []wireOutput `json:"outputs"`
 }
 
-// FormatColor is c as #rrggbb.
-func FormatColor(c render.Color) string {
-	return fmt.Sprintf("#%02x%02x%02x", c.R(), c.G(), c.B())
-}
-
-// ParseColor reads an opaque #rrggbb color.
+// ParseColor reads an opaque #rrggbb color, the form
+// [render.FormatHex] writes an opaque color in.
 func ParseColor(s string) (render.Color, error) {
-	if len(s) != 7 || s[0] != '#' {
+	c, ok := render.ParseHex(s)
+	if !ok || len(s) != len("#rrggbb") {
 		return 0, fmt.Errorf("%q is not #rrggbb", s)
 	}
-	rgb, err := strconv.ParseUint(s[1:], 16, 32)
-	if err != nil {
-		return 0, fmt.Errorf("%q is not #rrggbb", s)
-	}
-	return render.Color(0xff000000 | intconv.Must[uint32](rgb)), nil
+	return c, nil
 }
 
 // Encode is f as the record LoadLastFrame reads.
@@ -89,7 +80,7 @@ func (f LastFrame) Encode() ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("splashframe: record a last frame: logo %d is none of lys and firmware", f.Logo)
 	}
-	w := wireFrame{Background: FormatColor(f.Background), Logo: name, LogoColor: FormatColor(f.LogoColor), ReducedMotion: f.ReducedMotion, Outputs: make([]wireOutput, len(f.Outputs))}
+	w := wireFrame{Background: render.FormatHex(f.Background), Logo: name, LogoColor: render.FormatHex(f.LogoColor), ReducedMotion: f.ReducedMotion, Outputs: make([]wireOutput, len(f.Outputs))}
 	for i, o := range f.Outputs {
 		w.Outputs[i] = wireOutput{Name: o.Name, Width: o.Size.X, Height: o.Size.Y, Scale: o.Scale}
 	}
