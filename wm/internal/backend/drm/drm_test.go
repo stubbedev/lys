@@ -2453,6 +2453,30 @@ func TestAnOutputLitInItsModeFlipsOverWhatIsOnScreen(t *testing.T) {
 	}
 }
 
+// A master that left the screen in a mode other than the preferred one
+// (a greeter dropped to the panel's slower mode under power saver) is
+// taken over in that mode: the frame stays until the first one replaces
+// it, and nothing modesets. Lighting the preferred mode instead declined
+// the frame and showed black until the session drew.
+func TestAnOutputLitInAModeNotPreferredKeepsItsFrame(t *testing.T) {
+	r := bootLit(t, &splash{crtc: 10, plane: 40, mode: modes[1]}, false)
+	o := r.b.Outputs()[0]
+	if len(r.reports) != 0 {
+		t.Fatalf("taking over an output lit in a mode not preferred reported %v", r.reports)
+	}
+	if !o.Inherited() {
+		t.Fatal("an output lit in a mode not preferred does not keep the frame on screen")
+	}
+	if !sameTimings(o.mode, modes[1]) {
+		t.Fatalf("the output lit in %+v, not the mode on screen %+v", modeOf(o.mode), modeOf(modes[1]))
+	}
+	for i, c := range r.firstFrame(o) {
+		if c.flags&kdrm.AtomicAllowModeset != 0 {
+			t.Fatalf("commit %d of the first frame allows a modeset: %+v", i, c)
+		}
+	}
+}
+
 func TestTheFrameAnOutputInheritedIsExportedWithItsLayout(t *testing.T) {
 	r := bootLit(t, &splash{crtc: 10, plane: 40, mode: modes[0]}, false)
 	o := r.b.Outputs()[0]
@@ -2495,19 +2519,22 @@ func TestAnOutputLitInItsModeTurnsOffBeforeItsFirstFrame(t *testing.T) {
 }
 
 func TestOutputsNotLitInTheirModeAreModeset(t *testing.T) {
+	unlisted := modes[0]
+	unlisted.Clock, unlisted.HTotal = 74250, 1100
 	for _, tc := range []struct {
-		name string
-		lit  *splash
+		name, said string
+		lit        *splash
 	}{
-		{"an unlit card", nil},
-		{"a CRTC lit in another mode", &splash{crtc: 10, plane: 40, mode: modes[1]}},
-		{"a lit CRTC without a framebuffer", &splash{crtc: 10, mode: modes[0]}},
+		{"an unlit card", "", nil},
+		{"a CRTC lit in a mode the connector lacks", "replaced instead of kept", &splash{crtc: 10, plane: 40, mode: unlisted}},
+		{"a lit CRTC without a framebuffer", "scans nothing out", &splash{crtc: 10, mode: modes[0]}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := bootLit(t, tc.lit, false)
 			o := r.b.Outputs()[0]
-			if len(r.reports) != 0 || o.Inherited() {
-				t.Fatalf("reports %v, inherited %v", r.reports, o.Inherited())
+			said := tc.said == "" && len(r.reports) == 0 || tc.said != "" && len(r.reports) == 1 && strings.Contains(r.reports[0].Error(), tc.said)
+			if !said || o.Inherited() {
+				t.Fatalf("reports %v, inherited %v; want a report saying %q", r.reports, o.Inherited(), tc.said)
 			}
 			frame := r.firstFrame(o)
 			flip := frame[len(frame)-1]

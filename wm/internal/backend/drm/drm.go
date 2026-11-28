@@ -724,30 +724,49 @@ func (b *Backend) inherits(o *Output, routed uint32) (bool, error) {
 }
 
 func (b *Backend) shows(o *Output, routed uint32, m kdrm.Mode) (bool, error) {
-	if routed != o.crtc.id || o.tiled() {
-		return false, nil
-	}
-	props, err := b.dev.Properties(o.crtc.id, kdrm.ObjectCRTC)
-	if err != nil {
-		return false, fmt.Errorf("drm: read the state of CRTC %d for %s: %w", o.crtc.id, o.Name(), err)
-	}
-	blob := props["MODE_ID"].Value
-	if props["ACTIVE"].Value != 1 || blob == 0 {
-		return false, nil
-	}
-	data, err := b.dev.Blob(uint32(blob)) //nolint:gosec // property blob IDs are 32-bit
-	if err != nil {
-		return false, fmt.Errorf("drm: read the lit mode of CRTC %d for %s: %w", o.crtc.id, o.Name(), err)
-	}
-	lit, err := kdrm.ParseMode(data)
-	if err != nil {
-		return false, fmt.Errorf("drm: the lit mode of CRTC %d for %s: %w", o.crtc.id, o.Name(), err)
-	}
-	if !sameTimings(lit, m) {
-		return false, nil
+	lit, ok, err := b.litMode(o, routed)
+	if err != nil || !ok || !sameTimings(lit, m) {
+		return false, err
 	}
 	on, err := b.scanning(o.primary)
 	return on == o.crtc.id, err
+}
+
+func (b *Backend) litMode(o *Output, routed uint32) (kdrm.Mode, bool, error) {
+	if routed != o.crtc.id || o.tiled() {
+		return kdrm.Mode{}, false, nil
+	}
+	props, err := b.dev.Properties(o.crtc.id, kdrm.ObjectCRTC)
+	if err != nil {
+		return kdrm.Mode{}, false, fmt.Errorf("drm: read the state of CRTC %d for %s: %w", o.crtc.id, o.Name(), err)
+	}
+	blob := props["MODE_ID"].Value
+	if props["ACTIVE"].Value != 1 || blob == 0 {
+		return kdrm.Mode{}, false, nil
+	}
+	data, err := b.dev.Blob(uint32(blob)) //nolint:gosec // property blob IDs are 32-bit
+	if err != nil {
+		return kdrm.Mode{}, false, fmt.Errorf("drm: read the lit mode of CRTC %d for %s: %w", o.crtc.id, o.Name(), err)
+	}
+	lit, err := kdrm.ParseMode(data)
+	if err != nil {
+		return kdrm.Mode{}, false, fmt.Errorf("drm: the lit mode of CRTC %d for %s: %w", o.crtc.id, o.Name(), err)
+	}
+	return lit, true, nil
+}
+
+func (b *Backend) reportDeclined(o *Output, routed uint32) error {
+	lit, ok, err := b.litMode(o, routed)
+	if err != nil || !ok {
+		return err
+	}
+	switch {
+	case !sameTimings(lit, o.mode):
+		b.report(fmt.Errorf("drm: %s lights in %+v over the frame the last master left in %+v, so the frame on screen is replaced instead of kept until the first frame", o.Name(), modeOf(o.mode), modeOf(lit)))
+	default:
+		b.report(fmt.Errorf("drm: %s keeps no frame from the last master: its primary plane scans nothing out", o.Name()))
+	}
+	return nil
 }
 
 func sameTimings(a, b kdrm.Mode) bool {
@@ -851,6 +870,8 @@ func (b *Backend) light(c kdrm.Connector, t *tiling) error {
 	}
 	if inherited {
 		o.kms, o.lit = kmsInherited, true
+	} else if err := b.reportDeclined(o, routed); err != nil {
+		return errors.Join(err, o.release())
 	}
 	b.outputs = append(b.outputs, o)
 	return b.handler.OutputAdded(o)
@@ -1354,6 +1375,11 @@ func (o *Output) dropRestated() error {
 }
 
 func (o *Output) lightBest() error {
+	if lit, ok, err := o.litConnectorMode(); err != nil {
+		return err
+	} else if ok && !refused(o.setMode(lit, backend.Depth8, backend.HDRMetadata{})) {
+		return nil
+	}
 	preferred := o.conn.Modes[max(slices.IndexFunc(o.conn.Modes, kdrm.Mode.Preferred), 0)]
 	first := o.setMode(preferred, backend.Depth8, backend.HDRMetadata{})
 	if !refused(first) {
@@ -1372,6 +1398,21 @@ func (o *Output) lightBest() error {
 		refusals = append(refusals, fmt.Errorf("%+v: %w", modeOf(m), err))
 	}
 	return fmt.Errorf("drm: %s stays dark, the device takes none of its modes: %w", o.Name(), errors.Join(refusals...))
+}
+
+func (o *Output) litConnectorMode() (kdrm.Mode, bool, error) {
+	if o.adding == 0 {
+		return kdrm.Mode{}, false, nil
+	}
+	lit, ok, err := o.b.litMode(o, o.adding)
+	if err != nil || !ok {
+		return kdrm.Mode{}, false, err
+	}
+	i := slices.IndexFunc(o.conn.Modes, func(m kdrm.Mode) bool { return sameTimings(m, lit) })
+	if i < 0 {
+		return kdrm.Mode{}, false, nil
+	}
+	return o.conn.Modes[i], true, nil
 }
 
 func stepDown(modes []kdrm.Mode, refusedMode kdrm.Mode) []kdrm.Mode {
