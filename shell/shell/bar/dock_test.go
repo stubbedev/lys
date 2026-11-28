@@ -261,38 +261,10 @@ func TestTheDockAreaAndWhatCoversIt(t *testing.T) {
 // The private session bus keeps the launched process away from the
 // user's systemd.
 func TestADockLaunchesAPinnedAppFromItsDesktopEntry(t *testing.T) {
-	marker := filepath.Join(t.TempDir(), "launched")
-	clickPinned(t, "Exec=sh -c 'echo once >> "+marker+"'\n", config.Defaults())
-	waitHeadless(t, "the entry's Exec run once", func() bool {
-		got, err := os.ReadFile(marker)
-		return err == nil && string(got) == "once\n"
-	})
-}
-
-// A pinned Terminal=true app runs inside the launcher's terminal, as
-// `<terminal> -e <command>` with its field codes expanded.
-func TestADockLaunchesAPinnedTerminalAppInTheTerminal(t *testing.T) {
-	marker := filepath.Join(t.TempDir(), "launched")
-	terminal := filepath.Join(t.TempDir(), "term")
-	if err := os.WriteFile(terminal, []byte("#!/bin/sh\nfor a; do printf '[%s]' \"$a\"; done >> "+marker+"\n"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	cfg := config.Defaults()
-	cfg.Launcher.Terminal = terminal
-	clickPinned(t, "Terminal=true\nExec=sh --file=%f %c\n", cfg)
-	waitHeadless(t, "the terminal run with the entry's command", func() bool {
-		got, err := os.ReadFile(marker)
-		return err == nil && string(got) == "[-e][sh][--file=][Touch Probe]"
-	})
-}
-
-// clickPinned pins a desktop entry with the given Exec-side lines, waits
-// for the dock to show it, and clicks it.
-func clickPinned(t *testing.T, lines string, global *config.Config) {
-	t.Helper()
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", dbustest.Start(t).Address)
 	data := t.TempDir()
-	entry := "[Desktop Entry]\nType=Application\nName=Touch Probe\nIcon=touch-probe\n" + lines
+	marker := filepath.Join(data, "launched")
+	entry := "[Desktop Entry]\nType=Application\nName=Touch Probe\nIcon=touch-probe\nExec=sh -c 'echo once >> " + marker + "'\n"
 	if err := os.MkdirAll(filepath.Join(data, "applications"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +275,7 @@ func clickPinned(t *testing.T, lines string, global *config.Config) {
 	t.Setenv("XDG_DATA_DIRS", t.TempDir())
 	cfg := config.DefaultsDock()
 	cfg.Pinned = []string{"org.example.TouchProbe"}
-	ctx := newTestContext(t, global)
+	ctx := newTestContext(t, config.Defaults())
 	ctx.Tasks = newTaskHub(&fakeToplevels{}, ctx.Invoke)
 	var d *dock
 	onHeadlessLoop(func() bool {
@@ -319,6 +291,10 @@ func clickPinned(t *testing.T, lines string, global *config.Config) {
 		return e.TooltipText() == "Touch Probe" && e.Icon() == "touch-probe"
 	})
 	onHeadlessLoop(func() bool { d.entries["org.example.TouchProbe"].ClickAt(widget.Point{}); return true })
+	waitHeadless(t, "the entry's Exec run once", func() bool {
+		got, err := os.ReadFile(marker)
+		return err == nil && string(got) == "once\n"
+	})
 }
 
 // fire runs the rig's hide timers that are still live.

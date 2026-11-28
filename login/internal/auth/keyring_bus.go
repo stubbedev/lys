@@ -14,7 +14,6 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
-	"github.com/stubbedev/lys/secrets/secretbus"
 	"github.com/stubbedev/lys/secrets/vault"
 )
 
@@ -23,16 +22,21 @@ const (
 
 	busInterface = "org.freedesktop.DBus"
 
-	gnomeKeyringName = "org.gnome.keyring"
+	secretServiceName = "org.freedesktop.secrets"
+	gnomeKeyringName  = "org.gnome.keyring"
 
-	errNameHasNoOwner  = "org.freedesktop.DBus.Error.NameHasNoOwner"
-	startReplyStarted  = uint32(1)
-	kwalletInterface   = "org.kde.KWallet"
-	pamKwalletAdvice   = "KWallet takes a login password only from pam_kwallet in the PAM service"
-	onlyProvidersKnown = "lys-login hands the password only to lys-secrets and gnome-keyring"
+	errNameHasNoOwner      = "org.freedesktop.DBus.Error.NameHasNoOwner"
+	secretServicePath      = dbus.ObjectPath("/org/freedesktop/secrets")
+	secretServiceInterface = "org.freedesktop.Secret.Service"
+	noObject               = dbus.ObjectPath("/")
+	collectionInterface    = "org.freedesktop.Secret.Collection"
+	startReplyStarted      = uint32(1)
+	kwalletInterface       = "org.kde.KWallet"
+	pamKwalletAdvice       = "KWallet takes a login password only from pam_kwallet in the PAM service"
+	onlyProvidersKnown     = "lys-login hands the password only to lys-secrets and gnome-keyring"
 )
 
-var keyringProviders = []string{vault.ServiceName, secretbus.BusName, gnomeKeyringName}
+var keyringProviders = []string{vault.ServiceName, secretServiceName, gnomeKeyringName}
 
 var kwalletServices = []struct {
 	name string
@@ -157,7 +161,7 @@ type providerFinding struct {
 }
 
 func (b *keyringBus) findProvider(ctx context.Context) (providerFinding, error) {
-	owner, err := b.owner(ctx, secretbus.BusName)
+	owner, err := b.owner(ctx, secretServiceName)
 	if err != nil {
 		return providerFinding{}, err
 	}
@@ -165,12 +169,12 @@ func (b *keyringBus) findProvider(ctx context.Context) (providerFinding, error) 
 		locked, err := b.defaultCollectionLocked(ctx, owner)
 		who := b.describe(ctx, owner)
 		if err != nil {
-			return providerFinding{locked: fmt.Sprintf("%s is served by %s, whose default collection did not say whether it is locked (%v): %s", secretbus.BusName, who, err, onlyProvidersKnown)}, nil
+			return providerFinding{locked: fmt.Sprintf("%s is served by %s, whose default collection did not say whether it is locked (%v): %s", secretServiceName, who, err, onlyProvidersKnown)}, nil
 		}
 		if !locked {
 			return providerFinding{unlocked: true}, nil
 		}
-		return providerFinding{locked: fmt.Sprintf("%s is served by %s, whose default collection is locked: %s; %s", secretbus.BusName, who, onlyProvidersKnown, pamKwalletAdvice)}, nil
+		return providerFinding{locked: fmt.Sprintf("%s is served by %s, whose default collection is locked: %s; %s", secretServiceName, who, onlyProvidersKnown, pamKwalletAdvice)}, nil
 	}
 	for _, kwallet := range kwalletServices {
 		owner, err := b.owner(ctx, kwallet.name)
@@ -205,17 +209,17 @@ func (b *keyringBus) findProvider(ctx context.Context) (providerFinding, error) 
 // gnome-keyring answers "/" for a real alias when the read beats the entry it
 // schedules for a new client, and that entry exists by the next message.
 func (b *keyringBus) defaultCollection(ctx context.Context, owner string) (dbus.ObjectPath, error) {
-	service := b.conn.Object(owner, secretbus.ServicePath)
+	service := b.conn.Object(owner, secretServicePath)
 	var collection dbus.ObjectPath
 	for range 2 {
-		if err := service.CallWithContext(ctx, secretbus.ServiceInterface+".ReadAlias", dbus.FlagNoAutoStart, "default").Store(&collection); err != nil {
-			return secretbus.NoObject, fmt.Errorf("read the default alias: %w", err)
+		if err := service.CallWithContext(ctx, secretServiceInterface+".ReadAlias", dbus.FlagNoAutoStart, "default").Store(&collection); err != nil {
+			return noObject, fmt.Errorf("read the default alias: %w", err)
 		}
-		if collection != secretbus.NoObject {
+		if collection != noObject {
 			return collection, nil
 		}
 	}
-	return secretbus.NoObject, errors.New("no default alias")
+	return noObject, errors.New("no default alias")
 }
 
 func (b *keyringBus) defaultCollectionLocked(ctx context.Context, owner string) (bool, error) {
@@ -224,7 +228,7 @@ func (b *keyringBus) defaultCollectionLocked(ctx context.Context, owner string) 
 		return false, err
 	}
 	var locked dbus.Variant
-	if err := b.conn.Object(owner, collection).CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", dbus.FlagNoAutoStart, secretbus.CollectionInterface, "Locked").Store(&locked); err != nil {
+	if err := b.conn.Object(owner, collection).CallWithContext(ctx, "org.freedesktop.DBus.Properties.Get", dbus.FlagNoAutoStart, collectionInterface, "Locked").Store(&locked); err != nil {
 		return false, fmt.Errorf("read the Locked property of %s: %w", collection, err)
 	}
 	value, ok := locked.Value().(bool)

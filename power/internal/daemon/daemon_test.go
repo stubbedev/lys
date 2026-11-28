@@ -54,7 +54,7 @@ func newFixture(t *testing.T) *fixture {
 		}
 		t.Setenv(env, filepath.Join(root, dir))
 	}
-	cfg, err := config.Load(config.LoadPaths())
+	cfg, err := config.Load()
 	if err != nil {
 		t.Fatal(err)
 	}

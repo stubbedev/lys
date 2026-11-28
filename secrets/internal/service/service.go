@@ -35,10 +35,19 @@ import (
 
 // D-Bus names of the API.
 const (
-	collectionBase  = string(secretbus.ServicePath) + "/collection/"
-	aliasBase       = string(secretbus.ServicePath) + "/aliases/"
-	sessionBase     = string(secretbus.ServicePath) + "/session/"
-	promptBase      = string(secretbus.ServicePath) + "/prompt/"
+	BusName         = "org.freedesktop.secrets"
+	rootPath        = dbus.ObjectPath("/org/freedesktop/secrets")
+	collectionBase  = "/org/freedesktop/secrets/collection/"
+	aliasBase       = "/org/freedesktop/secrets/aliases/"
+	sessionBase     = "/org/freedesktop/secrets/session/"
+	promptBase      = "/org/freedesktop/secrets/prompt/"
+	noPrompt        = dbus.ObjectPath("/")
+	propItemLabel   = "org.freedesktop.Secret.Item.Label"
+	propItemAttrs   = "org.freedesktop.Secret.Item.Attributes"
+	propCollLabel   = "org.freedesktop.Secret.Collection.Label"
+	errIsLocked     = "org.freedesktop.Secret.Error.IsLocked"
+	errNoSession    = "org.freedesktop.Secret.Error.NoSession"
+	errNoSuchObject = "org.freedesktop.Secret.Error.NoSuchObject"
 	errNotSupported = "org.freedesktop.DBus.Error.NotSupported"
 )
 
@@ -230,7 +239,7 @@ func Start(conn *dbus.Conn, cfg Config) (*Service, error) {
 // serveLocked exports the service, its collections, aliases and vault,
 // watches for clients leaving and takes the bus name last.
 func (s *Service) serveLocked() error {
-	off, err := dbusx.Export(s.conn, secretbus.ServicePath, dbusx.Interface{
+	off, err := dbusx.Export(s.conn, rootPath, dbusx.Interface{
 		Name: secretbus.ServiceInterface, Methods: serviceMethods{s},
 		Properties: dbusx.Getters{"Collections": s.collectionPathsLocked},
 		Signals:    []dbusx.SignalDecl{secretbus.CollectionCreated, secretbus.CollectionDeleted, secretbus.CollectionChanged},
@@ -264,7 +273,7 @@ func (s *Service) serveLocked() error {
 	if err := s.watchLeavers(); err != nil {
 		return err
 	}
-	release, err := dbusx.Own(s.conn, secretbus.BusName)
+	release, err := dbusx.Own(s.conn, BusName)
 	if err != nil {
 		return err
 	}
@@ -432,7 +441,7 @@ func (s *Service) finishUnlock(c *collection, password []byte, opening *keyring.
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	emit(s, secretbus.CollectionChanged, secretbus.ServicePath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
+	emit(s, secretbus.CollectionChanged, rootPath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
 	return nil
 }
 
@@ -664,7 +673,7 @@ func (s *Service) addCollection(pick func(taken func(string) bool) string, kr *k
 	if err := s.exportCollectionLocked(c); err != nil {
 		return "", err
 	}
-	emit(s, secretbus.CollectionCreated, secretbus.ServicePath, secretbus.CollectionEvent{Collection: collectionPath(id)})
+	emit(s, secretbus.CollectionCreated, rootPath, secretbus.CollectionEvent{Collection: collectionPath(id)})
 	return id, nil
 }
 
@@ -693,7 +702,7 @@ func (s *Service) collectionIface(c *collection) dbusx.Interface {
 				return dbusx.InvalidArgs("Label is a string")
 			}
 			err := s.change(c, func(kr *keyring.Collection) error { return kr.SetLabel(label, s.now()) }, func() error {
-				emit(s, secretbus.CollectionChanged, secretbus.ServicePath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
+				emit(s, secretbus.CollectionChanged, rootPath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
 				return nil
 			})
 			if err != nil {
@@ -849,7 +858,7 @@ func (s *Service) lockCollectionLocked(c *collection) {
 	if s.cfg.Locked != nil {
 		s.cfg.Locked(c.id)
 	}
-	emit(s, secretbus.CollectionChanged, secretbus.ServicePath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
+	emit(s, secretbus.CollectionChanged, rootPath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
 }
 
 // watchLeavers closes a client's sessions when it leaves the bus. The
@@ -917,7 +926,7 @@ func (s *Service) newPathLocked(base string) dbus.ObjectPath {
 func (s *Service) sessionLocked(path dbus.ObjectPath, sender dbus.Sender) (*session, *dbus.Error) {
 	sess, ok := s.sessions[path]
 	if !ok || sess.owner != string(sender) {
-		return nil, dbus.NewError(secretbus.ErrNoSession, []any{"no session " + string(path)})
+		return nil, dbus.NewError(errNoSession, []any{"no session " + string(path)})
 	}
 	return sess, nil
 }
@@ -945,15 +954,15 @@ func (s *Service) secretLocked(c *collection, id uint32, sessPath dbus.ObjectPat
 func lockedErr(err error) *dbus.Error {
 	switch {
 	case errors.Is(err, keyring.ErrLocked):
-		return dbus.NewError(secretbus.ErrIsLocked, []any{"the collection is locked"})
+		return dbus.NewError(errIsLocked, []any{"the collection is locked"})
 	case errors.Is(err, keyring.ErrNoItem):
-		return dbus.NewError(secretbus.ErrNoSuchObject, []any{"no such item"})
+		return dbus.NewError(errNoSuchObject, []any{"no such item"})
 	}
 	return dbusx.Failed(err.Error())
 }
 
 func noSuchObject(p dbus.ObjectPath) *dbus.Error {
-	return dbus.NewError(secretbus.ErrNoSuchObject, []any{"no such object " + string(p)})
+	return dbus.NewError(errNoSuchObject, []any{"no such object " + string(p)})
 }
 
 func unixSeconds(t time.Time) uint64 {

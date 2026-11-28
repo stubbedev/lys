@@ -91,7 +91,7 @@ func vaultFixture(t *testing.T) (*fixture, *fakeVault) {
 
 func (f *fixture) prop(t *testing.T, path dbus.ObjectPath, name string) any {
 	t.Helper()
-	v, err := f.bus.Conn(t).Object(secretbus.BusName, path).GetProperty(name)
+	v, err := f.bus.Conn(t).Object(BusName, path).GetProperty(name)
 	if err != nil {
 		t.Fatalf("%s %s: %v", path, name, err)
 	}
@@ -105,7 +105,7 @@ func TestVaultCollectionUnlocksThroughThePrompt(t *testing.T) {
 	tool := requireTool(t, "secret-tool")
 	f, v := vaultFixture(t)
 	coll := collectionPath(VaultID)
-	if paths, _ := f.prop(t, secretbus.ServicePath, secretbus.ServiceInterface+".Collections").([]dbus.ObjectPath); !slices.Contains(paths, coll) {
+	if paths, _ := f.prop(t, rootPath, secretbus.ServiceInterface+".Collections").([]dbus.ObjectPath); !slices.Contains(paths, coll) {
 		t.Fatalf("collections %v lack the vault", paths)
 	}
 	if locked, _ := f.prop(t, coll, secretbus.CollectionInterface+".Locked").(bool); !locked {
@@ -120,12 +120,12 @@ func TestVaultCollectionUnlocksThroughThePrompt(t *testing.T) {
 
 	var unlocked []dbus.ObjectPath
 	var prompt dbus.ObjectPath
-	if err := f.bus.Conn(t).Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".Unlock", 0, []dbus.ObjectPath{coll}).Store(&unlocked, &prompt); err != nil || prompt == secretbus.NoObject {
+	if err := f.bus.Conn(t).Object(BusName, rootPath).Call(secretbus.ServiceInterface+".Unlock", 0, []dbus.ObjectPath{coll}).Store(&unlocked, &prompt); err != nil || prompt == noPrompt {
 		t.Fatalf("Unlock = %v, %v, %v", unlocked, prompt, err)
 	}
 	f.prompter.script("wrong", "master")
 	completed := watchCompleted(t, f, prompt)
-	if err := f.bus.Conn(t).Object(secretbus.BusName, prompt).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
+	if err := f.bus.Conn(t).Object(BusName, prompt).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
 		t.Fatal(err)
 	}
 	if dismissed, result := completed(); dismissed || !slices.Contains(result, coll) {
@@ -177,23 +177,23 @@ func TestVaultCollectionIsReadOnlyAndLocks(t *testing.T) {
 	secret := plainSecret(sess, "new")
 	props := itemProps("x")
 	for name, err := range map[string]error{
-		"CreateItem": conn.Object(secretbus.BusName, collectionPath(VaultID)).Call(secretbus.CollectionInterface+".CreateItem", 0, props, secret, false).Err,
-		"Delete":     conn.Object(secretbus.BusName, collectionPath(VaultID)).Call(secretbus.CollectionInterface+".Delete", 0).Err,
-		"item":       conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".Delete", 0).Err,
-		"SetSecret":  conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".SetSecret", 0, secret).Err,
-		"Label":      conn.Object(secretbus.BusName, item).SetProperty(secretbus.ItemLabel, dbus.MakeVariant("y")),
+		"CreateItem": conn.Object(BusName, collectionPath(VaultID)).Call(secretbus.CollectionInterface+".CreateItem", 0, props, secret, false).Err,
+		"Delete":     conn.Object(BusName, collectionPath(VaultID)).Call(secretbus.CollectionInterface+".Delete", 0).Err,
+		"item":       conn.Object(BusName, item).Call(secretbus.ItemInterface+".Delete", 0).Err,
+		"SetSecret":  conn.Object(BusName, item).Call(secretbus.ItemInterface+".SetSecret", 0, secret).Err,
+		"Label":      conn.Object(BusName, item).SetProperty(propItemLabel, dbus.MakeVariant("y")),
 	} {
 		if err == nil {
 			t.Errorf("%s on the vault collection succeeded", name)
 		}
 	}
 	var got Secret
-	if err := conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&got); err != nil || string(got.Value) != "mail-pw" {
+	if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&got); err != nil || string(got.Value) != "mail-pw" {
 		t.Fatalf("GetSecret = %q, %v", got.Value, err)
 	}
 	var locked []dbus.ObjectPath
 	var prompt dbus.ObjectPath
-	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".Lock", 0, []dbus.ObjectPath{collectionPath(VaultID)}).Store(&locked, &prompt); err != nil {
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".Lock", 0, []dbus.ObjectPath{collectionPath(VaultID)}).Store(&locked, &prompt); err != nil {
 		t.Fatal(err)
 	}
 	if _, open := v.Logins(); open {
@@ -203,7 +203,7 @@ func TestVaultCollectionIsReadOnlyAndLocks(t *testing.T) {
 		t.Errorf("a locked vault still lists %v", items)
 	}
 	got = Secret{}
-	if err := conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&got); err == nil || len(got.Value) != 0 {
+	if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&got); err == nil || len(got.Value) != 0 {
 		t.Errorf("GetSecret after locking = %q, %v", got.Value, err)
 	}
 }
@@ -233,7 +233,7 @@ func TestVaultCollectionRefusesAClash(t *testing.T) {
 func watchCompleted(t *testing.T, f *fixture, prompt dbus.ObjectPath) func() (bool, []dbus.ObjectPath) {
 	t.Helper()
 	completed := make(chan secretbus.Completion, 1)
-	w, err := dbusx.WatchSignals(t.Context(), f.bus.Conn(t), dbusx.FromOwner(secretbus.BusName), func(err error) { t.Errorf("watch %s: %v", prompt, err) },
+	w, err := dbusx.WatchSignals(t.Context(), f.bus.Conn(t), dbusx.FromOwner(BusName), func(err error) { t.Errorf("watch %s: %v", prompt, err) },
 		dbusx.On(secretbus.PromptCompleted, prompt, func(c secretbus.Completion, _ dbus.Sequence) error {
 			completed <- c
 			return nil
@@ -298,13 +298,13 @@ func TestLockServiceLocksAVaultNotShownAsACollection(t *testing.T) {
 	}
 	conn := bus.Conn(t)
 	var cols dbus.Variant
-	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call("org.freedesktop.DBus.Properties.Get", 0, secretbus.ServiceInterface, "Collections").Store(&cols); err != nil {
+	if err := conn.Object(BusName, rootPath).Call("org.freedesktop.DBus.Properties.Get", 0, secretbus.ServiceInterface, "Collections").Store(&cols); err != nil {
 		t.Fatal(err)
 	}
 	if got := cols.Value().([]dbus.ObjectPath); slices.Contains(got, collectionPath(VaultID)) {
 		t.Errorf("Collections = %v shows the hidden vault", got)
 	}
-	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".LockService", 0).Err; err != nil {
+	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".LockService", 0).Err; err != nil {
 		t.Fatal(err)
 	}
 	if _, open := v.Logins(); open {

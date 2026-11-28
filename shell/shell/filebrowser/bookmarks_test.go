@@ -6,8 +6,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"

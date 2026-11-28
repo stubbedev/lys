@@ -3,7 +3,6 @@ package client_test
 import (
 	"bytes"
 	"context"
-	"math/big"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,13 +10,11 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
-	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/secrets/secretbus"
 	"github.com/stubbedev/lys/secrets/secretstest"
-	"github.com/stubbedev/lys/secrets/transport"
 )
 
 func browseRig(t *testing.T) (*client.Client, *secretstest.Server) {
@@ -196,61 +193,4 @@ func TestAddingToACollectionThatIsNotThereFailsNamingIt(t *testing.T) {
 	if err := c.AddItem(context.Background(), missing, "x", nil, []byte("x")); err == nil || !strings.Contains(err.Error(), missing) {
 		t.Fatalf("adding to a missing collection: %v", err)
 	}
-}
-
-type fixedKeyProvider struct {
-	public []byte
-	closed chan struct{}
-}
-
-func (p fixedKeyProvider) OpenSession(string, dbus.Variant) (dbus.Variant, dbus.ObjectPath, *dbus.Error) {
-	return dbus.MakeVariant(p.public), "/org/freedesktop/secrets/session/1", nil
-}
-
-func (p fixedKeyProvider) Close() *dbus.Error {
-	p.closed <- struct{}{}
-	return nil
-}
-
-func TestAnEncryptedSessionRefusesAProviderKeyThatFixesTheSecret(t *testing.T) {
-	p := transport.Prime()
-	pMinus1 := new(big.Int).Sub(p, big.NewInt(1))
-	for name, key := range map[string][]byte{"0": {}, "1": {1}, "p-1": pMinus1.Bytes(), "p": p.Bytes()} {
-		t.Run(name, func(t *testing.T) {
-			bus := dbustest.Start(t)
-			provider := bus.Conn(t)
-			fake := fixedKeyProvider{public: key, closed: make(chan struct{}, 1)}
-			if err := provider.Export(fake, secretbus.ServicePath, secretbus.ServiceInterface); err != nil {
-				t.Fatal(err)
-			}
-			if err := provider.Export(fake, "/org/freedesktop/secrets/session/1", secretbus.SessionInterface); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := provider.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
-				t.Fatal(err)
-			}
-			_, err := client.OpenEncrypted(t.Context(), bus.Conn(t))
-			if err == nil || !strings.Contains(err.Error(), "outside 1 < y < p−1") {
-				t.Fatalf("err = %v, want the provider's key refused", err)
-			}
-			waittest.For(t, fake.closed, "the refused session closed")
-		})
-	}
-}
-
-func TestAnEncryptedSessionAcceptsAProviderKeyInRange(t *testing.T) {
-	bus := dbustest.Start(t)
-	provider := bus.Conn(t)
-	fake := fixedKeyProvider{public: []byte{2}, closed: make(chan struct{}, 1)}
-	if err := provider.Export(fake, secretbus.ServicePath, secretbus.ServiceInterface); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := provider.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
-		t.Fatal(err)
-	}
-	c, err := client.OpenEncrypted(t.Context(), bus.Conn(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Close()
 }

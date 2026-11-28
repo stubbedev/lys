@@ -23,7 +23,6 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/secrets/control"
-	"github.com/stubbedev/lys/secrets/secretbus"
 	"github.com/stubbedev/lys/secrets/vault"
 )
 
@@ -60,7 +59,7 @@ func fakeKeyringMain(kind, answer string) error {
 		if err := serveGnomeControl(answer, got); err != nil {
 			return err
 		}
-		return ownAndWait(conn, secretbus.BusName, gnomeKeyringName)
+		return ownAndWait(conn, secretServiceName, gnomeKeyringName)
 	case "lys-secrets":
 		sock, err := control.SocketPath(xdg.OS)
 		if err != nil {
@@ -71,7 +70,7 @@ func fakeKeyringMain(kind, answer string) error {
 			return err
 		}
 		go control.Serve(context.Background(), ln, fileUnlocker(got))
-		return ownAndWait(conn, vault.ServiceName, secretbus.BusName)
+		return ownAndWait(conn, vault.ServiceName, secretServiceName)
 	}
 	return fmt.Errorf("unknown fake keyring %q", kind)
 }
@@ -288,7 +287,7 @@ func untilLastActivationAsked(t *testing.T, b *activatableBus) context.Context {
 }
 
 func TestAwaitActivatesTheKeyringNoClientAskedFor(t *testing.T) {
-	b := startActivatableBus(t, fakeService{secretbus.BusName, "gnome", "ok"})
+	b := startActivatableBus(t, fakeService{secretServiceName, "gnome", "ok"})
 	if err := AwaitLoginKeyring(testDeadline(t, 15*time.Second), b.env, []byte("pw"), nil); err != nil {
 		t.Fatalf("AwaitLoginKeyring = %v", err)
 	}
@@ -310,7 +309,7 @@ func TestAwaitActivatesGnomeKeyringByItsOwnName(t *testing.T) {
 func TestAwaitActivatesOnTheNamedBus(t *testing.T) {
 	b := &activatableBus{runtime: sockdir.Dir(t), marks: t.TempDir()}
 	elsewhere := filepath.Join(sockdir.Dir(t), "elsewhere")
-	b.startDaemon(t, elsewhere, fakeService{secretbus.BusName, "gnome", "ok"})
+	b.startDaemon(t, elsewhere, fakeService{secretServiceName, "gnome", "ok"})
 	env := sessionEnv(map[string]string{"XDG_RUNTIME_DIR": b.runtime, "DBUS_SESSION_BUS_ADDRESS": "unix:path=" + elsewhere})
 	if err := AwaitLoginKeyring(testDeadline(t, 15*time.Second), env, []byte("pw"), nil); err != nil {
 		t.Fatalf("AwaitLoginKeyring = %v", err)
@@ -331,7 +330,7 @@ func TestAwaitWaitsForASessionBusThatStartsLate(t *testing.T) {
 		t.Fatalf("returned before the bus ran: %v", err)
 	default:
 	}
-	b.startDaemon(t, filepath.Join(runtime, "bus"), fakeService{secretbus.BusName, "gnome", "ok"})
+	b.startDaemon(t, filepath.Join(runtime, "bus"), fakeService{secretServiceName, "gnome", "ok"})
 	if err := <-errs; err != nil {
 		t.Fatalf("AwaitLoginKeyring = %v", err)
 	}
@@ -343,7 +342,7 @@ func TestAwaitWaitsForASessionBusThatStartsLate(t *testing.T) {
 func TestAwaitActivatesLysSecretsBeforeGnomeKeyring(t *testing.T) {
 	b := startActivatableBus(t,
 		fakeService{vault.ServiceName, "lys-secrets", "ok"},
-		fakeService{secretbus.BusName, "gnome", "ok"},
+		fakeService{secretServiceName, "gnome", "ok"},
 		fakeService{gnomeKeyringName, "gnome", "ok"},
 	)
 	if err := AwaitLoginKeyring(testDeadline(t, 15*time.Second), b.env, []byte("pw"), nil); err != nil {
@@ -358,7 +357,7 @@ func TestAwaitActivatesLysSecretsBeforeGnomeKeyring(t *testing.T) {
 }
 
 func TestAwaitReportsADeniedPasswordAtOnce(t *testing.T) {
-	b := startActivatableBus(t, fakeService{secretbus.BusName, "gnome", "denied"})
+	b := startActivatableBus(t, fakeService{secretServiceName, "gnome", "denied"})
 	err := AwaitLoginKeyring(testDeadline(t, 15*time.Second), b.env, []byte("wrong"), nil)
 	if err == nil || !strings.Contains(err.Error(), "denied") || errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("a refused password = %v, want the denial before the deadline", err)
@@ -373,8 +372,8 @@ func TestAwaitWithoutAnyKeyringSaysSo(t *testing.T) {
 			t.Errorf("no keyring = %v, want %v", err, want)
 		}
 	}
-	if err == nil || !strings.Contains(err.Error(), "no provider on the session bus") || !strings.Contains(err.Error(), secretbus.BusName+": ") {
-		t.Errorf("no keyring = %v, want what activation said about %s", err, secretbus.BusName)
+	if err == nil || !strings.Contains(err.Error(), "no provider on the session bus") || !strings.Contains(err.Error(), secretServiceName+": ") {
+		t.Errorf("no keyring = %v, want what activation said about %s", err, secretServiceName)
 	}
 }
 
@@ -387,9 +386,9 @@ func TestAwaitWithoutASessionBusNamesIt(t *testing.T) {
 }
 
 func TestAwaitFailingActivationIsReported(t *testing.T) {
-	b := startActivatableBus(t, fakeService{secretbus.BusName, "failing", "exit"})
+	b := startActivatableBus(t, fakeService{secretServiceName, "failing", "exit"})
 	err := AwaitLoginKeyring(untilLastActivationAsked(t, b), b.env, []byte("pw"), nil)
-	if !errors.Is(err, errNoKeyring) || !errors.Is(err, errActivationsAsked) || !strings.Contains(err.Error(), secretbus.BusName+": ") || !strings.Contains(err.Error(), "exited with status 1") {
+	if !errors.Is(err, errNoKeyring) || !errors.Is(err, errActivationsAsked) || !strings.Contains(err.Error(), secretServiceName+": ") || !strings.Contains(err.Error(), "exited with status 1") {
 		t.Errorf("a failing activation = %v, want its reason", err)
 	}
 }
@@ -397,7 +396,7 @@ func TestAwaitFailingActivationIsReported(t *testing.T) {
 type fakeCollection struct{ locked bool }
 
 func (c fakeCollection) Get(iface, name string) (dbus.Variant, *dbus.Error) {
-	if iface != secretbus.CollectionInterface || name != "Locked" {
+	if iface != collectionInterface || name != "Locked" {
 		return dbus.Variant{}, dbus.NewError("org.freedesktop.DBus.Error.UnknownProperty", nil)
 	}
 	return dbus.MakeVariant(c.locked), nil
@@ -407,7 +406,7 @@ type fakeSecretService struct{ collection dbus.ObjectPath }
 
 func (s fakeSecretService) ReadAlias(name string) (dbus.ObjectPath, *dbus.Error) {
 	if name != "default" {
-		return secretbus.NoObject, nil
+		return noObject, nil
 	}
 	return s.collection, nil
 }
@@ -416,13 +415,13 @@ func ownCollection(t *testing.T, b *activatableBus, locked bool) {
 	t.Helper()
 	conn := b.conn(t)
 	collection := dbus.ObjectPath("/org/freedesktop/secrets/collection/login")
-	if err := conn.Export(fakeSecretService{collection}, secretbus.ServicePath, secretbus.ServiceInterface); err != nil {
+	if err := conn.Export(fakeSecretService{collection}, secretServicePath, secretServiceInterface); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Export(fakeCollection{locked}, collection, "org.freedesktop.DBus.Properties"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
+	if _, err := conn.RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -451,7 +450,7 @@ func TestAwaitAcceptsAnotherUnlockedProvider(t *testing.T) {
 func TestAwaitNamesAProviderWithoutADefaultCollection(t *testing.T) {
 	t.Run("not speaking the Secret Service", func(t *testing.T) {
 		b := startActivatableBus(t)
-		if _, err := b.conn(t).RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
+		if _, err := b.conn(t).RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil {
 			t.Fatal(err)
 		}
 		err := AwaitLoginKeyring(testDeadline(t, 2*keyringPoll), b.env, []byte("pw"), nil)
@@ -462,10 +461,10 @@ func TestAwaitNamesAProviderWithoutADefaultCollection(t *testing.T) {
 	t.Run("no default alias", func(t *testing.T) {
 		b := startActivatableBus(t)
 		conn := b.conn(t)
-		if err := conn.Export(fakeSecretService{secretbus.NoObject}, secretbus.ServicePath, secretbus.ServiceInterface); err != nil {
+		if err := conn.Export(fakeSecretService{noObject}, secretServicePath, secretServiceInterface); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := conn.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
+		if _, err := conn.RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil {
 			t.Fatal(err)
 		}
 		err := AwaitLoginKeyring(testDeadline(t, 2*keyringPoll), b.env, []byte("pw"), nil)
@@ -542,7 +541,7 @@ func TestLockScreenWaitOnlyForWhatActivationStarted(t *testing.T) {
 		}
 	})
 	t.Run("an activated keyring gets the password", func(t *testing.T) {
-		b := startActivatableBus(t, fakeService{secretbus.BusName, "gnome", "ok"})
+		b := startActivatableBus(t, fakeService{secretServiceName, "gnome", "ok"})
 		if err := awaitKeyring(testDeadline(t, 15*time.Second), b.env, []byte("pw"), nil, waitForActivation); err != nil {
 			t.Fatalf("awaitKeyring = %v", err)
 		}
@@ -591,7 +590,7 @@ type racingSecretService struct {
 
 func (s *racingSecretService) ReadAlias(string) (dbus.ObjectPath, *dbus.Error) {
 	if s.reads.Add(1) == 1 {
-		return secretbus.NoObject, nil
+		return noObject, nil
 	}
 	return s.collection, nil
 }
@@ -600,13 +599,13 @@ func ownRacingCollection(t *testing.T, b *activatableBus, locked bool) {
 	t.Helper()
 	conn := b.conn(t)
 	collection := dbus.ObjectPath("/org/freedesktop/secrets/collection/login")
-	if err := conn.Export(&racingSecretService{collection: collection}, secretbus.ServicePath, secretbus.ServiceInterface); err != nil {
+	if err := conn.Export(&racingSecretService{collection: collection}, secretServicePath, secretServiceInterface); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Export(fakeCollection{locked}, collection, "org.freedesktop.DBus.Properties"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
+	if _, err := conn.RequestName(secretServiceName, dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
 }

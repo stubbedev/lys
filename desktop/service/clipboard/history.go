@@ -29,7 +29,6 @@ import (
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/memory-go"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/offheap"
 	"github.com/stubbedev/lys/desktop/service/clipboard/historybudget"
 )
@@ -237,24 +236,15 @@ func (c content) text() (string, bool) {
 	return string(c.data), true
 }
 
-// paths returns the decoded paths in a text/uri-list selection.
-// Comment lines are part of the format (RFC 2483) and are not paths,
-// and a URI that is not file:// has no path to give.
+// paths returns the local paths a text/uri-list selection names, by
+// [transfer.FilePaths]: comment lines are part of the format (RFC 2483)
+// and are not paths, and a URI that is not a local file has no path to
+// give.
 func (c content) paths() []string {
 	if kindOf(c.mime) != KindFiles || !utf8.Valid(c.data) {
 		return nil
 	}
-	var paths []string
-	for line := range strings.SplitSeq(string(c.data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		if rest, ok := strings.CutPrefix(line, "file://"); ok {
-			paths = append(paths, fileuri.DecodeString(rest))
-		}
-	}
-	return paths
+	return transfer.FilePaths(transfer.ParseURIList(c.data))
 }
 
 // line is a text selection folded onto one line, at most maxChars

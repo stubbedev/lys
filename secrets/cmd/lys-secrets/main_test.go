@@ -27,7 +27,7 @@ import (
 
 	"github.com/stubbedev/lys/secrets/control"
 	"github.com/stubbedev/lys/secrets/internal/dialogtest"
-	"github.com/stubbedev/lys/secrets/secretbus"
+	"github.com/stubbedev/lys/secrets/internal/service"
 	"github.com/stubbedev/lys/secrets/vault"
 )
 
@@ -264,7 +264,7 @@ func loginLocked(t *testing.T) bool {
 		t.Fatal(err)
 	}
 	defer func() { _ = conn.Close() }()
-	v, err := conn.Object(secretbus.BusName, "/org/freedesktop/secrets/collection/login").GetProperty("org.freedesktop.Secret.Collection.Locked")
+	v, err := conn.Object(service.BusName, "/org/freedesktop/secrets/collection/login").GetProperty("org.freedesktop.Secret.Collection.Locked")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,7 +423,7 @@ func TestAChangedLoginPasswordIsTakenOverThroughOneDialog(t *testing.T) {
 	if got, err := secretTool(t, "", "lookup", "app", "a"); err != nil || got != "v1" {
 		t.Errorf("lookup after the re-key = %q, %v", got, err)
 	}
-	if err := conn.Object(secretbus.BusName, "/org/freedesktop/secrets").Call("org.freedesktop.Secret.Service.LockService", 0).Err; err != nil {
+	if err := conn.Object(service.BusName, "/org/freedesktop/secrets").Call("org.freedesktop.Secret.Service.LockService", 0).Err; err != nil {
 		t.Fatal(err)
 	}
 	if err := control.Unlock(sock, []byte("new-pw")); err != nil {

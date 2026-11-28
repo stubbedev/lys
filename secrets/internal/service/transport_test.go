@@ -21,16 +21,16 @@ import (
 // python-secretstorage does it, independent of negotiateDH.
 func clientDH(t *testing.T) (priv *big.Int, public []byte) {
 	t.Helper()
-	priv, err := rand.Int(rand.Reader, transport.Prime())
+	priv, err := rand.Int(rand.Reader, transport.Prime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return priv, new(big.Int).Exp(big.NewInt(2), priv, transport.Prime()).Bytes()
+	return priv, new(big.Int).Exp(big.NewInt(2), priv, transport.Prime).Bytes()
 }
 
 func clientKey(t *testing.T, priv *big.Int, server []byte) []byte {
 	t.Helper()
-	shared := new(big.Int).Exp(new(big.Int).SetBytes(server), priv, transport.Prime()).Bytes()
+	shared := new(big.Int).Exp(new(big.Int).SetBytes(server), priv, transport.Prime).Bytes()
 	padded := append(make([]byte, transport.PrimeLen-len(shared)), shared...)
 	key, err := hkdf.Key(sha256.New, padded, make([]byte, sha256.Size), "", aes.BlockSize)
 	if err != nil {
@@ -66,7 +66,7 @@ func TestDHAgreesWithAnIndependentClient(t *testing.T) {
 }
 
 func TestDHRejectsBadInput(t *testing.T) {
-	for _, peer := range [][]byte{{}, {1}, new(big.Int).Sub(transport.Prime(), big.NewInt(1)).Bytes(), transport.Prime().Bytes()} {
+	for _, peer := range [][]byte{{}, {1}, new(big.Int).Sub(transport.Prime, big.NewInt(1)).Bytes(), transport.Prime.Bytes()} {
 		if _, _, err := negotiateDH(peer, rand.Reader); err == nil {
 			t.Errorf("public key %x accepted", peer)
 		}
@@ -94,7 +94,7 @@ func TestDHRejectsBadInput(t *testing.T) {
 // the shared secret without its leading zero bytes.
 func unpaddedKey(t *testing.T, priv *big.Int, server []byte) []byte {
 	t.Helper()
-	shared := new(big.Int).Exp(new(big.Int).SetBytes(server), priv, transport.Prime()).Bytes()
+	shared := new(big.Int).Exp(new(big.Int).SetBytes(server), priv, transport.Prime).Bytes()
 	key, err := hkdf.Key(sha256.New, shared, nil, "", aes.BlockSize)
 	if err != nil {
 		t.Fatal(err)
@@ -108,15 +108,15 @@ func unpaddedKey(t *testing.T, priv *big.Int, server []byte) []byte {
 // key for this client; without the redraw the two derivations differ.
 func TestDHSecretIsTheSameBytesPaddedOrNot(t *testing.T) {
 	client := new(big.Int).SetBytes(bytes.Repeat([]byte{0x5a}, 100))
-	public := new(big.Int).Exp(big.NewInt(2), client, transport.Prime()).Bytes()
-	pMinus1 := new(big.Int).Sub(transport.Prime(), big.NewInt(1))
+	public := new(big.Int).Exp(big.NewInt(2), client, transport.Prime).Bytes()
+	pMinus1 := new(big.Int).Sub(transport.Prime, big.NewInt(1))
 	firstDrawShort := func(seed uint64) bool {
 		priv, err := rand.Int(seeded(seed), pMinus1)
 		if err != nil {
 			t.Fatal(err)
 		}
 		priv.Add(priv, big.NewInt(1))
-		return new(big.Int).Exp(new(big.Int).SetBytes(public), priv, transport.Prime()).BitLen() <= 8*(transport.PrimeLen-1)
+		return new(big.Int).Exp(new(big.Int).SetBytes(public), priv, transport.Prime).BitLen() <= 8*(transport.PrimeLen-1)
 	}
 	seed := uint64(0)
 	for !firstDrawShort(seed) {

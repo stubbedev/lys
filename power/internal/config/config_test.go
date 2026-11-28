@@ -9,7 +9,7 @@ import (
 func TestDevicePolicyDefaultsToBatteryWithNothingDenied(t *testing.T) {
 	t.Setenv("LYS_POWER_DEVICE_POLICY", "")
 	t.Setenv("LYS_POWER_DEVICE_DENY", "")
-	cfg, err := Load(LoadPaths())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestDevicePolicyDefaultsToBatteryWithNothingDenied(t *testing.T) {
 func TestDevicePolicyReadsTheModeAndDenylist(t *testing.T) {
 	t.Setenv("LYS_POWER_DEVICE_POLICY", "always")
 	t.Setenv("LYS_POWER_DEVICE_DENY", "pci:8086:a840  usb:046d:c52b")
-	cfg, err := Load(LoadPaths())
+	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestABadDevicePolicyFailsTheLoad(t *testing.T) {
 	} {
 		t.Run(env, func(t *testing.T) {
 			t.Setenv(env, value)
-			if _, err := Load(LoadPaths()); err == nil {
+			if _, err := Load(); err == nil {
 				t.Errorf("%s=%s loaded", env, value)
 			}
 		})

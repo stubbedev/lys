@@ -10,8 +10,8 @@ import (
 // ClickAction strings: "dropdown:<name>", "brightness:<delta>" or
 // "brightness:toggle", a running shell's own action by its CLI
 // spelling (ShellBuiltin), an empty string for no action, and anything
-// else runs as a shell command. A brightness delta that is not an int32,
-// and a dropdown with no name, do not parse.
+// else runs as a shell command. Every string parses: a brightness
+// delta that is not an int32 is no action.
 type ClickAction struct {
 	Kind       ClickKind
 	Dropdown   string
@@ -77,43 +77,30 @@ func (b ShellBuiltin) String() string {
 	return shellBuiltinCommands[b]
 }
 
-// ParseClickAction parses a built-in default's action. It panics on a
-// string that does not parse, which only a mistaken default can be:
-// configuration goes through UnmarshalConfig, which reports it.
+// ParseClickAction parses one schema string.
 func ParseClickAction(s string) ClickAction {
-	a, err := parseClickAction(s)
-	if err != nil {
-		panic(err)
-	}
-	return a
-}
-
-func parseClickAction(s string) (ClickAction, error) {
 	if s == "" {
-		return ClickAction{Kind: ClickNone}, nil
+		return ClickAction{Kind: ClickNone}
 	}
 	if rest, ok := strings.CutPrefix(s, "brightness:"); ok {
 		if rest == "toggle" {
-			return ClickAction{Kind: ClickBrightnessToggle}, nil
+			return ClickAction{Kind: ClickBrightnessToggle}
 		}
 		delta, err := strconv.ParseInt(rest, 10, 32)
 		if err != nil {
-			return ClickAction{}, fmt.Errorf("invalid value: %q, expected brightness:toggle or brightness:<delta>, a whole number of percent: %w", s, err)
+			return ClickAction{Kind: ClickNone}
 		}
-		return ClickAction{Kind: ClickBrightness, Brightness: int32(delta)}, nil
+		return ClickAction{Kind: ClickBrightness, Brightness: int32(delta)}
 	}
 	if name, ok := strings.CutPrefix(s, "dropdown:"); ok {
-		if name == "" {
-			return ClickAction{}, fmt.Errorf("invalid value: %q, expected dropdown:<name>", s)
-		}
-		return ClickAction{Kind: ClickDropdown, Dropdown: name}, nil
+		return ClickAction{Kind: ClickDropdown, Dropdown: name}
 	}
 	for _, b := range ShellBuiltins() {
 		if b.String() == s {
-			return ClickAction{Kind: ClickShellBuiltin, Builtin: b}, nil
+			return ClickAction{Kind: ClickShellBuiltin, Builtin: b}
 		}
 	}
-	return ClickAction{Kind: ClickShell, Command: s}, nil
+	return ClickAction{Kind: ClickShell, Command: s}
 }
 
 // String serializes back to the schema form.
@@ -139,11 +126,7 @@ func (a *ClickAction) UnmarshalConfig(v any) error {
 	if !ok {
 		return invalidType(v, "a string")
 	}
-	parsed, err := parseClickAction(s)
-	if err != nil {
-		return err
-	}
-	*a = parsed
+	*a = ParseClickAction(s)
 	return nil
 }
 

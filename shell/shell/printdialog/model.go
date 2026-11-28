@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/xdg"
 

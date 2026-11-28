@@ -46,8 +46,8 @@ func TestAPromptIsCompletedOnlyByTheProvider(t *testing.T) {
 	if err := p.provider.Export(p, fakePromptPath, secretbus.PromptInterface); err != nil {
 		t.Fatal(err)
 	}
-	if reply, err := p.provider.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-		t.Fatalf("request %s: %v %v", secretbus.BusName, reply, err)
+	if reply, err := p.provider.RequestName(busName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("request %s: %v %v", busName, reply, err)
 	}
 	c := &Client{conn: bus.Conn(t)}
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)

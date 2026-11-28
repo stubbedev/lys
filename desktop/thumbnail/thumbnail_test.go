@@ -15,10 +15,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/image/draw"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
 )
 

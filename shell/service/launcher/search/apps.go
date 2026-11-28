@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/desktopentry"
@@ -85,20 +86,30 @@ func (a *Apps) Load(_ context.Context, publish func([]Entry)) {
 	publish(entries)
 }
 
-// launch runs app, in the env's terminal when it asks for one, or in it
-// regardless when the action says so.
+// launchIn runs app, in a terminal when it asks for one (gio's own
+// terminal lookup rarely fits Wayland setups) or the action says so.
 func (a *Apps) launch(app *desktopentry.App, terminal bool) Outcome {
-	if !terminal || app.Terminal() {
-		if err := app.Launch(launcher.AppContext(a.env.Terminal, "")); err != nil {
+	if !terminal && !app.Terminal() {
+		if err := app.Launch(); err != nil {
 			return failed(app.DisplayName(), err)
 		}
 		return Close{}
 	}
-	argv, err := app.ExpandExec(app.Exec())
-	if err != nil {
-		return failed(app.DisplayName(), err)
+	argv, ok := shlex.Split(app.Exec())
+	if !ok {
+		return failed(app.DisplayName(), fmt.Errorf("unparseable Exec line %q", app.Exec()))
 	}
-	return a.env.inTerminal(app.DisplayName(), argv...)
+	kept := argv[:0]
+	for _, tok := range argv {
+		if !isFieldCode(tok) {
+			kept = append(kept, tok)
+		}
+	}
+	return a.env.inTerminal(app.DisplayName(), kept...)
+}
+
+func isFieldCode(tok string) bool {
+	return len(tok) == 2 && tok[0] == '%' && strings.IndexByte("fFuUdDnNickvm", tok[1]) >= 0
 }
 
 // Actions implements Provider.

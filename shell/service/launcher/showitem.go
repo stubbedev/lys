@@ -3,10 +3,10 @@ package launcher
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // fileManagerTimeout bounds the call to the file manager, which the bus
@@ -23,9 +23,8 @@ func ShowItem(ctx context.Context, path string) error {
 		return fmt.Errorf("show %s in the file manager: %w", path, err)
 	}
 	defer func() { _ = conn.Close() }()
-	uri := (&url.URL{Scheme: "file", Path: path}).String()
 	call := conn.Object("org.freedesktop.FileManager1", "/org/freedesktop/FileManager1").
-		CallWithContext(ctx, "org.freedesktop.FileManager1.ShowItems", 0, []string{uri}, "")
+		CallWithContext(ctx, "org.freedesktop.FileManager1.ShowItems", 0, []string{fileuri.FromPath(path)}, "")
 	if call.Err != nil {
 		return fmt.Errorf("show %s in the file manager: %w", path, call.Err)
 	}

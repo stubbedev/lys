@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fileuri"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/shlex"
 	"github.com/stubbedev/lys/desktop/spawn"
 )
@@ -465,13 +465,11 @@ type LaunchContext struct {
 
 // Launch starts the application with no files (g_app_info_launch). A
 // DBusActivatable entry is activated over the session bus
-// (org.freedesktop.Application.Activate), raised by ctx's activation
-// token; if that fails, or the entry is not activatable, its Exec runs
-// detached in its Path, field codes expanded with no files, inside ctx's
-// terminal for a Terminal=true entry.
-func (a App) Launch(ctx LaunchContext) error {
+// (org.freedesktop.Application.Activate); if that fails, or the entry
+// is not activatable, its Exec runs detached in its Path.
+func (a App) Launch() error {
 	if a.dbusActivatable() {
-		err := a.activate("Activate", nil, ctx.ActivationToken)
+		err := a.activate("Activate", nil, "")
 		if err == nil {
 			return nil
 		}
@@ -479,11 +477,7 @@ func (a App) Launch(ctx LaunchContext) error {
 			return err
 		}
 	}
-	argv, err := a.ExpandExec(a.Exec())
-	if err != nil {
-		return err
-	}
-	return a.runIn(argv, ctx, "run")
+	return a.spawn(a.Exec())
 }
 
 // Open starts the application on one file or URI, as OpenAll does.

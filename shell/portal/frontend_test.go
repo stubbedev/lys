@@ -12,11 +12,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/opener/openertest"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/dbusx/dbusxtest"
 	"github.com/stubbedev/lys/lib/fdtest"
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/pipewire"
 	"github.com/stubbedev/lys/lib/pipewire/pwtest"
 	"github.com/stubbedev/lys/lib/portaldialogs"

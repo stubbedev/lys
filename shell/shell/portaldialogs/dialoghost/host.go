@@ -9,12 +9,12 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/desktopentry"
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/imagedecode"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"

@@ -183,7 +183,7 @@ func (s *Service) syncVaultLocked() {
 		}
 	}
 	if changed {
-		emit(s, secretbus.CollectionChanged, secretbus.ServicePath, secretbus.CollectionEvent{Collection: collectionPath(VaultID)})
+		emit(s, secretbus.CollectionChanged, rootPath, secretbus.CollectionEvent{Collection: collectionPath(VaultID)})
 	}
 }
 
@@ -230,7 +230,7 @@ func (s *Service) vaultSecretLocked(p dbus.ObjectPath, sessPath dbus.ObjectPath,
 		return Secret{}, noSuchObject(p)
 	}
 	if !s.vault.open {
-		return Secret{}, dbus.NewError(secretbus.ErrIsLocked, []any{"the vault is locked"})
+		return Secret{}, dbus.NewError(errIsLocked, []any{"the vault is locked"})
 	}
 	value, err := s.vault.v.Password(l.ID)
 	if err != nil {

@@ -61,7 +61,6 @@ import (
 	"github.com/stubbedev/lys/secrets/internal/service"
 	"github.com/stubbedev/lys/secrets/internal/sshagent"
 	"github.com/stubbedev/lys/secrets/internal/usersock"
-	"github.com/stubbedev/lys/secrets/secretbus"
 	"github.com/stubbedev/lys/secrets/vault"
 )
 
@@ -183,8 +182,8 @@ func run(o options) error {
 	})
 	if errors.Is(err, dbusx.ErrNameTaken) {
 		var owner string
-		_ = conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, secretbus.BusName).Store(&owner)
-		log.Printf("lys-secrets: %s is already served by %s; serving %s alone", secretbus.BusName, owner, vault.ServiceName)
+		_ = conn.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, service.BusName).Store(&owner)
+		log.Printf("lys-secrets: %s is already served by %s; serving %s alone", service.BusName, owner, vault.ServiceName)
 		<-ctx.Done()
 		return nil
 	}
@@ -217,7 +216,7 @@ func run(o options) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("lys-secrets: serving %s and %s, unlock socket %s", secretbus.BusName, vault.ServiceName, sock)
+	log.Printf("lys-secrets: serving %s and %s, unlock socket %s", service.BusName, vault.ServiceName, sock)
 	control.Serve(ctx, ln, svc)
 	return nil
 }

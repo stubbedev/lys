@@ -355,49 +355,13 @@ func TestLaunchRunsTheExecDetached(t *testing.T) {
 	if !ok {
 		t.Fatal("fixture app not found")
 	}
-	if err := a.Launch(LaunchContext{}); err != nil {
+	if err := a.Launch(); err != nil {
 		t.Fatal(err)
 	}
 	waittest.Until(t, func() bool {
 		data, err := os.ReadFile(marker)
 		return err == nil && string(data) == path+"\n"
 	}, "the launched app to record its desktop file")
-}
-
-// A Terminal=true entry launches inside the context's terminal as
-// `<terminal> -e <command>`, its field codes expanded with no files, in
-// its Path and raised by the token; with no terminal it is refused,
-// never run bare.
-func TestLaunchRunsATerminalEntryInTheTerminal(t *testing.T) {
-	dbustest.Session(t)
-	bin := t.TempDir()
-	work := t.TempDir()
-	marker := filepath.Join(t.TempDir(), "ran")
-	fdtest.WriteExecutable(t, filepath.Join(bin, "termtool"), []byte("#!/bin/sh\nfor a; do printf '[%s]' \"$a\"; done > \""+marker+"\"\necho \"|$PWD|$XDG_ACTIVATION_TOKEN\" >> \""+marker+"\"\n"))
-	t.Setenv("PATH", bin+":/bin:/usr/bin:"+os.Getenv("PATH"))
-	dir := t.TempDir()
-	path := write(t, dir, "top.desktop", "[Desktop Entry]\nType=Application\nName=Top\nTerminal=true\nIcon=top-icon\nPath="+work+"\nExec=top --file=%f %i %c %k %U\n")
-	a, ok := FindApp([]string{dir}, "top.desktop")
-	if !ok {
-		t.Fatal("fixture app not found")
-	}
-	ctx := LaunchContext{ActivationToken: "tok", Terminal: func() (string, error) { return "termtool", nil }}
-	if err := a.Launch(ctx); err != nil {
-		t.Fatal(err)
-	}
-	want := "[-e][top][--file=][--icon][top-icon][Top][" + path + "]|" + work + "|tok\n"
-	waittest.Until(t, func() bool {
-		data, err := os.ReadFile(marker)
-		return err == nil && string(data) == want
-	}, "the terminal to record the expanded command")
-
-	if err := a.Launch(LaunchContext{}); err == nil {
-		t.Error("a terminal entry ran with no terminal to run in")
-	}
-	refused := errors.New("no terminal here")
-	if err := a.Launch(LaunchContext{Terminal: func() (string, error) { return "", refused }}); !errors.Is(err, refused) {
-		t.Errorf("a terminal that cannot be found launched with %v, want %v", err, refused)
-	}
 }
 
 // LaunchArgs runs the Exec with its file codes dropped and the caller's
