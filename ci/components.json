@@ -355,29 +355,24 @@
   "sharded-gates": ["test", "test-lysdebug"],
   "static-gates": ["fmt-check", "vet", "lint", "no-fused", "vuln"],
   "gate-runners": {
+    "x86_64": ["fmt-check", "vet", "lint", "no-fused", "build", "test-lysdebug", "atspi", "atspi-verify", "vuln", "schema-check", "dist"],
     "aarch64": ["test", "build", "test-lysdebug", "atspi", "atspi-verify", "dist"]
   },
   "package-inputs": ["go.mod", "go.sum", "packaging/", ".github/workflows/package.yml", "{component}/packaging/", "{component}/resources/", "{component}/justfile", "{component}/LICENSE"],
   "go-jobs": {
     "x86_64": [
-      ["lib:race", "power"],
-      ["wm/3:race"],
-      ["lib:gates"],
-      ["ui/1:gates", "ui/2:gates"],
-      ["ui/3:gates"],
-      ["ui:race", "login:race"],
-      ["settings/1:gates", "settings/3:gates"],
-      ["settings/2:gates"],
-      ["desktop"],
-      ["wm:gates", "splash", "polkit"],
-      ["shell/3:gates", "login:gates"],
-      ["shell/4:gates"],
-      ["settings/1:race"],
       ["settings/2:race"],
-      ["secrets", "viewer", "files"],
-      ["shell/1:race", "shell/2:race", "shell/2:gates"],
-      ["wm/1:race", "wm/2:race", "shell/3:race", "shell/1:gates"],
-      ["wm/4:race"]
+      ["desktop"],
+      ["wm/4:race"],
+      ["wm/3:race"],
+      ["settings/1:race", "secrets", "viewer", "files"],
+      ["lib:race", "power", "login:race"],
+      ["shell/1:race", "shell/2:race"],
+      ["wm/1:race", "wm/2:race", "shell/3:race"],
+      ["ui:race", "wm:gates", "splash", "polkit"],
+      ["shell:gates", "login:gates", "lib:gates", "settings:gates"],
+      ["ui/3:gates"],
+      ["ui/1:gates", "ui/2:gates"]
     ],
     "aarch64": [
       ["shell", "ui"],
