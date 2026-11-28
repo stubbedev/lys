@@ -288,9 +288,13 @@ first runners. The jobs on the builds:
      client and app tests, `ui/2` the rest beside build and the at-spi gates,
      `ui/3` its static gates), shell its test and race suites, and settings
      its race suite: `./internal/settings` runs one test at a time, since the
-     UI's font shaper and preview state are not goroutine-safe, and took up
-     to nine minutes under `-race`, so `settings/1` runs its five slowest
-     tests and `settings/2` the rest and every other package. A new test
+     UI's font shaper and preview state are not goroutine-safe, and takes
+     about five and a half minutes under `-race` on four local cores, so
+     `settings/1` runs its six sweeps over every page or every row and
+     `settings/2` the rest and every other package. A property every page
+     holds is a `pageCheck` of the one sweep that builds and lays out every
+     page once for all of them, not a test of its own that builds them all
+     again. A new test
      joins the part after the shards, so when a part outgrows its job, regroup the named
      tests from `go test -json` times. `ci/affected` refuses a shard that names a directory
      without tests, a test its package does not declare, a name that is not

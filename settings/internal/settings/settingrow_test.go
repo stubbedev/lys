@@ -109,36 +109,6 @@ func onCard(above []widget.Widget) bool {
 	return false
 }
 
-// resetNeverMovesTheControl holds on every page: showing every setting
-// row's reset button leaves every control where it was with them hidden.
-func resetNeverMovesTheControl() pageCheck {
-	return pageCheck{visit: func(t *testing.T, w *window) {
-		at := func(on bool) map[*fieldRow]render.Rect {
-			out := map[*fieldRow]render.Rect{}
-			for _, r := range w.page.rows {
-				r.reset.show(on)
-			}
-			w.root.Arrange(render.Rect{W: sweepW, H: sweepH})
-			for _, r := range w.page.rows {
-				if shown(r.ctl) {
-					out[r] = r.ctl.(widget.Boundser).Bounds()
-				}
-			}
-			return out
-		}
-		hidden, showing := at(false), at(true)
-		for r, b := range hidden {
-			if got := showing[r]; got != b {
-				t.Errorf("%s: showing %s's reset moved its control from %v to %v", w.pageID, r.path, b, got)
-			}
-		}
-		for _, r := range w.page.rows {
-			r.refreshSource()
-		}
-		w.root.Arrange(render.Rect{W: sweepW, H: sweepH})
-	}}
-}
-
 // columnEdges is the x span of each control in a column, keyed for the
 // error it names.
 type columnEdges map[string]render.Rect

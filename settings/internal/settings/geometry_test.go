@@ -50,18 +50,14 @@ type pageCheck struct {
 // out at, tall enough to hold all of it.
 const sweepW, sweepH = 1400, 6000
 
-// Every page of a styled window, shown in turn and laid out tall enough
-// to hold all of it, holds every pageCheck. The pages are built and
-// laid out once for all of them.
+// Every page of a styled window no service answers, shown in turn and
+// laid out tall enough to hold all of it, holds every pageCheck. The
+// pages are built and laid out once for all of them.
 func TestEveryLaidOutPageHoldsThePageChecks(t *testing.T) {
 	registerAppShortcuts(t, recorderShortcuts)
-	k := testKit(t, geometryYAML)
-	cfg := k.store.svc.Config()
-	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
-	w.stack.SetTransition(widget.StackNone, 0)
-	apptheme.New(cfg).Attach(w.root)
-	accent := namedColor(themed(k, gapBox(widget.Column)), css.AccentColor)
-	checks := []pageCheck{sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType("Start recording", "Push to talk"), resetNeverMovesTheControl(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule(), oneRelatedSectionLast(), rowTitlesDifferInASection(), listsEndWithTheirLabelledAdd()}
+	w := styledWindowOf(servicelessKit(t))
+	accent := namedColor(themed(w.k, gapBox(widget.Column)), css.AccentColor)
+	checks := []pageCheck{pagesWithoutTheirServicesSaySoInOneCardState(), sectionHeadersCarryNoTextButton(), modeTogglesAreInsetLinks(accent), controlRowsShareHeightCentreAndGap(), pagesCarryNoMargins(), cardFieldsLineUp(), tabReachesEveryControl(w), trashIconsShareTheErrorColor(), rowsAreTheRowType("Start recording", "Push to talk"), resetPlacement(), spinsEndOnTheControlEdgeAtOneWidth(), sliderSectionsShareOneValueColumn(), sliderRowsReadTheirValueOnce(), choicesFollowTheSegmentRule(), oneRelatedSectionLast(), rowTitlesDifferInASection(), listsEndWithTheirLabelledAdd()}
 	for _, sec := range w.sections {
 		for _, p := range sec.pages {
 			w.show(p.id)
@@ -346,14 +342,28 @@ func laidOutPage(t *testing.T, configYAML, id string, w int) *window {
 // laidOutPageOn is laidOutPage on desktop d.
 func laidOutPageOn(t *testing.T, d desktop, configYAML, id string, w int) *window {
 	t.Helper()
+	win := styledWindowOn(t, d, configYAML)
+	win.show(id)
+	layOut(win, w)
+	return win
+}
+
+// styledWindowOn is a window over configYAML on desktop d, styled by the
+// config's theme, its pages shown without a transition: one to show
+// page after page in.
+func styledWindowOn(t *testing.T, d desktop, configYAML string) *window {
+	t.Helper()
 	k := testKit(t, configYAML)
 	d.apply(t, k)
+	return styledWindowOf(k)
+}
+
+// styledWindowOf is styledWindowOn over the kit k.
+func styledWindowOf(k *kit) *window {
 	cfg := k.store.svc.Config()
 	win := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
 	win.stack.SetTransition(widget.StackNone, 0)
 	apptheme.New(cfg).Attach(win.root)
-	win.show(id)
-	layOut(win, w)
 	return win
 }
 

@@ -35,9 +35,12 @@ const (
 	phaseReset
 )
 
+// sweepAction is one step of a sweep. Its name is what the step reports
+// as, made only for a step taken, since a sweep reads every action of a
+// row after each step it takes.
 type sweepAction struct {
 	phase sweepPhase
-	name  string
+	name  func() string
 	do    func()
 	drove string
 }
@@ -68,9 +71,11 @@ func buttonPhase(b *widget.Button) sweepPhase {
 // driven, a dropdown goes through only its first and last row where its
 // rows were driven before or an earlier dropdown in the tree shows the same
 // rows; the action picking the last of a full run names the rows it drove.
-func sweepActions(root widget.Widget, driven map[string]bool) []sweepAction {
+func sweepActions(root widget.Widget, driven map[string]bool, kinds embeddings) []sweepAction {
 	var out []sweepAction
-	edit := func(name string, do func()) { out = append(out, sweepAction{phase: phaseEdit, name: name, do: do}) }
+	edit := func(name string, do func()) {
+		out = append(out, sweepAction{phase: phaseEdit, name: func() string { return name }, do: do})
+	}
 	inTree := map[string]bool{}
 	var walk func(w widget.Widget)
 	walk = func(w widget.Widget) {
@@ -89,13 +94,13 @@ func sweepActions(root widget.Widget, driven map[string]bool) []sweepAction {
 			}
 			return
 		}
-		switch x := embedded(w).(type) {
+		switch x := kinds.embedded(w).(type) {
 		case *widget.ColorButton:
 			edit("pick a colour", func() { x.Choose(render.RGBA(0x33, 0x66, 0x99, 0xff)) })
 			return
 		case *widget.Button:
 			if x.OnClick != nil {
-				out = append(out, sweepAction{phase: buttonPhase(x), name: fmt.Sprintf("click %q %v", x.TooltipText(), x.Classes()), do: x.OnClick})
+				out = append(out, sweepAction{phase: buttonPhase(x), name: func() string { return fmt.Sprintf("click %q %v", x.TooltipText(), x.Classes()) }, do: x.OnClick})
 			}
 		case *widget.Switch:
 			edit("toggle", x.Toggle)
@@ -112,14 +117,17 @@ func sweepActions(root widget.Widget, driven map[string]bool) []sweepAction {
 			}
 		case *widget.Dropdown:
 			items := x.Items()
-			key := strings.Join(items, "\x00")
-			full := driven == nil || !driven[key] && !inTree[key]
-			inTree[key] = true
+			full, key := true, ""
+			if driven != nil {
+				key = strings.Join(items, "\x00")
+				full = !driven[key] && !inTree[key]
+				inTree[key] = true
+			}
 			for i := range items {
 				if !full && i != 0 && i != len(items)-1 {
 					continue
 				}
-				a := sweepAction{phase: phaseEdit, name: fmt.Sprintf("dropdown row %d (%s)", i, items[i]), do: func() {
+				a := sweepAction{phase: phaseEdit, name: func() string { return fmt.Sprintf("dropdown row %d (%s)", i, items[i]) }, do: func() {
 					x.SetSelected(i)
 					if x.OnSelect != nil {
 						x.OnSelect(i)
@@ -176,29 +184,32 @@ func sweepRow(t *testing.T, row *fieldRow, driven map[string]bool, after func(ac
 	}
 	popovers := &fakePickers{}
 	row.k.pickers = popovers
+	kinds := embeddings{}
 	step := func(a sweepAction) {
+		name := a.name()
 		popovers.content = nil
 		a.do()
 		if a.drove != "" {
 			met[a.drove] = true
 		}
 		row.refresh()
-		after(a.name)
+		after(name)
 		if popovers.content == nil {
 			return
 		}
-		for _, in := range sweepActions(popovers.content, driven) {
+		for _, in := range sweepActions(popovers.content, driven, kinds) {
 			if in.phase == phaseEdit {
+				inName := in.name()
 				in.do()
 				row.refresh()
-				after(a.name + ", then " + in.name + " in what it opened")
+				after(name + ", then " + inName + " in what it opened")
 				return
 			}
 		}
 	}
 	of := func(phase sweepPhase) []sweepAction {
 		var out []sweepAction
-		for _, a := range sweepActions(row, driven) {
+		for _, a := range sweepActions(row, driven, kinds) {
 			if a.phase == phase {
 				out = append(out, a)
 			}
@@ -373,33 +384,57 @@ palette:
   mine: "#123456"
 `
 
+// embeddings remembers, per type, whether a control wraps a lys-ui
+// widget by embedding it as its first field, so a sweep reading a row's
+// controls after every step reflects on each type once.
+type embeddings map[reflect.Type]bool
+
 // embedded is the lys-ui widget a control wraps by embedding it (a
 // number's spin, a toggle's switch), else the widget itself.
-func embedded(w widget.Widget) widget.Widget {
-	widgetType := reflect.TypeFor[widget.Widget]()
+func (e embeddings) embedded(w widget.Widget) widget.Widget {
 	for {
+		t := reflect.TypeOf(w)
+		if t == nil {
+			return w
+		}
+		wraps, known := e[t]
+		if !known {
+			wraps = wrapsAWidget(t)
+			e[t] = wraps
+		}
 		v := reflect.ValueOf(w)
-		if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct || v.Elem().Type().PkgPath() == reflect.TypeFor[widget.Button]().PkgPath() {
+		if !wraps || v.IsNil() {
 			return w
 		}
-		s := v.Elem()
-		if s.NumField() == 0 || !s.Type().Field(0).Anonymous || !s.Field(0).Type().Implements(widgetType) || s.Field(0).Kind() != reflect.Pointer || s.Field(0).IsNil() || !s.Field(0).CanInterface() {
+		f := v.Elem().Field(0)
+		if f.IsNil() {
 			return w
 		}
-		w = s.Field(0).Interface().(widget.Widget)
+		w = f.Interface().(widget.Widget)
 	}
+}
+
+// wrapsAWidget reports a pointer to a struct outside lys-ui whose first
+// field embeds a pointer to a widget it can hand out.
+func wrapsAWidget(t reflect.Type) bool {
+	if t.Kind() != reflect.Pointer || t.Elem().Kind() != reflect.Struct || t.Elem().PkgPath() == reflect.TypeFor[widget.Button]().PkgPath() || t.Elem().NumField() == 0 {
+		return false
+	}
+	f := t.Elem().Field(0)
+	return f.Anonymous && f.IsExported() && f.Type.Kind() == reflect.Pointer && f.Type.Implements(reflect.TypeFor[widget.Widget]())
 }
 
 // controlState is what the row's controls show: every shown switch,
 // check, segment, dropdown, spin and entry, in tree order.
 func controlState(root widget.Widget) []string {
 	var out []string
+	kinds := embeddings{}
 	var walk func(w widget.Widget)
 	walk = func(w widget.Widget) {
 		if v, ok := w.(interface{ Visible() bool }); !ok || !v.Visible() {
 			return
 		}
-		switch x := embedded(w).(type) {
+		switch x := kinds.embedded(w).(type) {
 		case *widget.Switch:
 			out = append(out, fmt.Sprintf("switch %v", x.On()))
 		case *widget.CheckButton:

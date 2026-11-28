@@ -14,8 +14,10 @@ import (
 // page a dropdown shows its value whole, a choice's face is as wide as
 // its value, and the mouse's click action is as wide as its line.
 func TestEveryDropdownShowsItsValueWholeAndAChoiceIsAsWideAsIt(t *testing.T) {
+	win := styledWindowOn(t, desktop{}, "")
 	for _, id := range pageIDs(parts{shell: true, wm: true}) {
-		win := laidOutPage(t, "", id, sweepW)
+		win.show(id)
+		layOut(win, sweepW)
 		for _, d := range treetest.All[*widget.Dropdown](win.page) {
 			if shown(d) && d.Bounds().W < d.SelectionWidth() {
 				t.Errorf("%s: %q is %dpx wide, under the %dpx it shows whole in", id, d.Selection(), d.Bounds().W, d.SelectionWidth())

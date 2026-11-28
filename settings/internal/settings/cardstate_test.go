@@ -310,28 +310,23 @@ func servicelessKit(t *testing.T) *kit {
 	return k
 }
 
-// Every page, with no service to ask (no session or system bus, no
-// sound server, no NetworkManager, no display server), says so the
-// app's own way: no card is left blank, none shows more than one
-// state, and no label outside a state's closed detail reads as an
-// error's own words.
-func TestEveryPageWithoutItsServicesSaysSoInOneCardState(t *testing.T) {
-	k := servicelessKit(t)
-	cfg := k.store.svc.Config()
-	w := newWindow(k, cfg, func(_ time.Duration, fn func()) { fn() })
-	w.stack.SetTransition(widget.StackNone, 0)
-	apptheme.New(cfg).Attach(w.root)
+// pagesWithoutTheirServicesSaySoInOneCardState holds on every page of a
+// window no service answers (no session or system bus, no sound server,
+// no NetworkManager, no display server): each says so the app's own way,
+// no card is left blank, none shows more than one state, and no label
+// outside a state's closed detail reads as an error's own words.
+func pagesWithoutTheirServicesSaySoInOneCardState() pageCheck {
 	pages := 0
-	for _, sec := range w.sections {
-		for _, p := range sec.pages {
-			w.show(p.id)
-			w.root.Arrange(render.Rect{W: sweepW, H: sweepH})
+	return pageCheck{
+		visit: func(t *testing.T, w *window) {
 			pages++
-			checkServicelessPage(t, p.id, w.page)
-		}
-	}
-	if pages == 0 {
-		t.Fatal("no page laid out")
+			checkServicelessPage(t, w.pageID, w.page)
+		},
+		done: func(t *testing.T) {
+			if pages == 0 {
+				t.Fatal("no page laid out")
+			}
+		},
 	}
 }
 

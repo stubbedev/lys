@@ -292,9 +292,10 @@
           {
             "package": "./internal/settings",
             "tests": [
+              "TestEveryDropdownShowsItsValueWholeAndAChoiceIsAsWideAsIt",
               "TestEveryLaidOutPageHoldsThePageChecks",
               "TestEveryPageBuilds",
-              "TestEveryPageWithoutItsServicesSaysSoInOneCardState",
+              "TestEveryShellControlWritesOnlyWhatLysShellAccepts",
               "TestEveryShellRowSaysARefusedWriteInTheAppsWords",
               "TestEveryWMControlWritesOnlyWhatLysWMAccepts"
             ]
