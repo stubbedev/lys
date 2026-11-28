@@ -1,6 +1,9 @@
 package widget
 
-import "slices"
+import (
+	"maps"
+	"slices"
+)
 
 // selectionHost is the container a selection model drives: List and
 // FlowBox. The model owns which items are selected and how gestures
@@ -298,6 +301,44 @@ func (s *selection) click(i int) {
 		s.selectOne(i)
 	case SelectionMultiple:
 		s.toggle(i)
+	}
+}
+
+// pointerClick applies a click on item i with mods held, the way a
+// desktop file view takes it: in multiple mode a plain click selects i
+// alone, ctrl toggles it, shift selects from the anchor to i and
+// ctrl+shift adds that range; the other modes select i.
+func (s *selection) pointerClick(i int, mods Mods) {
+	if s.mode != SelectionMultiple {
+		s.click(i)
+		return
+	}
+	ctrl, shift := mods&ModCtrl != 0, mods&ModShift != 0
+	switch {
+	case shift:
+		anchor := s.sel
+		if anchor < 0 {
+			anchor, s.sel = i, i
+		}
+		set := make(map[int]struct{}, len(s.multi)+max(anchor, i)-min(anchor, i)+1)
+		if ctrl {
+			maps.Copy(set, s.multi)
+		}
+		for j := min(anchor, i); j <= max(anchor, i); j++ {
+			set[j] = struct{}{}
+		}
+		s.cursor, s.keyed = i, false
+		s.applyMulti(set)
+		s.notify()
+	case ctrl:
+		s.toggle(i)
+	default:
+		changed := len(s.multi) != 1 || !s.isSelected(i)
+		s.sel, s.cursor, s.keyed = i, i, false
+		if changed {
+			s.applyMulti(map[int]struct{}{i: {}})
+			s.notify()
+		}
 	}
 }
 

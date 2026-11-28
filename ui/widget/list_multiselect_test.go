@@ -228,6 +228,138 @@ func TestListMultiplePointer(t *testing.T) {
 	})
 }
 
+// TestListModifierClicks pins SetModifierClicks, a desktop file
+// view's clicks: a plain click selects its row alone, ctrl+click
+// toggles, shift+click selects from the anchor to the row clicked,
+// replacing the set, ctrl+shift+click adds that range; a plain click on
+// a row already alone selected changes nothing and says nothing.
+func TestListModifierClicks(t *testing.T) {
+	l, _, notifications := setupMultiList(t)
+	l.SetModifierClicks(true)
+	click := func(row int, mods Mods) {
+		r := &Router{Root: l}
+		r.Press(BTNLeft, Point{X: 50, Y: row*20 + 10}, mods)
+		r.Release(BTNLeft, Point{X: 50, Y: row*20 + 10})
+	}
+	click(1, ModCtrl)
+	click(3, ModCtrl)
+	click(1, ModCtrl)
+	selEquals(t, l, 3)
+	click(1, 0)
+	selEquals(t, l, 1)
+	click(3, ModShift)
+	selEquals(t, l, 1, 2, 3)
+	click(0, ModShift)
+	selEquals(t, l, 0, 1)
+	click(4, ModCtrl)
+	selEquals(t, l, 0, 1, 4)
+	click(4, ModCtrl|ModShift)
+	selEquals(t, l, 0, 1, 4)
+	click(2, ModCtrl|ModShift)
+	selEquals(t, l, 0, 1, 2, 3, 4)
+	click(2, 0)
+	selEquals(t, l, 2)
+	*notifications = nil
+	click(2, 0)
+	selEquals(t, l, 2)
+	if len(*notifications) != 0 {
+		t.Errorf("a click on the row alone selected notified %v", *notifications)
+	}
+}
+
+// TestListModifierClicksShiftWithoutAnchor pins a shift+click before
+// anything was selected: the row clicked anchors and is selected alone.
+func TestListModifierClicksShiftWithoutAnchor(t *testing.T) {
+	l, _, _ := setupMultiList(t)
+	l.SetModifierClicks(true)
+	r := &Router{Root: l}
+	r.Press(BTNLeft, Point{X: 50, Y: 50}, ModShift)
+	r.Release(BTNLeft, Point{X: 50, Y: 50})
+	selEquals(t, l, 2)
+	r.Press(BTNLeft, Point{X: 50, Y: 90}, ModShift)
+	r.Release(BTNLeft, Point{X: 50, Y: 90})
+	selEquals(t, l, 2, 3, 4)
+}
+
+// TestListModifierClicksEmptyClears pins a click where no row is under
+// SetModifierClicks: in multiple mode it clears the selection, unless
+// ctrl or shift is held; without SetModifierClicks, or in single mode,
+// it leaves the selection be.
+func TestListModifierClicksEmptyClears(t *testing.T) {
+	model := newCountingModel(3)
+	l := NewList(model, 20)
+	l.SetSelectionMode(SelectionMultiple)
+	l.SetModifierClicks(true)
+	frame(t, l, 100, 100)
+	var notified int
+	l.OnSelectionChanged = func([]int) { notified++ }
+	below := Point{X: 50, Y: 90}
+	click := func(mods Mods) {
+		r := &Router{Root: l}
+		r.Press(BTNLeft, below, mods)
+		r.Release(BTNLeft, below)
+	}
+	l.SelectAll()
+	notified = 0
+	for _, mods := range []Mods{ModCtrl, ModShift} {
+		click(mods)
+		selEquals(t, l, 0, 1, 2)
+	}
+	click(0)
+	selEquals(t, l)
+	if notified != 1 {
+		t.Errorf("notifications = %d for the clearing click, want 1", notified)
+	}
+	click(0)
+	if notified != 1 {
+		t.Errorf("a click on empty space with nothing selected notified (%d)", notified)
+	}
+
+	toggling := NewList(newCountingModel(3), 20)
+	toggling.SetSelectionMode(SelectionMultiple)
+	frame(t, toggling, 100, 100)
+	toggling.SelectAll()
+	tr := &Router{Root: toggling}
+	tr.Press(BTNLeft, below, 0)
+	tr.Release(BTNLeft, below)
+	selEquals(t, toggling, 0, 1, 2)
+
+	single := NewList(newCountingModel(3), 20)
+	single.SetModifierClicks(true)
+	frame(t, single, 100, 100)
+	single.Select(1)
+	sr := &Router{Root: single}
+	sr.Press(BTNLeft, below, 0)
+	sr.Release(BTNLeft, below)
+	selEquals(t, single, 1)
+}
+
+// TestListModifierClicksGridGapClears pins a click in the gap between
+// a grid's cells: no item's cell holds it, so it clears like empty
+// space, while a click inside a cell selects that cell alone.
+func TestListModifierClicksGridGapClears(t *testing.T) {
+	l := NewGridView(newCountingModel(6), 40, 20)
+	l.SetModifierClicks(true)
+	l.SetColumnSpacing(10)
+	l.SetRowSpacing(10)
+	l.SetSelectionMode(SelectionMultiple)
+	frame(t, l, 150, 100)
+	click := func(p Point) {
+		r := &Router{Root: l}
+		r.Press(BTNLeft, p, 0)
+		r.Release(BTNLeft, p)
+	}
+	l.SelectAll()
+	cell := l.cellRect(1)
+	click(Point{X: cell.X - 3, Y: cell.Y + 5})
+	selEquals(t, &l.List)
+	l.SelectAll()
+	click(Point{X: cell.X + 5, Y: cell.Y + cell.H + 3})
+	selEquals(t, &l.List)
+	click(Point{X: cell.X + 5, Y: cell.Y + 5})
+	selEquals(t, &l.List, 1)
+}
+
 // TestListMultipleChecks pins checkbox rows: in multiple mode the row's
 // CheckButton reflects membership, a click toggles membership through
 // the check, and the check's own click handling stays out of it.
@@ -274,6 +406,25 @@ func TestListMultipleChecks(t *testing.T) {
 		t.Error("untouched member rows lost their checks")
 	}
 	selEquals(t, l, 0, 3)
+}
+
+// TestListModifierClicksCheckRowsToggle pins checkbox rows under
+// SetModifierClicks: a plain click on one still toggles its membership
+// through the check, as a checklist's does.
+func TestListModifierClicksCheckRowsToggle(t *testing.T) {
+	model := &sliceModel{}
+	for range 3 {
+		model.rows = append(model.rows, NewCheckButton(false))
+	}
+	l := NewList(model, 20)
+	l.SetSelectionMode(SelectionMultiple)
+	l.SetModifierClicks(true)
+	frame(t, l, 100, 60)
+	l.Select(1)
+	r := &Router{Root: l}
+	r.Press(BTNLeft, Point{X: 50, Y: 10}, 0)
+	r.Release(BTNLeft, Point{X: 50, Y: 10})
+	selEquals(t, l, 0, 1)
 }
 
 // sliceModel is a fixed list of row widgets.

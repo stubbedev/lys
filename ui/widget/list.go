@@ -37,7 +37,8 @@ const (
 	// follows the pointer, GTK's browse mode) and gestures cannot
 	// clear the selection, only move it.
 	SelectionBrowse
-	// SelectionMultiple keeps any set of rows. Clicks toggle rows,
+	// SelectionMultiple keeps any set of rows. Clicks toggle rows (a
+	// List's follow the modifiers instead under SetModifierClicks),
 	// drags rubber-band select, shift+arrows extend from the anchor,
 	// ctrl+arrows move the keyboard cursor without selecting,
 	// ctrl+space toggles the cursor row, ctrl+a selects everything.
@@ -119,6 +120,11 @@ type List struct {
 	gestureRow int
 	dragPoint  Point
 	dragMoved  bool
+	// modifierClicks makes multiple-mode clicks follow the modifiers
+	// (SetModifierClicks); pressMods are the modifiers held at the last
+	// press, which the click ending it selects by.
+	modifierClicks bool
+	pressMods      Mods
 	// dragOut reports a gesture that began on a selected row of a list
 	// with DragContent: it offers the selection to other apps instead
 	// of moving the selection.
@@ -209,6 +215,14 @@ func initList[W Widget](l *List, model ListModel[W], rowHeight int) {
 	l.rows = make(map[int]*listRow)
 	l.initSelection(l, SelectionSingle)
 }
+
+// SetModifierClicks makes multiple-mode clicks behave as a desktop
+// file view's: a plain click selects the row alone, ctrl+click toggles
+// it, shift+click selects from the anchor to it, ctrl+shift+click adds
+// that range, and a plain click where no item's cell is clears the
+// selection. Off, the default, a click toggles its row, as a checklist
+// does. A row holding a CheckButton toggles through it either way.
+func (l *List) SetModifierClicks(on bool) { l.modifierClicks = on }
 
 // SetCellWidth switches the list into a grid: items flow left to
 // right in as many equal columns of at least w pixels as the width
@@ -727,6 +741,7 @@ func (l *List) HitTest(p Point) Widget {
 }
 
 func (l *List) claimPointer(e PointerEvent) bool {
+	l.pressMods = e.Mods
 	if l.OnPointer != nil && l.OnPointer(l.IndexAt(e.At), e) {
 		return true
 	}
@@ -766,6 +781,14 @@ func (l *List) itemAt(p Point) (int, bool) {
 		box, _ = boxRects(boxOf(r.style(r), render.Insets{}), box)
 	}
 	return i, box.Contains(p.X, p.Y)
+}
+
+// emptyAt reports that no item's cell holds p: past the last item, or
+// in a gap between lines or a grid's columns. A row proxy's margin is
+// inside its cell.
+func (l *List) emptyAt(p Point) bool {
+	i, ok := l.rowAtExact(p)
+	return !ok || !l.cellRect(i).Contains(p.X, p.Y)
 }
 
 // rowAt maps a point to a row index, clamped into the model; a gap
@@ -818,12 +841,14 @@ func (l *List) gestureEnd() {
 	l.release()
 }
 
-// rowClick applies the click half of a pointer gesture on row r.idx.
-// A click after the band left the anchor row ends the gesture without
-// toggling: the drag already applied its selection. Checkbox rows in
-// multiple mode toggle membership through the check and do not reach
-// the row's own click handling; every other row forwards to it after
-// the selection applies, so interactive rows keep working.
+// rowClick applies the click half of a pointer gesture on row r.idx,
+// by the modifiers held at its press under SetModifierClicks
+// (pointerClick). A click after the
+// band left the anchor row ends the gesture without selecting: the
+// drag already applied its selection. Checkbox rows in multiple mode
+// toggle membership through the check and do not reach the row's own
+// click handling; every other row forwards to it after the selection
+// applies, so interactive rows keep working.
 func (l *List) rowClick(r *listRow, p Point) {
 	if !IsEnabled(r.row) {
 		return
@@ -831,7 +856,11 @@ func (l *List) rowClick(r *listRow, p Point) {
 	if l.dragMoved {
 		return
 	}
-	l.click(r.idx)
+	if l.modifierClicks && r.check == nil {
+		l.pointerClick(r.idx, l.pressMods)
+	} else {
+		l.click(r.idx)
+	}
 	if l.singleClick && l.mode != SelectionMultiple {
 		l.activate(r.idx)
 	}
@@ -971,13 +1000,21 @@ func (l *List) ScrollBy(dx, dy int) {
 
 // ClickAt applies a press-and-release on the list itself: a row hit
 // that no proxy covers (a partially visible last row, say) selects
-// that row per the mode.
+// that row per the mode, and under SetModifierClicks a plain click
+// where no item's cell is clears a multiple-mode selection.
 func (l *List) ClickAt(p Point) {
 	if !IsEnabled(l) {
 		return
 	}
 	if i, ok := l.itemAt(p); ok {
 		l.rowClick(&listRow{list: l, idx: i, row: l.model.row(i)}, p)
+		return
+	}
+	if l.modifierClicks && l.mode == SelectionMultiple && !l.dragMoved && l.gestureRow < 0 && l.pressMods&(ModCtrl|ModShift) == 0 && l.emptyAt(p) {
+		if l.clearAll() {
+			l.selectionSync()
+			l.notify()
+		}
 	}
 }
 

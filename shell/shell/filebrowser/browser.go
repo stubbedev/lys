@@ -1147,6 +1147,7 @@ func (c *Browser) views(u *ui) widget.Widget {
 	u.listView, u.gridView = &typeAhead{List: u.list, typed: c.typeAhead}, &typeAhead{List: &u.grid.List, typed: c.typeAhead}
 	for _, l := range []*widget.List{u.list, &u.grid.List} {
 		l.SetSelectionMode(c.o.Selection)
+		l.SetModifierClicks(true)
 		l.OnActivate = c.activate
 		l.OnSelectionChanged = func([]int) {
 			c.refreshPreview()

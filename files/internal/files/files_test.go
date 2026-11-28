@@ -690,25 +690,33 @@ func TestTheTabRowKeepsItsMargins(t *testing.T) {
 	})
 }
 
-// pressRow lays the window out and presses button on the list row of
-// the tab showing that reads name.
-func (hs *harness) pressRow(t *testing.T, button uint32, name string) {
+// pressRow lays the window out and clicks button, mods held, on the
+// list row of the tab showing that reads name.
+func (hs *harness) pressRow(t *testing.T, button uint32, mods widget.Mods, name string) {
+	t.Helper()
+	hs.clickList(t, button, mods, func(tb *tab, list render.Rect) widget.Point {
+		i := slices.IndexFunc(tb.b.Entries(), func(e filebrowser.Entry) bool { return e.Name() == name })
+		if i < 0 {
+			t.Fatalf("no %s in the listing of %s", name, tb.b.Dir())
+		}
+		return widget.Point{X: list.X + list.W/2, Y: list.Y + i*filebrowser.ListRowH + filebrowser.ListRowH/2}
+	})
+}
+
+// clickList lays the window out and clicks button, mods held, where at
+// puts it in the file view of the tab showing.
+func (hs *harness) clickList(t *testing.T, button uint32, mods widget.Mods, at func(tb *tab, list render.Rect) widget.Point) {
 	t.Helper()
 	hs.do(func() {
 		root := hs.f.Root()
 		widget.SizeWithin(root, widget.Size{W: 900, H: 600})
 		root.Arrange(render.Rect{W: 900, H: 600})
 		tb := hs.f.active()
-		i := slices.IndexFunc(tb.b.Entries(), func(e filebrowser.Entry) bool { return e.Name() == name })
-		if i < 0 {
-			t.Fatalf("no %s in the listing of %s", name, tb.b.Dir())
-		}
-		list := tb.b.FileView().(widget.Boundser).Bounds()
-		at := widget.Point{X: list.X + list.W/2, Y: list.Y + i*filebrowser.ListRowH + filebrowser.ListRowH/2}
+		p := at(tb, tb.b.FileView().(widget.Boundser).Bounds())
 		r := &widget.Router{Root: root}
-		r.Move(at)
-		r.Press(button, at, 0)
-		r.Release(button, at)
+		r.Move(p)
+		r.Press(button, p, mods)
+		r.Release(button, p)
 	})
 }
 
@@ -720,11 +728,11 @@ func TestOpenInNewTabOpensFoldersBehind(t *testing.T) {
 	hs := newHarness(t)
 	hs.open(hs.root, hs.path("pics"))
 	hs.do(func() { hs.f.view.SelectIndex(0) })
-	hs.pressRow(t, widget.BTNMiddle, "docs")
+	hs.pressRow(t, widget.BTNMiddle, 0, "docs")
 	if got := hs.tabs(); !slices.Equal(got, []string{hs.root, hs.path("docs"), hs.path("pics")}) || hs.tab().b.Dir() != hs.root {
 		t.Fatalf("a middle click on docs: tabs %v, showing %s", got, hs.tab().b.Dir())
 	}
-	hs.pressRow(t, widget.BTNMiddle, "b.txt")
+	hs.pressRow(t, widget.BTNMiddle, 0, "b.txt")
 	if got := hs.tabs(); len(got) != 3 || len(hs.opened) != 0 {
 		t.Errorf("a middle click on b.txt: tabs %v, opened %v", got, hs.opened)
 	}
