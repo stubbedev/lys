@@ -187,19 +187,31 @@ func (s *selection) Select(i int) {
 }
 
 // SelectRows makes rows the multiple-mode selection (out-of-range
-// rows are dropped) and notifies; outside multiple mode it does
-// nothing.
+// rows are dropped) and notifies when that changed the set, anchoring
+// at its lowest row with the cursor there, as a click on that row
+// would, so a shift extension continues from what shows selected. The
+// set it already holds changes nothing, not even the anchor; outside
+// multiple mode it does nothing.
 func (s *selection) SelectRows(rows ...int) {
 	if s.mode != SelectionMultiple {
 		return
 	}
 	n := s.host.count()
 	set := make(map[int]struct{}, len(rows))
+	first := -1
 	for _, r := range rows {
-		if r >= 0 && r < n {
-			set[r] = struct{}{}
+		if r < 0 || r >= n {
+			continue
+		}
+		set[r] = struct{}{}
+		if first < 0 || r < first {
+			first = r
 		}
 	}
+	if maps.Equal(set, s.multi) {
+		return
+	}
+	s.sel, s.cursor, s.keyed = first, first, false
 	s.applyMulti(set)
 	s.notify()
 }

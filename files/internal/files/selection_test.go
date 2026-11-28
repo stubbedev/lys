@@ -182,3 +182,49 @@ func TestTheStatusLineOffersSelectAllAndNone(t *testing.T) {
 		t.Errorf("the status line is %dpx tall in an empty folder, %dpx with files", got, full)
 	}
 }
+
+// Shift+Down twice after files are shown selected - revealed in the
+// tab, or by ShowItems in a tab of their own - extends them by two
+// rows, not the row a click left the anchor on before, in the list and
+// (Shift+Right) the grid.
+func TestShiftExtendsFromTheFilesShown(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	extend := func(grid bool) []string {
+		next := widget.KeyDown
+		if grid {
+			next = widget.KeyRight
+		}
+		hs.do(func() {
+			view, ok := hs.f.active().b.FileView().(interface {
+				KeyAction(widget.KeyAction, widget.Mods)
+			})
+			if !ok {
+				t.Fatalf("the file view %T takes no keys", hs.f.active().b.FileView())
+			}
+			view.KeyAction(next, widget.ModShift)
+			view.KeyAction(next, widget.ModShift)
+		})
+		return hs.selected()
+	}
+	shown := []string{"docs", "pics"}
+	want := []string{"docs", "pics", "a.png"}
+	for _, grid := range []bool{false, true} {
+		hs.do(func() { hs.f.active().b.SetGrid(grid) })
+		hs.pick(t, "b.txt")
+		hs.do(func() { hs.f.active().b.Reveal(hs.root, []string{hs.path("docs"), hs.path("pics")}) })
+		if got := hs.selected(); !slices.Equal(got, shown) {
+			t.Fatalf("grid %v: Reveal selected %v, want %v", grid, got, shown)
+		}
+		if got := extend(grid); !slices.Equal(got, want) {
+			t.Errorf("grid %v: two Shift+motions after Reveal selected %v, want %v", grid, got, want)
+		}
+	}
+	hs.do(func() { hs.f.ShowItems([]string{hs.path("docs"), hs.path("pics")}) })
+	if got := hs.selected(); !slices.Equal(got, shown) {
+		t.Fatalf("ShowItems selected %v, want %v", got, shown)
+	}
+	if got := extend(false); !slices.Equal(got, want) {
+		t.Errorf("two Shift+Downs after ShowItems selected %v, want %v", got, want)
+	}
+}

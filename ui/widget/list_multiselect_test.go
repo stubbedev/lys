@@ -710,3 +710,38 @@ func TestListCursorRingOnlyOffTheSelection(t *testing.T) {
 		t.Errorf("shift+up back to the anchor alone rings %v", got)
 	}
 }
+
+// TestListSelectRowsAnchors pins where a programmatic selection leaves
+// the keys: SelectRows anchors at its lowest row with the cursor there,
+// so shift extends from the rows it selected, not from the row clicked
+// before; selecting the set already held moves neither, and notifies
+// nothing.
+func TestListSelectRowsAnchors(t *testing.T) {
+	l, _, notifications := setupMultiList(t)
+	l.pointerClick(0, 0)
+	l.SelectRows(9, 5)
+	if l.Selected() != 5 {
+		t.Fatalf("anchor after SelectRows(9, 5) = %d, want 5", l.Selected())
+	}
+	l.KeyAction(KeyDown, ModShift)
+	l.KeyAction(KeyDown, ModShift)
+	selEquals(t, l, 5, 6, 7)
+	l.KeyAction(KeyDown, 0)
+	selEquals(t, l, 8)
+
+	l.pointerClick(12, 0)
+	l.pointerClick(10, ModShift)
+	*notifications = nil
+	l.SelectRows(10, 11, 12)
+	if len(*notifications) != 0 {
+		t.Errorf("SelectRows of the held set notified %d times, want none", len(*notifications))
+	}
+	l.pointerClick(14, ModShift)
+	selEquals(t, l, 12, 13, 14)
+
+	l.SelectRows()
+	selEquals(t, l)
+	if l.Selected() != -1 {
+		t.Errorf("anchor after SelectRows() = %d, want -1", l.Selected())
+	}
+}
