@@ -1171,6 +1171,9 @@ func nearestToward(target widget.Widget, order []widget.Widget, k widget.KeyActi
 			continue
 		}
 		b := other.Bounds()
+		if b.Empty() {
+			continue
+		}
 		var along, across int
 		switch k {
 		case widget.KeyDown:

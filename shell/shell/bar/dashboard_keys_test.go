@@ -356,6 +356,40 @@ func TestNearestToward(t *testing.T) {
 	if got := nearestToward(ahead, []widget.Widget{ahead}, widget.KeyUp); got != nil {
 		t.Error("alone, up found a neighbour")
 	}
+	unlaid := at(0, 0, 0, 0)
+	if got := nearestToward(ahead, []widget.Widget{ahead, unlaid}, widget.KeyUp); got != nil {
+		t.Error("up landed on a control not laid out yet")
+	}
+	if got := nearestToward(ahead, []widget.Widget{unlaid, ahead, above}, widget.KeyUp); got != above {
+		t.Error("a control not laid out yet hid the one above")
+	}
+}
+
+func TestDashboardKeysPassControlsShownSinceTheLastLayout(t *testing.T) {
+	ctx, v, r := keysView(t, 2000)
+	doOnLoopOf(ctx, func() {
+		settings := findByClass(v, "dashboard-settings-btn")
+		if err := r.SetFocus(settings); err != nil {
+			t.Fatalf("focus the settings button: %v", err)
+		}
+		shown := findByClass(v, "output-switch-btn")
+		shown.(interface{ SetVisible(bool) }).SetVisible(true)
+		r.KeyAction(widget.KeyUp, 0)
+		if r.Focused() != settings {
+			t.Errorf("Up at the top before the next layout: focus on %T %v, want the settings button", r.Focused(), rectOf(r.Focused()))
+		}
+		widget.SizeWithin(r.Root, widget.Size{W: 380, H: 2000})
+		r.Root.Arrange(render.Rect{W: 380, H: 2000})
+		order := focusablesUnder(v.root, nil)
+		knob := order[slices.IndexFunc(order, func(w widget.Widget) bool { return widget.RoleOf(w) == widget.RoleSlider })]
+		if err := r.SetFocus(knob); err != nil {
+			t.Fatalf("focus the volume slider: %v", err)
+		}
+		r.KeyAction(widget.KeyDown, 0)
+		if r.Focused() != shown {
+			t.Errorf("Down from the slider once laid out: focus on %T %v, want the output switch", r.Focused(), rectOf(r.Focused()))
+		}
+	})
 }
 
 type rectWidget struct {
