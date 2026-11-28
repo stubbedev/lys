@@ -112,14 +112,14 @@ build-shells +components:
         else { devShells = lib.getAttrs named shells; }"
 
 # Build every derivation a nix-eval-jobs selection of the flake picks, in one
-# nix build that keeps going past a failure, then realise each selected dev
-# shell's environment the way `nix develop` and `just gates` load it.
+# nix build that keeps going past a failure, then realise every selected dev
+# shell's environment at once, the way `nix develop` and `just gates` load it.
 [private]
 [script("bash")]
 build-jobs select:
     set -euo pipefail
     dir=$(mktemp -d)
-    trap 'rm -rf "$dir"' EXIT
+    trap 'jobs -pr | xargs -r kill 2>/dev/null; wait; rm -rf "$dir"' EXIT
     just eval-jobs {{ quote(select) }} --check-cache-status > "${dir}/jobs"
     if ! jq -e -s 'length > 0' "${dir}/jobs" >/dev/null; then
         echo "build-jobs: the selection picks nothing to build on {{ arch() }}-linux" >&2
@@ -130,9 +130,21 @@ build-jobs select:
     if (( ${#drvs[@]} > 0 )); then
         nix build -L --keep-going --no-link "${drvs[@]}"
     fi
-    for shell in $(jq -r 'select(.attr | startswith("devShells.")) | .attr | ltrimstr("devShells.")' "${dir}/jobs"); do
-        nix print-dev-env --profile "${dir}/${shell}" ".#${shell}" >/dev/null
+    mapfile -t shells < <(jq -r 'select(.attr | startswith("devShells.")) | .attr | ltrimstr("devShells.")' "${dir}/jobs")
+    pids=()
+    for shell in "${shells[@]}"; do
+        nix print-dev-env --profile "${dir}/${shell}" ".#${shell}" > /dev/null 2> "${dir}/${shell}.log" &
+        pids+=("$!")
     done
+    failed=0
+    for i in "${!pids[@]}"; do
+        if ! wait "${pids[$i]}"; then
+            echo "build-jobs: the ${shells[$i]} dev shell's environment did not realise:" >&2
+            cat "${dir}/${shells[$i]}.log" >&2
+            failed=1
+        fi
+    done
+    (( failed == 0 ))
 
 # Evaluate the derivations a nix-eval-jobs selection of the flake picks, on as
 # many workers as cores and memory allow, and print them as JSON lines; any
