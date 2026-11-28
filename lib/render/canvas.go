@@ -327,11 +327,7 @@ func (c *Canvas) blendMask(x0, y int, mask []uint8, col Color) {
 // channels together keeps the result premultiplied; it is the same
 // invariant the anti-aliasing coverage ramps apply, one level up.
 func modulate(col Color, scale uint32) Color {
-	scaled := func(ch uint8) uint32 { return (uint32(ch)*scale + 127) / 255 }
-	return Color(scaled(col.A())<<24 |
-		scaled(col.R())<<16 |
-		scaled(col.G())<<8 |
-		scaled(col.B()))
+	return gather(div255Lanes(col.spread()*uint64(scale) + lanesHalf))
 }
 
 // get returns the pixel value at (x, y). Callers must ensure the pixel

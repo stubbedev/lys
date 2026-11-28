@@ -298,17 +298,7 @@ func (c *Canvas) Composite(l *Layer, src Rect, m Affine, alpha float64) {
 		return
 	}
 	if dx, dy, ok := m.isTranslate(); ok {
-		for y := dst.Y; y < dst.Y+dst.H; y++ {
-			for x := dst.X; x < dst.X+dst.W; x++ {
-				sx, sy := x-dx, y-dy
-				if sx < src.X || sy < src.Y || sx >= src.X+src.W || sy >= src.Y+src.H {
-					continue
-				}
-				if col := l.cv.get(sx, sy); col != 0 {
-					c.blend(x, y, col)
-				}
-			}
-		}
+		c.overShifted(l.cv, dst.Intersect(Rect{X: src.X + dx, Y: src.Y + dy, W: src.W, H: src.H}), dx, dy, true)
 		return
 	}
 	mp, ok := MappedOf(Affine3(m))
@@ -327,16 +317,31 @@ func (l *Layer) CrossFade(other *Layer, region Rect, t float64) {
 		return
 	}
 	region = region.Intersect(l.cv.Rect()).Intersect(other.cv.Rect())
-	t = min(1, max(0, t))
-	w := uint32(math.Round(t * 255))
+	w := crossFadeWeight(t)
 	for y := region.Y; y < region.Y+region.H; y++ {
-		for x := region.X; x < region.X+region.W; x++ {
-			a, b := l.cv.get(x, y), other.cv.get(x, y)
-			if a == b {
-				continue
+		l.cv.touched += crossFadeRow(l.cv.row(region.X, y, region.W), other.cv.row(region.X, y, region.W), w)
+	}
+}
+
+// overShifted blends the pixels of src over c's device rect r, each
+// from src's pixel (dx, dy) back, through c's opacity, and through its
+// brightness when withBright. Callers keep r inside c, its clip and
+// src's shifted bounds.
+func (c *Canvas) overShifted(src *Canvas, r Rect, dx, dy int, withBright bool) {
+	if r.Empty() || c.alphaScale == 0 {
+		return
+	}
+	if withBright && !c.neutralBright() {
+		for y := r.Y; y < r.Y+r.H; y++ {
+			for x := r.X; x < r.X+r.W; x++ {
+				if col := src.get(x-dx, y-dy); col != 0 {
+					c.blend(x, y, col)
+				}
 			}
-			mix := func(ca, cb uint8) uint32 { return (uint32(ca)*(255-w) + uint32(cb)*w + 127) / 255 }
-			l.cv.set(x, y, Color(mix(a.A(), b.A())<<24|mix(a.R(), b.R())<<16|mix(a.G(), b.G())<<8|mix(a.B(), b.B())))
 		}
+		return
+	}
+	for y := r.Y; y < r.Y+r.H; y++ {
+		c.touched += overRow(c.row(r.X, y, r.W), src.row(r.X-dx, y-dy, r.W), c.alphaScale)
 	}
 }

@@ -1,5 +1,7 @@
 package render
 
+import "fmt"
+
 // The effect-pipeline layer operations: sampling what is already on
 // the canvas (a backdrop-filter's input), blending a layer back with
 // a mix-blend-mode, and compositing one through a projective map.
@@ -43,25 +45,68 @@ func (c *Canvas) DrawLayer(l *Layer, src Rect, mode BlendMode) {
 	if src.Empty() {
 		return
 	}
+	if mode == BlendNormal {
+		c.overShifted(l.cv, src, 0, 0, false)
+		return
+	}
+	if c.alphaScale == 0 {
+		return
+	}
 	for y := src.Y; y < src.Y+src.H; y++ {
 		for x := src.X; x < src.X+src.W; x++ {
 			col := l.cv.get(x, y)
 			if col == 0 {
 				continue
 			}
-			switch c.alphaScale {
-			case 0:
-				return
-			case 255:
-			default:
+			if c.alphaScale != 255 {
 				col = modulate(col, c.alphaScale)
-			}
-			if mode == BlendNormal {
-				c.set(x, y, col.over(c.get(x, y)))
-				continue
 			}
 			c.set(x, y, blendPixel(mode, col, c.get(x, y)))
 		}
+	}
+}
+
+// CompositeCrossFade draws from cross-faded into to by t over the device
+// region onto c: what Composite through Identity at full alpha draws of
+// a scratch layer holding from (DrawLayer) with to cross-faded into it
+// (CrossFade). A recording records just that; a raster canvas blends
+// the three in one pass, with no scratch layer. from and to are the
+// size of c.
+func (c *Canvas) CompositeCrossFade(from, to *Layer, region Rect, t float64) {
+	if c.rec != nil {
+		mix := c.ScratchLayer(region)
+		mix.Canvas().DrawLayer(from, region, BlendNormal)
+		mix.CrossFade(to, region, t)
+		c.Composite(mix, region, Identity, 1)
+		mix.Release()
+		return
+	}
+	for _, l := range [2]*Layer{from, to} {
+		if l.cv.w != c.w || l.cv.h != c.h {
+			panic(fmt.Sprintf("render: CompositeCrossFade of a %dx%d layer onto a %dx%d canvas", l.cv.w, l.cv.h, c.w, c.h))
+		}
+	}
+	r := region.Intersect(c.clip).Intersect(c.Rect())
+	if r.Empty() || c.alphaScale == 0 {
+		return
+	}
+	w := crossFadeWeight(t)
+	if !c.neutralBright() {
+		for y := r.Y; y < r.Y+r.H; y++ {
+			for x := r.X; x < r.X+r.W; x++ {
+				col := from.cv.get(x, y)
+				if b := to.cv.get(x, y); col != b {
+					col = mix(col, b, w)
+				}
+				if col != 0 {
+					c.blend(x, y, col)
+				}
+			}
+		}
+		return
+	}
+	for y := r.Y; y < r.Y+r.H; y++ {
+		c.touched += crossFadeOverRow(c.row(r.X, y, r.W), from.cv.row(r.X, y, r.W), to.cv.row(r.X, y, r.W), w, c.alphaScale)
 	}
 }
 

@@ -80,8 +80,7 @@ func (c Color) spread() uint64 { return (uint64(c) | uint64(c)<<24) & lanes }
 func gather(l uint64) Color { return Color(uint32((l | l>>24) & math.MaxUint32)) }
 
 func (src Color) overClamped(dst Color) Color {
-	l := dst.spread()*uint64(255-src.A()) + lanesHalf
-	l = (l+l>>8&lanes)>>8&lanes + src.spread()
+	l := div255Lanes(dst.spread()*uint64(255-src.A())+lanesHalf) + src.spread()
 	return gather((l | l>>8&lanesOne*0xff) & lanes)
 }
 

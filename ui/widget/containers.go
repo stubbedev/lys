@@ -337,11 +337,7 @@ func (s *Stack) Paint(cv *render.Canvas) {
 		cv.Composite(s.layers[1], dev, render.Translate(dir*(float64(dev.W)-off), 0), 1)
 		cv.PopClip(prev)
 	default:
-		mix := cv.ScratchLayer(dev)
-		mix.Canvas().DrawLayer(s.layers[0], dev, render.BlendNormal)
-		mix.CrossFade(s.layers[1], dev, s.progress)
-		cv.Composite(mix, dev, render.Identity, 1)
-		mix.Release()
+		cv.CompositeCrossFade(s.layers[0], s.layers[1], dev, s.progress)
 	}
 }
 
