@@ -1,9 +1,11 @@
 // Package fswatch turns inotify events into coalesced change ticks (the
 // mail service's recursive maildir watch, the brightness sysfs watch).
 // Most consumers only need "something under here changed": each
-// burst is one tick. A named watcher (NewNamed) also keeps the names
-// that changed, coalesced per name, for a consumer that applies each
-// change instead of reading everything again.
+// burst is one tick. Every watcher also keeps the watched directories
+// that changed, so a consumer watching many reads again only those; a
+// named watcher (NewNamed) keeps the names that changed too, coalesced
+// per name, for a consumer that applies each change instead of reading
+// a directory again.
 //
 // The reader blocks in poll(2) on the inotify fd and an eventfd, so an
 // idle watcher costs nothing and Close wakes it without a timeout.
@@ -39,11 +41,17 @@ type Watcher struct {
 	mu     sync.Mutex
 	dirs   map[int]string
 	closed bool
-	// named keeps pending, the events since the last Take, one per name
-	// at index[name]; rescan replaces them when names were lost.
+	// changed are the directories that changed since the last Take,
+	// each once, seen[dir] set for each; overflow replaces them when
+	// the kernel lost events.
+	changed  []string
+	seen     map[string]bool
+	overflow bool
+	// named keeps pending, the events since the last Take, one per
+	// name at index[name]; rescan replaces them when names were lost.
 	named   bool
 	pending []Event
-	index   map[string]int
+	index   map[place]int
 	rescan  bool
 
 	ticks chan struct{}
@@ -57,16 +65,29 @@ const maxPending = 4096
 // Event is one name in a watched directory and every event it saw
 // since the last Take.
 type Event struct {
+	// Dir is the watched directory the name is in, as Add (or the
+	// recursive walk below it) named it.
+	Dir  string
 	Name string
 	Mask uint32
 }
 
-// Batch is what changed since the last Take: each name once, in the
-// order it first changed. Rescan reports that names were lost (the
-// kernel queue overflowed, or more names changed than a batch holds) or
-// the watched directory itself was deleted or moved, so only reading it
-// again is right; Events is then empty.
+// place is a name in a watched directory.
+type place struct{ dir, name string }
+
+// Batch is what changed since the last Take. Dirs are the watched
+// directories that saw a change, each once, in the order they first
+// did; a directory itself deleted or moved is among them. Events, kept
+// only by a named watcher, are each name once, in the order it first
+// changed.
+//
+// Rescan reports that the batch does not hold everything that changed,
+// so only reading again is right: the kernel queue overflowed (Dirs and
+// Events are then empty), or a named watcher lost names, because more
+// changed than a batch holds or a watched directory itself was deleted
+// or moved (Events is then empty).
 type Batch struct {
+	Dirs   []string
 	Events []Event
 	Rescan bool
 }
@@ -109,7 +130,8 @@ func start(mask uint32, recursive, named bool) (*Watcher, error) {
 		mask:      mask,
 		recursive: recursive,
 		named:     named,
-		index:     map[string]int{},
+		seen:      map[string]bool{},
+		index:     map[place]int{},
 		dirs:      map[int]string{},
 		ticks:     make(chan struct{}, 1),
 		done:      make(chan struct{}),
@@ -126,7 +148,9 @@ func (w *Watcher) Changed() <-chan struct{} { return w.ticks }
 func (w *Watcher) Take() Batch {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	b := Batch{Events: w.pending, Rescan: w.rescan}
+	b := Batch{Dirs: w.changed, Events: w.pending, Rescan: w.rescan || w.overflow}
+	w.changed, w.overflow = nil, false
+	clear(w.seen)
 	w.pending, w.rescan = nil, false
 	clear(w.index)
 	return b
@@ -239,15 +263,35 @@ func (w *Watcher) loop(fds []unix.PollFd) {
 // going: events that cannot be applied name by name.
 const lost = unix.IN_Q_OVERFLOW | unix.IN_DELETE_SELF | unix.IN_MOVE_SELF
 
-// note keeps a named watcher's event: merged into its name's, or a
-// rescan for one that lost names.
-func (w *Watcher) note(name string, mask uint32) {
+// note keeps an event in the watched directory wd: its directory, and
+// for a named watcher its name, merged into the name's or a rescan for
+// one that lost names. An overflow loses everything.
+func (w *Watcher) note(wd int, name string, mask uint32) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.rescan || (name == "" && mask&lost == 0) {
+	if w.overflow {
 		return
 	}
-	if i, ok := w.index[name]; ok && mask&lost == 0 {
+	if mask&unix.IN_Q_OVERFLOW != 0 {
+		w.changed, w.overflow = nil, true
+		clear(w.seen)
+		w.pending, w.rescan = nil, true
+		clear(w.index)
+		return
+	}
+	dir, ok := w.dirs[wd]
+	if !ok {
+		return
+	}
+	if !w.seen[dir] {
+		w.seen[dir] = true
+		w.changed = append(w.changed, dir)
+	}
+	if !w.named || w.rescan || (name == "" && mask&lost == 0) {
+		return
+	}
+	at := place{dir, name}
+	if i, ok := w.index[at]; ok && mask&lost == 0 {
 		w.pending[i].Mask |= mask
 		return
 	}
@@ -256,8 +300,8 @@ func (w *Watcher) note(name string, mask uint32) {
 		clear(w.index)
 		return
 	}
-	w.index[name] = len(w.pending)
-	w.pending = append(w.pending, Event{Name: name, Mask: mask})
+	w.index[at] = len(w.pending)
+	w.pending = append(w.pending, Event{Dir: dir, Name: name, Mask: mask})
 }
 
 // handle parses one read's worth of events, adding watches for new
@@ -278,11 +322,6 @@ func (w *Watcher) handle(buf []byte) bool {
 		name := cString(buf[nameStart:nameEnd])
 		off = nameEnd
 
-		if mask&unix.IN_IGNORED != 0 {
-			w.mu.Lock()
-			delete(w.dirs, wd)
-			w.mu.Unlock()
-		}
 		if w.recursive && mask&unix.IN_ISDIR != 0 && mask&(unix.IN_CREATE|unix.IN_MOVED_TO) != 0 {
 			w.mu.Lock()
 			parent, ok := w.dirs[wd]
@@ -291,12 +330,14 @@ func (w *Watcher) handle(buf []byte) bool {
 				_ = w.Add(filepath.Join(parent, name))
 			}
 		}
-		if mask&(w.mask|unix.IN_Q_OVERFLOW) == 0 {
-			continue
+		if mask&(w.mask|unix.IN_Q_OVERFLOW) != 0 {
+			changed = true
+			w.note(wd, name, mask&(w.mask|lost))
 		}
-		changed = true
-		if w.named {
-			w.note(name, mask&(w.mask|lost))
+		if mask&unix.IN_IGNORED != 0 {
+			w.mu.Lock()
+			delete(w.dirs, wd)
+			w.mu.Unlock()
 		}
 	}
 	return changed

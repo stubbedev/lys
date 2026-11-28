@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
@@ -214,6 +216,87 @@ func TestAnIndexFollowsTheRecentFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	waittest.Until(t, func() bool { return slices.Equal(ix.Snapshot().Recent, []string{root + "/one.txt"}) }, "the deleted recent file to leave")
+}
+
+// looks counts the directories an index looks at again.
+type looks struct {
+	mu   sync.Mutex
+	dirs []string
+}
+
+func (r *looks) saw(dir string) {
+	r.mu.Lock()
+	r.dirs = append(r.dirs, dir)
+	r.mu.Unlock()
+}
+
+func (r *looks) disk() disk {
+	return disk{
+		list:  func(dir string) (Listing, error) { r.saw(dir); return Rules{}.List(dir) },
+		mtime: func(dir string) (int64, error) { r.saw(dir); return dirMtime(dir) },
+	}
+}
+
+func (r *looks) take() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := r.dirs
+	r.dirs = nil
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+func TestAnIndexLooksAgainOnlyAtTheDirectoriesThatChanged(t *testing.T) {
+	root := t.TempDir()
+	for i := range 20 {
+		touch(t, root, fmt.Sprintf("d%02d/f.txt", i))
+	}
+	counted := &looks{}
+	ix, err := open(Config{Roots: []string{root}}, counted.disk())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(ix.Close)
+	waittest.Until(t, func() bool { return ix.Snapshot().Ready }, "the first walk")
+	if got := counted.take(); len(got) != 0 {
+		t.Fatalf("the first walk looked again at %v", got)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "d01/f.txt"), []byte("edited"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	touch(t, root, "d07/new.txt")
+	waittest.Until(t, func() bool { return holds(ix, root+"/d07/new.txt") }, "the created file")
+	if got, want := counted.take(), []string{root + "/d07"}; !slices.Equal(got, want) {
+		t.Errorf("a file created looked again at %v, want only %v; an edit at nothing", got, want)
+	}
+
+	if err := os.RemoveAll(filepath.Join(root, "d03")); err != nil {
+		t.Fatal(err)
+	}
+	waittest.Until(t, func() bool { return !holds(ix, root+"/d03") }, "the deleted directory to leave")
+	for _, d := range counted.take() {
+		if d != root && d != root+"/d03" {
+			t.Errorf("deleting d03 looked again at %s", d)
+		}
+	}
+	if got := len(ix.Snapshot().Files); got != 39 {
+		t.Errorf("after the changes the index holds %d entries, want 39", got)
+	}
+}
+
+func TestARescanSweepsWhatNoDirectoryNamed(t *testing.T) {
+	root := t.TempDir()
+	touch(t, root, "a/old.txt")
+	tr := &tree{cfg: Config{Roots: []string{root}, Max: DefaultMax}, dirs: map[string]*node{}, watch: func(string) error { return nil }, disk: disk{list: Rules{}.List, mtime: dirMtime}}
+	tr.update(context.Background(), fswatch.Batch{})
+	touch(t, root, "a/new.txt")
+	if tr.update(context.Background(), fswatch.Batch{Dirs: []string{root}}) || slices.Contains(paths(tr.snapshot()), root+"/a/new.txt") {
+		t.Error("a batch naming only the root read its unchanged subdirectory again")
+	}
+	if !tr.update(context.Background(), fswatch.Batch{Rescan: true}) || !slices.Contains(paths(tr.snapshot()), root+"/a/new.txt") {
+		t.Errorf("a rescan missed the new file: %v", paths(tr.snapshot()))
+	}
 }
 
 func TestOpenRefusesNoRoots(t *testing.T) {

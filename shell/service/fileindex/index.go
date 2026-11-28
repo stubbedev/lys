@@ -80,6 +80,28 @@ type Index struct {
 // Open starts an index: the walk runs behind it, and Snapshot is empty
 // and not Ready until it has.
 func Open(cfg Config) (*Index, error) {
+	return open(cfg, disk{list: cfg.Rules.List, mtime: dirMtime})
+}
+
+// disk is how an index looks again at a directory it holds.
+type disk struct {
+	list  func(string) (Listing, error)
+	mtime func(string) (int64, error)
+}
+
+func dirMtime(p string) (int64, error) {
+	var st unix.Stat_t
+	if err := unix.Stat(p, &st); err != nil {
+		return 0, fmt.Errorf("stat %s: %w", p, err)
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFDIR {
+		return 0, fmt.Errorf("%s is no longer a directory", p)
+	}
+	return st.Mtim.Nano(), nil
+}
+
+// open is Open looking again at the directories it holds through d.
+func open(cfg Config, d disk) (*Index, error) {
 	if len(cfg.Roots) == 0 {
 		return nil, errors.New("fileindex: no roots to index")
 	}
@@ -93,7 +115,7 @@ func Open(cfg Config) (*Index, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ix := &Index{watcher: w, cancel: cancel, done: make(chan struct{})}
 	ix.snap.Store(&Snapshot{})
-	t := &tree{cfg: cfg, dirs: map[string]*node{}, watch: w.Add}
+	t := &tree{cfg: cfg, dirs: map[string]*node{}, watch: w.Add, disk: d}
 	go ix.run(ctx, t)
 	return ix, nil
 }
@@ -112,7 +134,7 @@ func (ix *Index) Close() {
 
 func (ix *Index) run(ctx context.Context, t *tree) {
 	defer close(ix.done)
-	t.refresh(ctx)
+	t.update(ctx, fswatch.Batch{})
 	if ctx.Err() != nil {
 		return
 	}
@@ -135,7 +157,7 @@ func (ix *Index) run(ctx context.Context, t *tree) {
 			}
 		case <-timer.C:
 			pending = false
-			if t.refresh(ctx) {
+			if t.update(ctx, ix.watcher.Take()) {
 				ix.snap.Store(t.snapshot())
 			}
 		}
@@ -156,6 +178,7 @@ type tree struct {
 	dirs  map[string]*node
 	count int
 	watch func(string) error
+	disk  disk
 	// watchFailed has logged that a directory could not be watched.
 	watchFailed bool
 	loggedFull  bool
@@ -163,18 +186,32 @@ type tree struct {
 	recent      []string
 }
 
-// refresh brings the tree up to the disk: roots not indexed yet are
+// update applies what the watch saw: roots not indexed yet are walked,
+// the directories it names listed again, or with a rescan every one
+// whose modification time moved. It reports whether anything changed.
+func (t *tree) update(ctx context.Context, b fswatch.Batch) bool {
+	if b.Rescan {
+		return t.sweep(ctx)
+	}
+	changed := t.walkMissingRoots(ctx)
+	for _, p := range b.Dirs {
+		if ctx.Err() != nil {
+			return changed
+		}
+		if n, ok := t.dirs[p]; ok {
+			changed = t.relist(ctx, p, n) || changed
+		}
+	}
+	return t.refreshRecent(changed) || changed
+}
+
+// sweep brings the whole tree up to the disk: roots not indexed yet are
 // walked, directories whose modification time moved are listed again
 // and what they gained or lost applied, and the recent files read again
 // when their list or any directory changed, since a recent file deleted
 // leaves them. It reports whether anything did.
-func (t *tree) refresh(ctx context.Context) bool {
-	changed := false
-	for _, r := range t.cfg.Roots {
-		if _, ok := t.dirs[r]; !ok {
-			changed = t.walkFrom(ctx, []start{{path: r}}) || changed
-		}
-	}
+func (t *tree) sweep(ctx context.Context) bool {
+	changed := t.walkMissingRoots(ctx)
 	paths := make([]string, 0, len(t.dirs))
 	for p := range t.dirs {
 		paths = append(paths, p)
@@ -188,18 +225,28 @@ func (t *tree) refresh(ctx context.Context) bool {
 		if !ok {
 			continue
 		}
-		var st unix.Stat_t
-		if err := unix.Stat(p, &st); err != nil || st.Mode&unix.S_IFMT != unix.S_IFDIR {
+		mtime, err := t.disk.mtime(p)
+		if err != nil {
 			t.drop(p)
 			changed = true
 			continue
 		}
-		if st.Mtim.Nano() == n.mtime {
+		if mtime == n.mtime {
 			continue
 		}
 		changed = t.relist(ctx, p, n) || changed
 	}
 	return t.refreshRecent(changed) || changed
+}
+
+func (t *tree) walkMissingRoots(ctx context.Context) bool {
+	changed := false
+	for _, r := range t.cfg.Roots {
+		if _, ok := t.dirs[r]; !ok {
+			changed = t.walkFrom(ctx, []start{{path: r}}) || changed
+		}
+	}
+	return changed
 }
 
 func (t *tree) refreshRecent(force bool) bool {
@@ -251,7 +298,7 @@ func (t *tree) walkFrom(ctx context.Context, starts []start) bool {
 
 // relist reads p again and applies the difference to the tree.
 func (t *tree) relist(ctx context.Context, p string, n *node) bool {
-	l, err := t.cfg.Rules.List(p)
+	l, err := t.disk.list(p)
 	if err != nil {
 		t.drop(p)
 		return true

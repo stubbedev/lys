@@ -2,8 +2,10 @@ package fswatch
 
 import (
 	"encoding/binary"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -228,32 +230,51 @@ func TestNamedWatchNamesDeletesAndRenames(t *testing.T) {
 func TestNamedWatchRescansWhenNamesAreLost(t *testing.T) {
 	root := t.TempDir()
 	w := newNamed(t, root)
-	overflow := make([]byte, unix.SizeofInotifyEvent)
-	binary.NativeEndian.PutUint32(overflow[0:], ^uint32(0))
-	binary.NativeEndian.PutUint32(overflow[4:], unix.IN_Q_OVERFLOW)
-	w.note("before", unix.IN_CREATE)
-	if !w.handle(overflow) {
+	wd := watchOf(t, w, root)
+	w.note(wd, "before", unix.IN_CREATE)
+	if !w.handle(overflowEvent()) {
 		t.Fatal("an overflow did not count as a change")
 	}
-	w.note("after", unix.IN_CREATE)
-	if b := w.Take(); !b.Rescan || len(b.Events) != 0 {
+	w.note(wd, "after", unix.IN_CREATE)
+	if b := w.Take(); !b.Rescan || len(b.Events) != 0 || len(b.Dirs) != 0 {
 		t.Errorf("after an overflow Take = %+v, want a rescan alone", b)
 	}
-	if b := w.Take(); b.Rescan || len(b.Events) != 0 {
+	if b := w.Take(); b.Rescan || len(b.Events) != 0 || len(b.Dirs) != 0 {
 		t.Errorf("a second Take = %+v, want nothing", b)
 	}
 	for i := range maxPending + 1 {
-		w.note(strconv.Itoa(i), unix.IN_CREATE)
+		w.note(wd, strconv.Itoa(i), unix.IN_CREATE)
 	}
-	if b := w.Take(); !b.Rescan {
-		t.Errorf("%d names gave %d events and no rescan", maxPending+1, len(b.Events))
+	if b := w.Take(); !b.Rescan || !slices.Equal(b.Dirs, []string{root}) {
+		t.Errorf("%d names gave %d events, dirs %v; want a rescan of %s", maxPending+1, len(b.Events), b.Dirs, root)
 	}
 	for range maxPending + 1 {
-		w.note("same", unix.IN_MODIFY)
+		w.note(wd, "same", unix.IN_MODIFY)
 	}
 	if b := w.Take(); b.Rescan || len(b.Events) != 1 {
 		t.Errorf("one name noted %d times gave %+v", maxPending+1, b)
 	}
+}
+
+func overflowEvent() []byte {
+	overflow := make([]byte, unix.SizeofInotifyEvent)
+	binary.NativeEndian.PutUint32(overflow[0:], ^uint32(0))
+	binary.NativeEndian.PutUint32(overflow[4:], unix.IN_Q_OVERFLOW)
+	return overflow
+}
+
+// watchOf is the watch descriptor w holds for dir.
+func watchOf(t *testing.T, w *Watcher, dir string) int {
+	t.Helper()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for wd, d := range w.dirs {
+		if d == dir {
+			return wd
+		}
+	}
+	t.Fatalf("no watch on %s", dir)
+	return 0
 }
 
 func TestNamedWatchRescansWhenTheDirectoryGoes(t *testing.T) {
@@ -266,7 +287,152 @@ func TestNamedWatchRescansWhenTheDirectoryGoes(t *testing.T) {
 	if err := os.Rename(root, filepath.Join(parent, "moved")); err != nil {
 		t.Fatal(err)
 	}
-	takeUntil(t, w, func(_ []Event, rescan bool) bool { return rescan })
+	waittest.For(t, w.Changed(), "the move")
+	if b := w.Take(); !b.Rescan || len(b.Events) != 0 || !slices.Equal(b.Dirs, []string{root}) {
+		t.Errorf("the moved directory gave %+v, want a rescan of %s", b, root)
+	}
+}
+
+// takeDirsUntil takes batches until done holds for the directories
+// taken, failing on a rescan.
+func takeDirsUntil(t *testing.T, w *Watcher, done func([]string) bool) []string {
+	t.Helper()
+	var dirs []string
+	for !done(dirs) {
+		waittest.For(t, w.Changed(), "another batch of events")
+		b := w.Take()
+		if b.Rescan {
+			t.Fatalf("a rescan: %+v", b)
+		}
+		for _, d := range b.Dirs {
+			if !slices.Contains(dirs, d) {
+				dirs = append(dirs, d)
+			}
+		}
+	}
+	return dirs
+}
+
+func mkdirs(t *testing.T, dirs ...string) {
+	t.Helper()
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestEventsNameTheDirectoryTheyHappenedIn(t *testing.T) {
+	root := t.TempDir()
+	a, b, quiet := filepath.Join(root, "a"), filepath.Join(root, "b"), filepath.Join(root, "quiet")
+	mkdirs(t, a, b, quiet)
+	write(t, filepath.Join(a, "moving"), "x")
+	write(t, filepath.Join(b, "doomed"), "x")
+	w, err := NewNamed(Changes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	for _, d := range []string{a, b, quiet} {
+		if err := w.Add(d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(t, filepath.Join(a, "created"), "x")
+	if err := os.Remove(filepath.Join(b, "doomed")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(a, "moving"), filepath.Join(b, "moved")); err != nil {
+		t.Fatal(err)
+	}
+	want := map[Event]bool{
+		{Dir: a, Name: "created", Mask: unix.IN_CREATE}:    false,
+		{Dir: b, Name: "doomed", Mask: unix.IN_DELETE}:     false,
+		{Dir: a, Name: "moving", Mask: unix.IN_MOVED_FROM}: false,
+		{Dir: b, Name: "moved", Mask: unix.IN_MOVED_TO}:    false,
+	}
+	var dirs []string
+	events, rescan := takeUntil(t, w, func(e []Event, _ bool) bool {
+		for _, ev := range e {
+			for k := range want {
+				if ev.Dir == k.Dir && ev.Name == k.Name && ev.Mask&k.Mask != 0 {
+					want[k] = true
+				}
+			}
+			if !slices.Contains(dirs, ev.Dir) {
+				dirs = append(dirs, ev.Dir)
+			}
+		}
+		return !slices.Contains(slices.Collect(maps.Values(want)), false)
+	})
+	if rescan {
+		t.Errorf("a create, delete and move asked for a rescan: %+v", events)
+	}
+	for _, ev := range events {
+		if ev.Dir == quiet || (ev.Dir == a && ev.Name == "moved") || (ev.Dir == b && ev.Name == "moving") {
+			t.Errorf("%+v names the wrong directory", ev)
+		}
+	}
+	slices.Sort(dirs)
+	if !slices.Equal(dirs, []string{a, b}) {
+		t.Errorf("events named directories %v, want %s and %s", dirs, a, b)
+	}
+}
+
+func TestATickWatcherNamesTheDirectoriesThatChanged(t *testing.T) {
+	root := t.TempDir()
+	a, b, quiet, gone := filepath.Join(root, "a"), filepath.Join(root, "b"), filepath.Join(root, "quiet"), filepath.Join(root, "gone")
+	below := filepath.Join(quiet, "below")
+	mkdirs(t, a, b, below, gone)
+	write(t, filepath.Join(a, "moving"), "x")
+	w, err := New(unix.IN_CREATE|unix.IN_DELETE|unix.IN_MOVED_FROM|unix.IN_MOVED_TO|unix.IN_DELETE_SELF|unix.IN_MOVE_SELF, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = w.Close() })
+	for _, d := range []string{a, b, quiet, gone} {
+		if err := w.Add(d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(t, filepath.Join(below, "unwatched"), "x")
+	if err := os.Rename(filepath.Join(a, "moving"), filepath.Join(b, "moved")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(gone); err != nil {
+		t.Fatal(err)
+	}
+	dirs := takeDirsUntil(t, w, func(d []string) bool { return len(d) >= 3 })
+	if b := w.Take(); len(b.Dirs) != 0 || len(b.Events) != 0 {
+		t.Errorf("a tick watcher kept %+v", b)
+	}
+	slices.Sort(dirs)
+	if !slices.Equal(dirs, []string{a, b, gone}) {
+		t.Errorf("changed directories = %v, want %s, %s and the deleted %s; never the quiet %s", dirs, a, b, gone, quiet)
+	}
+	if !w.handle(overflowEvent()) {
+		t.Fatal("an overflow did not count as a change")
+	}
+	if b := w.Take(); !b.Rescan || len(b.Dirs) != 0 {
+		t.Errorf("after an overflow Take = %+v, want a rescan and no directories", b)
+	}
+}
+
+func TestARecursiveWatchNamesTheNestedDirectory(t *testing.T) {
+	root := t.TempDir()
+	w := newWatcher(t, Changes, true, root)
+	later := filepath.Join(root, "later")
+	mkdirs(t, later)
+	takeDirsUntil(t, w, func(d []string) bool { return slices.Contains(d, root) })
+	waittest.Until(t, func() bool {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		return slices.Contains(slices.Collect(maps.Values(w.dirs)), later)
+	}, "the new directory to be watched")
+	write(t, filepath.Join(later, "inner"), "x")
+	if dirs := takeDirsUntil(t, w, func(d []string) bool { return len(d) > 0 }); !slices.Equal(dirs, []string{later}) {
+		t.Errorf("a file in a nested directory named %v, want %s", dirs, later)
+	}
 }
 
 func TestTickWatcherKeepsNoNames(t *testing.T) {
@@ -274,7 +440,7 @@ func TestTickWatcherKeepsNoNames(t *testing.T) {
 	w := newWatcher(t, Changes, false, root)
 	write(t, filepath.Join(root, "x"), "1")
 	expectTick(t, w, "create")
-	if b := w.Take(); b.Rescan || len(b.Events) != 0 {
-		t.Errorf("a tick watcher kept %+v", b)
+	if b := w.Take(); b.Rescan || len(b.Events) != 0 || !slices.Equal(b.Dirs, []string{root}) {
+		t.Errorf("a tick watcher kept %+v, want only its directory", b)
 	}
 }
