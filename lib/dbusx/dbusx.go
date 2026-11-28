@@ -39,8 +39,8 @@ var ErrNameTaken = errors.New("name already owned")
 // path's interfaces. PropertiesInterface is also where an object
 // announces its changed properties (PropertiesChanged).
 const (
-	PropertiesInterface = "org.freedesktop.DBus.Properties"
-	introspectableIface = "org.freedesktop.DBus.Introspectable"
+	PropertiesInterface     = "org.freedesktop.DBus.Properties"
+	IntrospectableInterface = "org.freedesktop.DBus.Introspectable"
 )
 
 // Unowned reports a call that failed because nobody owns the name it
@@ -195,7 +195,7 @@ func objectsAt(path dbus.ObjectPath, ifaces []Interface) ([]exported, error) {
 	}}
 	objects := make([]exported, 0, len(ifaces)+2)
 	for _, iface := range ifaces {
-		if iface.Name == PropertiesInterface || iface.Name == introspectableIface {
+		if iface.Name == PropertiesInterface || iface.Name == IntrospectableInterface {
 			return nil, fmt.Errorf("export %s at %s: Export serves that interface itself", iface.Name, path)
 		}
 		if _, dup := props.ifaces[iface.Name]; dup {
@@ -222,7 +222,7 @@ func objectsAt(path dbus.ObjectPath, ifaces []Interface) ([]exported, error) {
 	}
 	return append(objects,
 		exported{iface: PropertiesInterface, methods: props},
-		exported{iface: introspectableIface, methods: lazyIntrospectable{node: node, ifaces: ifaces}},
+		exported{iface: IntrospectableInterface, methods: lazyIntrospectable{node: node, ifaces: ifaces}},
 	), nil
 }
 
