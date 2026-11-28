@@ -994,8 +994,8 @@ func TestHiddenColumnsPaintNothing(t *testing.T) {
 }
 
 // Every column header sits over its values: the same span, the same
-// text alignment, the numbers flush right and the text flush left, and
-// the name header starts where the row's icon does.
+// text alignment, the sizes flush right and the dates and text flush
+// left, and the name header starts where the row's icon does.
 func TestColumnHeadersSitOverTheirValues(t *testing.T) {
 	hs := newHarness(t, "")
 	hs.open(t, openFile)
@@ -1021,8 +1021,14 @@ func TestColumnHeadersSitOverTheirValues(t *testing.T) {
 		if a := hs.c.ui.sortLabels[SortSize].Alignment(); a != render.AlignEnd {
 			t.Errorf("size header aligns %v, want flush right over the numbers", a)
 		}
-		if a := hs.c.ui.sortLabels[SortKind].Alignment(); a != render.AlignStart {
-			t.Errorf("kind header aligns %v, want flush left over the text", a)
+		for _, col := range []SortColumn{SortModified, SortKind} {
+			if a := hs.c.ui.sortLabels[col].Alignment(); a != render.AlignStart {
+				t.Errorf("column %d header aligns %v, want flush left over the text", col, a)
+			}
+		}
+		size, date := cells[0].(widget.Boundser).Bounds(), cells[1].(widget.Boundser).Bounds()
+		if gap, want := date.X-(size.X+size.W), 2*widget.Current().Spacing; gap < want {
+			t.Errorf("the date starts %dpx after the size flush right, want at least %d", gap, want)
 		}
 	})
 }

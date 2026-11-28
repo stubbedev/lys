@@ -66,7 +66,7 @@ const (
 // defaultColumns are the size, modified and kind columns' widths
 // until the user drags them: the kind names a type in words, the
 // modification time reads as a day or a short date.
-var defaultColumns = [3]int{90, 110, 150}
+var defaultColumns = [3]int{80, 110, 140}
 
 // The mouse's thumb buttons, which walk the history.
 const (
@@ -1137,7 +1137,7 @@ func (c *Browser) views(u *ui) widget.Widget {
 		grips[i], cols[i] = c.columnGrip(i), c.sortButton(u, intconv.Clamp[SortColumn](i+1))
 	}
 	u.columns = cols
-	u.colRow = newColumnRow(lead, cols, grips, c.columns, th.Spacing)
+	u.colRow = newColumnRow(lead, cols, grips, c.columns, columnGap())
 	u.colHeader = rowBox("file-chooser-colheader", viewsInset()+th.Padding)
 	u.colHeader.Append(u.colRow, true)
 
@@ -1225,6 +1225,11 @@ func (c *Browser) openContextMenu(from widget.Widget, at widget.Point) {
 	widget.OpenMenu(from, pointAnchor{X: at.X, Y: at.Y, W: 1, H: 1}, c.d.Font, widgets.TextPx(styling.Body, 1), items, widget.MenuOptions{})
 }
 
+// columnGap is the gap between the list's columns, header and rows
+// alike: twice the theme's spacing, so a size flush right stays clear
+// of the date flush left after it.
+func columnGap() int { return 2 * widget.Current().Spacing }
+
 // viewsInset is the list's and the grid's inset from the sidebar, the
 // separators and the panel's edge: half the theme's padding.
 func viewsInset() int { return widget.Current().Padding / 2 }
@@ -1249,10 +1254,11 @@ func rowBox(class string, pad int) *widget.Box {
 	return b
 }
 
-// cellAlignment aligns a column's header and cells: the numbers (size
-// and modified) to the end, the text to the start.
+// cellAlignment aligns a column's header and cells as Finder does: the
+// sizes to the end, so their units line up, and the dates and the text
+// to the start, which keeps a date clear of the kind beside it.
 func cellAlignment(col SortColumn) render.Alignment {
-	if col == SortSize || col == SortModified {
+	if col == SortSize {
 		return render.AlignEnd
 	}
 	return render.AlignStart
@@ -1337,7 +1343,7 @@ func (c *Browser) fileRow(e Entry) widget.Widget {
 		c.countItems(e, func(n int) { labels[0].SetText(itemsText(n)) })
 	}
 	row := rowBox("file-chooser-row", th.Padding)
-	row.Append(newColumnRow(lead, cells, [3]widget.Widget{}, c.columns, th.Spacing), true)
+	row.Append(newColumnRow(lead, cells, [3]widget.Widget{}, c.columns, columnGap()), true)
 	return row
 }
 
