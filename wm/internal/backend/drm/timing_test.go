@@ -34,12 +34,12 @@ func TestACursorOnlyCommitLeadsTheVblankByThePlaneLead(t *testing.T) {
 		t.Fatalf("half a refresh before the vblank a cursor move committed %+v and waits %v, want it held until the plane lead", r.dev.commits, o.planesWait())
 	}
 	r.at(vblank - backend.PlaneLead)
-	r.until("the cursor move at the plane lead", func() bool { return o.flipping })
+	r.until("the cursor move at the plane lead", func() bool { return o.inFlight() })
 	if _, at, _ := cursorAt(r.dev.commits[len(r.dev.commits)-1]); at != image.Pt(16, 24) {
 		t.Fatalf("the move committed the cursor at %v", at)
 	}
 	r.dev.flip(t, 10, 9)
-	r.until("the move's flip", func() bool { return !o.flipping })
+	r.until("the move's flip", func() bool { return !o.inFlight() })
 	r.dev.commits = nil
 	if err := cp.MoveCursor(image.Pt(40, 50)); err != nil {
 		t.Fatal(err)
@@ -82,7 +82,7 @@ func TestAPlaneLatchFiringPastItsVblankCommitsInThatRefresh(t *testing.T) {
 		}
 		r.at(vblank + interval)
 		r.dev.flip(t, 10, uint32(len(r.dev.commits)+1))
-		r.until("the late latch's flip", func() bool { return !o.flipping })
+		r.until("the late latch's flip", func() bool { return !o.inFlight() })
 	}
 	if slipped != 0 || len(r.dev.commits) != refreshes {
 		t.Fatalf("%d plane latches firing 1 ms past their vblank slipped %d refreshes and issued %d atomic requests, want none slipped and one each", refreshes, slipped, len(r.dev.commits))
@@ -113,10 +113,41 @@ func TestAFrameCommitCarriesTheCursorAsOfThePlaneLead(t *testing.T) {
 		t.Fatalf("a cursor move during a recorded frame committed alone: %+v", r.dev.commits)
 	}
 	r.at(vblank - backend.PlaneLead)
-	r.until("the frame's commit at the plane lead", func() bool { return o.flipping && o.late == nil })
+	r.until("the frame's commit at the plane lead", func() bool { return o.inFlight() && o.late == nil })
 	frame := r.dev.commits[len(r.dev.commits)-1]
 	if _, at, _ := cursorAt(frame); frame.values[[2]uint32{40, propFB}] == 0 || frame.values[[2]uint32{40, propInFence}] != uint64(r.alloc.fences[len(r.alloc.fences)-1]) || at != image.Pt(16, 24) {
 		t.Fatalf("the frame committed %+v, want its buffer, its fence and the cursor at (16,24)", frame)
+	}
+}
+
+func TestAPowerOffWhileAFrameWaitsForThePlaneLeadPowersOffAtOnce(t *testing.T) {
+	r := start(t)
+	o := r.flipFirstFrame()
+	interval := modeOf(o.mode).Interval()
+	r.at(o.lastFlip + interval - backend.PlaneLead)
+	r.cursorCommit("the cursor's first commit", o, func() error { return r.setCursor(o, image.Pt(4, 6)) })
+	vblank := o.lastFlip + interval
+	r.at(vblank - interval/2)
+	if err := o.ScheduleFrame(); err != nil {
+		t.Fatal(err)
+	}
+	r.until("the frame to be recorded", func() bool { return o.late != nil })
+	if why := r.b.Flipping(); why != "output DP-1 holds a frame until its cursor latches" {
+		t.Fatalf("Flipping() = %q while the frame waits for the plane lead", why)
+	}
+	r.dev.commits = nil
+	state := o.State()
+	state.Power = backend.PoweredOff
+	if err := o.Commit(state); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.dev.commits) != 1 || r.dev.commits[0].values[[2]uint32{10, propActive}] != 0 || o.power != poweredOff {
+		t.Fatalf("a power off during the latch: powered off %v after commits %+v", o.power == poweredOff, r.dev.commits)
+	}
+	r.at(vblank - backend.PlaneLead)
+	r.until("the latch to drop the frame", func() bool { return o.late == nil })
+	if len(r.dev.commits) != 1 || o.inFlight() || len(r.reports) != 0 || r.b.Flipping() != "" {
+		t.Fatalf("the latch after the power off: commits %+v, in flight %v, reports %v", r.dev.commits, o.inFlight(), r.reports)
 	}
 }
 
@@ -127,7 +158,7 @@ func TestAFrameWithoutACursorCommitsAtOnce(t *testing.T) {
 	if err := o.ScheduleFrame(); err != nil {
 		t.Fatal(err)
 	}
-	r.until("the frame", func() bool { return o.flipping })
+	r.until("the frame", func() bool { return o.inFlight() })
 	if o.late != nil || len(r.dev.commits) == 0 {
 		t.Fatalf("a frame with no cursor on screen waited for the plane lead: %d commits", len(r.dev.commits))
 	}
@@ -172,7 +203,7 @@ func TestTheNextFrameStartsWhileOneFlipsWhenRendersOverrun(t *testing.T) {
 		t.Fatalf("%d frames started with one flipping and one waiting, want no third", r.frames())
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("the waiting frame's commit on the flip", func() bool { return o.flipping && o.late == nil })
+	r.until("the waiting frame's commit on the flip", func() bool { return o.inFlight() && o.late == nil })
 	second := r.dev.commits[len(r.dev.commits)-1]
 	if fb := second.values[[2]uint32{40, propFB}]; fb == 0 || fb == first || second.flags&kdrm.AtomicTestOnly != 0 {
 		t.Fatalf("the commit on the flip %+v, want the waiting frame's buffer", second)
@@ -182,7 +213,7 @@ func TestTheNextFrameStartsWhileOneFlipsWhenRendersOverrun(t *testing.T) {
 	}
 	r.until("the third frame drawn while the second flips", func() bool { return o.late != nil })
 	r.dev.flip(t, 10, 3)
-	r.until("the third frame's commit on the flip", func() bool { return o.flipping && o.late == nil })
+	r.until("the third frame's commit on the flip", func() bool { return o.inFlight() && o.late == nil })
 	if len(r.rec.presents) != 3 || r.rec.presents[2].Seq != 3 {
 		t.Fatalf("presents %+v, want a frame on each consecutive flip", r.rec.presents)
 	}
@@ -224,7 +255,7 @@ func TestAFlipAtSequenceZeroIsNotTimedInHardware(t *testing.T) {
 	}
 	r.committedSince("the first frame", o, 0)
 	r.dev.flip(t, 10, 0)
-	r.until("the first frame's flip", func() bool { return !o.flipping })
+	r.until("the first frame's flip", func() bool { return !o.inFlight() })
 	if p := r.rec.presents[len(r.rec.presents)-1]; p.Hardware {
 		t.Fatalf("a flip at sequence 0 presented %+v, want it not timed in hardware", p)
 	}
@@ -362,7 +393,7 @@ func TestAnIdleRefreshAfterAFlipWithoutASequenceHasNone(t *testing.T) {
 	}
 	r.committedSince("the first frame", o, 0)
 	r.dev.flip(t, 10, 0)
-	r.until("the first frame's flip", func() bool { return !o.flipping })
+	r.until("the first frame's flip", func() bool { return !o.inFlight() })
 	r.idleUntilTheCRTCDrifts(o)
 	if p := r.idlePresentation(o); p.Seq != 0 || p.Refresh != modeOf(o.mode).Interval() {
 		t.Fatalf("an idle refresh after a flip at sequence 0 presented %+v, want sequence 0 like the flip's and the refresh period", p)

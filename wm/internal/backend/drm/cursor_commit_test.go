@@ -195,7 +195,7 @@ func TestAScanoutTheKernelRefusesForTheCursorIsComposited(t *testing.T) {
 		t.Fatalf("Scanout = %t, %v", ok, err)
 	}
 	r.dev.flip(t, 10, uint32(len(r.dev.commits)))
-	r.until("the client buffer's flip", func() bool { return !o.flipping })
+	r.until("the client buffer's flip", func() bool { return !o.inFlight() })
 	r.dev.refuseCursorAt = func(image.Point) error { return unix.EINVAL }
 	if err := errors.Join(o.ScheduleFrame(), c.MoveCursor(image.Pt(30, 20))); err != nil {
 		t.Fatal(err)

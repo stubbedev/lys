@@ -23,7 +23,7 @@ func (r *rig) nextFrame(o *Output) commit {
 	r.committedSince("a frame", o, 0)
 	c := r.dev.commits[len(r.dev.commits)-1]
 	r.dev.flip(r.t, 10, 1)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	return c
 }
 

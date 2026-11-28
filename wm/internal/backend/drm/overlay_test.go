@@ -54,7 +54,7 @@ func TestAYUVOverlayCarriesItsColourEncodingAndRange(t *testing.T) {
 		t.Fatalf("the overlay flip set encoding %d and range %d (%v), want BT.709 limited", e, rng, ok)
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("the overlay's flip", func() bool { return !o.flipping })
+	r.until("the overlay's flip", func() bool { return !o.inFlight() })
 	r.b.driver = nvidiaDriver
 	auto := nv12(10, gpu.YUVEncoding{})
 	if !testOverlay(o, &fakeBuffer{auto}, auto, dst) {

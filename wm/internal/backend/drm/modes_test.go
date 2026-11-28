@@ -114,11 +114,11 @@ func TestAModesetRefusedAloneIsRetriedWithEveryLitOutputRestated(t *testing.T) {
 	}
 	r.dev.flip(t, 11, 1)
 	r.settle()
-	if !second.flipping || len(r.rec.presents) != 1 {
-		t.Fatalf("the first of the restated commit's two flip events ended DP-2's flip: flipping %v, presents %+v", second.flipping, r.rec.presents)
+	if !second.inFlight() || len(r.rec.presents) != 1 {
+		t.Fatalf("the first of the restated commit's two flip events ended DP-2's flip: flipping %v, presents %+v", second.inFlight(), r.rec.presents)
 	}
 	r.dev.flip(t, 11, 2)
-	r.until("DP-2's flip", func() bool { return !second.flipping })
+	r.until("DP-2's flip", func() bool { return !second.inFlight() })
 	if second.restate || len(r.rec.presents) != 2 || r.rec.presents[1].Seq != 2 {
 		t.Fatalf("restate %v, presents %+v", second.restate, r.rec.presents)
 	}
@@ -234,7 +234,7 @@ func TestALinkThatGoesBadIsModesetAgainWithAGoodLink(t *testing.T) {
 		t.Fatalf("%d modesets with a good link in %+v, link still bad %v", n, modeOf(o.mode), r.dev.linkBad)
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	r.dev.commits = nil
 	if err := r.hotplug(); err != nil {
 		t.Fatal(err)

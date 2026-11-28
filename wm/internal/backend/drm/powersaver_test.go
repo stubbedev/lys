@@ -28,7 +28,7 @@ func (r *rig) pacedFrame(o *Output) (aimed time.Duration) {
 	aimed = o.aimedAt
 	r.at(aimed)
 	r.dev.flip(r.t, 10, uint32(len(r.dev.commits)))
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	return aimed
 }
 

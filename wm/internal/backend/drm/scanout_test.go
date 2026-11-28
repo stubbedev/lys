@@ -59,7 +59,7 @@ func TestARefusedScanoutIsTestedOncePerBuffer(t *testing.T) {
 		t.Fatal("another buffer was refused with the first")
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	if err := o.ForgetScanout(refused); err != nil {
 		t.Fatal(err)
 	}
@@ -81,12 +81,12 @@ func TestARefusedAsyncFlipIsTestedOncePerBuffer(t *testing.T) {
 			t.Fatal("a buffer whose async flip is refused did not flip on the vblank")
 		}
 		r.dev.flip(t, 10, uint32(2+i))
-		r.until("the flip", func() bool { return !o.flipping })
+		r.until("the flip", func() bool { return !o.inFlight() })
 		if !r.scanout(o, clientBuffer(8, fourcc.Linear), false) {
 			t.Fatal("the buffer between did not scan out")
 		}
 		r.dev.flip(t, 10, uint32(10+i))
-		r.until("the flip", func() bool { return !o.flipping })
+		r.until("the flip", func() bool { return !o.inFlight() })
 	}
 	if n := tests(r.dev.commits, kdrm.AtomicPageFlipAsync); n != 1 {
 		t.Fatalf("%d async flip tests for one buffer, want one", n)
@@ -136,7 +136,7 @@ func TestAnAsyncFlipIsNotTestedForAFormatTheAsyncListLacks(t *testing.T) {
 		t.Fatalf("a linear buffer the async list lacks was tested async %d times: %+v", n, r.dev.commits)
 	}
 	r.dev.flip(t, 10, 2)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	if !r.scanout(o, clientBuffer(8, 7), true) || r.dev.commits[len(r.dev.commits)-1].flags&kdrm.AtomicPageFlipAsync == 0 {
 		t.Fatalf("a buffer the async list holds did not flip async: %+v", r.dev.commits[len(r.dev.commits)-1])
 	}
@@ -154,7 +154,7 @@ func TestARememberedAsyncFlipCarriesItsOwnBuffer(t *testing.T) {
 			t.Fatalf("scanout %d did not show", i)
 		}
 		r.dev.flip(t, 10, uint32(2+i))
-		r.until("the flip", func() bool { return !o.flipping })
+		r.until("the flip", func() bool { return !o.inFlight() })
 	}
 	last := r.dev.commits[len(r.dev.commits)-1]
 	if last.flags&kdrm.AtomicTestOnly != 0 || last.flags&kdrm.AtomicPageFlipAsync == 0 || len(last.values) != 1 || r.dev.scanouts[uint32(last.values[[2]uint32{40, propFB}])] != primeHandles+7 {
@@ -244,7 +244,7 @@ func TestScaledAndLetterboxedBuffersScanOutWithTheirRects(t *testing.T) {
 					t.Fatalf("scanout %d restated the unchanged rects: %+v", i, c)
 				}
 				r.dev.flip(t, 10, uint32(i+2))
-				r.until("the flip", func() bool { return !o.flipping })
+				r.until("the flip", func() bool { return !o.inFlight() })
 			}
 			c := r.nextFrame(o)
 			if src, dst := primaryRects(c); src != [4]uint64{0, 0, 1920 << 16, 1080 << 16} || dst != [4]uint64{0, 0, 1920, 1080} {
@@ -293,7 +293,7 @@ func TestAScaledTearingScanoutFlipsAsyncOnceItsRectsAreSet(t *testing.T) {
 			t.Fatalf("scaled tearing scanout %d flipped async %v, want %v: the rects change only in a vblank flip", i, torn, want)
 		}
 		r.dev.flip(t, 10, uint32(i+2))
-		r.until("the flip", func() bool { return !o.flipping })
+		r.until("the flip", func() bool { return !o.inFlight() })
 		if p := r.rec.presents[len(r.rec.presents)-1]; p.Torn != want {
 			t.Fatalf("scaled tearing scanout %d presented torn %v, want %v", i, p.Torn, want)
 		}

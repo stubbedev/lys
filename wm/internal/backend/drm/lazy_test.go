@@ -45,7 +45,7 @@ func TestASecondaryHoldsItsRenderStackOnlyWhileItDrivesAnOutput(t *testing.T) {
 		t.Fatalf("enabling an output did not open the render stack: %d opened", opened)
 	}
 	r.drawRed(o)
-	if !o.flipping {
+	if !o.inFlight() {
 		t.Fatal("the frame on the reopened stack did not commit")
 	}
 }
@@ -132,7 +132,7 @@ func TestAPoweredOffSecondaryClosesItsRenderStackAndOpensItForItsNextFrame(t *te
 	o := r.b.Outputs()[0]
 	r.drawRed(o)
 	r.dev.flip(r.t, 10, uint32(len(r.dev.commits)))
-	r.until("the first flip", func() bool { return !o.flipping })
+	r.until("the first flip", func() bool { return !o.inFlight() })
 	state := o.State()
 	state.Power = backend.PoweredOff
 	if err := o.Commit(state); err != nil {
@@ -149,7 +149,7 @@ func TestAPoweredOffSecondaryClosesItsRenderStackAndOpensItForItsNextFrame(t *te
 		t.Fatalf("powering on opened %d stacks before any frame", opened-1)
 	}
 	r.drawRed(o)
-	if lazy.blit == nil || opened != 2 || !o.flipping {
-		t.Fatalf("the first frame after power-on: %d stacks opened, flipping %v", opened, o.flipping)
+	if lazy.blit == nil || opened != 2 || !o.inFlight() {
+		t.Fatalf("the first frame after power-on: %d stacks opened, flipping %v", opened, o.inFlight())
 	}
 }

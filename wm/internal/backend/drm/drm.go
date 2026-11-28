@@ -955,7 +955,8 @@ func (b *Backend) Resume() error {
 	for _, o := range b.outputs {
 		kms, err := b.resumedKMS(o)
 		errs = append(errs, err)
-		o.kms, o.flipping, o.busy, o.planesBusy = kms, false, nil, false
+		o.kms, o.busy, o.planesBusy = kms, nil, false
+		o.forgetFlight()
 		if o.power == offAfterBusy {
 			o.power = offAfterFlip
 		}
@@ -1024,6 +1025,15 @@ const (
 	kmsFlip
 )
 
+type inflight uint8
+
+const (
+	notInFlight inflight = iota
+	kernelFlip
+	preparing
+	latched
+)
+
 type Output struct {
 	adding        uint32
 	spare         []*scanout
@@ -1055,7 +1065,7 @@ type Output struct {
 	queued        *scanout
 	front         *scanout
 	clock         *backend.FrameClock
-	flipping      bool
+	inflight      inflight
 	framing       bool
 	pacer         *loop.Timer
 	planesLatch   *loop.Timer
@@ -1107,7 +1117,6 @@ type Output struct {
 	commitLatch   *loop.Timer
 	late          *scanout
 	lateFence     backend.Fence
-	lateTimed     bool
 	primaryAt     backend.Placement
 	primaryNext   backend.Placement
 	commits       backend.Commits
@@ -1552,7 +1561,7 @@ func (o *Output) setPower(on bool) error {
 		o.power, o.kms = powerOn, kmsModeset
 		return o.b.handler.OutputDamaged(o)
 	}
-	if o.lit && o.flipping {
+	if o.lit && o.inflight == kernelFlip {
 		o.power = offAfterFlip
 		o.clock.Cancel()
 		return nil
@@ -1580,7 +1589,8 @@ func (o *Output) powerOff() error {
 			return fmt.Errorf("drm: power off %s: %w", o.Name(), err)
 		}
 	}
-	o.power, o.flipping, o.busy = poweredOff, false, nil
+	o.power, o.busy = poweredOff, nil
+	o.forgetFlight()
 	o.clock.Cancel()
 	return o.freeBuffers()
 }
@@ -1623,7 +1633,8 @@ func (o *Output) disable() error {
 }
 
 func (o *Output) forgetLit() error {
-	o.enabled, o.lit, o.flipping = false, false, false
+	o.enabled, o.lit = false, false
+	o.forgetFlight()
 	o.clock.Cancel()
 	err := o.freeBuffers()
 	o.unbind()
@@ -1737,8 +1748,30 @@ func (o *Output) testable() bool {
 	return o.lit && o.kms != kmsInherited && o.power == powerOn && !o.b.paused
 }
 
+func (o *Output) inFlight() bool {
+	return o.inflight != notInFlight
+}
+
+func (o *Output) forgetFlight() {
+	if o.inflight != latched {
+		o.inflight = notInFlight
+	}
+}
+
+func (f inflight) String() string {
+	switch f {
+	case kernelFlip:
+		return "has a flip on its way"
+	case preparing:
+		return "is copying a frame to its device"
+	case latched:
+		return "holds a frame until its cursor latches"
+	}
+	return ""
+}
+
 func (o *Output) frameReady() bool {
-	return o.enabled && (!o.flipping || o.pipelines()) && o.late == nil && o.busy == nil && o.empties < backend.EmptyFramesPerRefresh && o.drawing == nil && !o.b.paused && !o.b.closed
+	return o.enabled && (o.inflight == notInFlight || o.inflight == kernelFlip && o.pipelines()) && o.late == nil && o.busy == nil && o.empties < backend.EmptyFramesPerRefresh && o.drawing == nil && !o.b.paused && !o.b.closed
 }
 
 func (o *Output) pipelines() bool {
@@ -1756,7 +1789,7 @@ func (o *Output) runFrame() error {
 	o.framing = true
 	err := o.b.handler.Frame(o)
 	o.framing = false
-	if err == nil && !o.flipping && o.busy == nil && o.enabled && o.power == powerOn {
+	if err == nil && o.inflight == notInFlight && o.busy == nil && o.enabled && o.power == powerOn {
 		err = o.emptyFrame()
 	}
 	return errors.Join(err, o.flushPlanes())
@@ -1808,7 +1841,7 @@ func (o *Output) BeginFrame() (backend.Frame, error) {
 		o.buffers = buffers
 	}
 	i := slices.IndexFunc(o.buffers, func(s *scanout) bool { return s != o.front && s != o.queued })
-	if i < 0 && o.flipping {
+	if i < 0 && o.inFlight() {
 		s, err := o.b.alloc.allocate(modeOf(o.mode).Size, o.layout)
 		if err != nil {
 			return backend.Frame{}, fmt.Errorf("drm: a buffer for %s to draw in while one flips: %w", o.Name(), err)
@@ -1850,7 +1883,7 @@ func (o *Output) Present(damage render.Region) error {
 		return nil
 	}
 	if s.prepareLater != nil {
-		o.flipping = true
+		o.inflight = preparing
 		return s.prepareLater(func(err error) error { return o.prepared(s, err) })
 	}
 	if s.prepare != nil {
@@ -1865,7 +1898,9 @@ func (o *Output) Present(damage render.Region) error {
 }
 
 func (o *Output) prepared(s *scanout, err error) error {
-	o.flipping = false
+	if o.inflight == preparing {
+		o.inflight = notInFlight
+	}
 	return o.presentLater(s, err)
 }
 
@@ -1888,7 +1923,7 @@ func (o *Output) heldFailed(err error) error {
 }
 
 func (b *Backend) flipsPending() bool {
-	return slices.ContainsFunc(b.outputs, func(o *Output) bool { return o.flipping })
+	return slices.ContainsFunc(b.outputs, func(o *Output) bool { return o.inflight == kernelFlip })
 }
 
 func (b *Backend) commitHeld() error {
@@ -1918,13 +1953,13 @@ func (o *Output) commitPresent(s *scanout) error {
 		return err
 	}
 	fence := backend.Fence(fd)
-	if o.flipping {
+	if o.inFlight() {
 		o.late, o.lateFence = s, fence
 		return nil
 	}
 	if o.kms == kmsFlip && !o.tearFrame && o.cursor != nil && o.cursor.visible {
 		if wait := o.planesWait(); wait > 0 {
-			o.late, o.lateFence, o.lateTimed, o.flipping = s, fence, true, true
+			o.late, o.lateFence, o.inflight = s, fence, latched
 			return o.commitLatch.Arm(wait)
 		}
 	}
@@ -1932,10 +1967,10 @@ func (o *Output) commitPresent(s *scanout) error {
 }
 
 func (o *Output) lateDue() error {
-	if !o.lateTimed {
+	if o.inflight != latched {
 		return nil
 	}
-	o.lateTimed, o.flipping = false, false
+	o.inflight = notInFlight
 	return o.commitLate()
 }
 
@@ -1949,17 +1984,17 @@ func (o *Output) commitLate() error {
 }
 
 func (o *Output) commitPipelined() error {
-	if o.late == nil || o.lateTimed || o.flipping {
+	if o.late == nil || o.inFlight() {
 		return nil
 	}
 	return errors.Join(o.commitLate(), o.clock.Kick())
 }
 
 func (o *Output) dropLate() error {
-	if o.lateTimed {
-		o.flipping = false
+	if o.inflight == latched {
+		o.inflight = notInFlight
 	}
-	o.late, o.lateTimed = nil, false
+	o.late = nil
 	return o.lateFence.Drop()
 }
 
@@ -2008,7 +2043,7 @@ func (o *Output) commitFenced(s *scanout, fence backend.Fence) error {
 	if flags&kdrm.AtomicAllowModeset != 0 {
 		o.bpc = o.maxBPC()
 	}
-	o.kms, o.lit, o.flipping, o.torn, o.restate, o.extraFlips = kmsFlip, true, true, torn, false, restated
+	o.kms, o.lit, o.inflight, o.torn, o.restate, o.extraFlips = kmsFlip, true, kernelFlip, torn, false, restated
 	o.queued = s
 	return nil
 }
@@ -2059,7 +2094,7 @@ func (o *Output) ForgetScanout(key backend.ScanoutKey) error {
 
 func (o *Output) Scanout(key backend.ScanoutKey, d gpu.DMABUF, at backend.Placement, release func() error, tear bool) (bool, error) {
 	size := modeOf(o.mode).Size
-	if !o.enabled || o.power != powerOn || o.b.paused || o.kms != kmsFlip || o.drawing != nil || o.flipping || !at.Valid(d.Size, size) || o.tiled() && at != backend.Whole(size) || !slices.Contains(o.primary.clients, gpu.FormatModifier{Format: d.Format, Modifier: d.Modifier}) {
+	if !o.enabled || o.power != powerOn || o.b.paused || o.kms != kmsFlip || o.drawing != nil || o.inFlight() || !at.Valid(d.Size, size) || o.tiled() && at != backend.Whole(size) || !slices.Contains(o.primary.clients, gpu.FormatModifier{Format: d.Format, Modifier: d.Modifier}) {
 		return false, nil
 	}
 	o.setDamageClips(nil)
@@ -2093,7 +2128,7 @@ func (o *Output) Scanout(key backend.ScanoutKey, d gpu.DMABUF, at backend.Placem
 	if o.cursor != nil && !torn {
 		o.cursor.sent()
 	}
-	o.lit, o.flipping, o.queued, o.torn, o.extraFlips = true, true, s, torn, len(o.tiles)
+	o.lit, o.inflight, o.queued, o.torn, o.extraFlips = true, kernelFlip, s, torn, len(o.tiles)
 	if torn {
 		return true, nil
 	}
@@ -2422,7 +2457,7 @@ func (o *Output) pendingPlanes() (cursor, pending bool) {
 	if cursor && c.settled() {
 		c.dirty, cursor = false, false
 	}
-	if !cursor && !o.color.dirty() || !o.lit || o.kms != kmsFlip || o.power != powerOn || o.b.paused || o.flipping || o.frameCarriesPlanes() {
+	if !cursor && !o.color.dirty() || !o.lit || o.kms != kmsFlip || o.power != powerOn || o.b.paused || o.inFlight() || o.frameCarriesPlanes() {
 		return cursor, false
 	}
 	return cursor, true
@@ -2447,7 +2482,7 @@ func (o *Output) sendPlanes(cursor bool) error {
 	}
 	o.planesFailing = false
 	o.commitTook()
-	o.flipping, o.extraFlips = true, len(o.tiles)
+	o.inflight, o.extraFlips = kernelFlip, len(o.tiles)
 	if cursor {
 		c.sent()
 	}
@@ -2532,14 +2567,14 @@ func (o *Output) stallChanged() error {
 }
 
 func (o *Output) flipped(e kdrm.FlipEvent) error {
-	if !o.flipping {
+	if o.inflight != kernelFlip {
 		return nil
 	}
 	if o.extraFlips > 0 {
 		o.extraFlips--
 		return nil
 	}
-	o.flipping = false
+	o.inflight = notInFlight
 	o.lastFlip = time.Duration(e.Sec)*time.Second + time.Duration(e.Usec)*time.Microsecond
 	o.lastVblank, o.vblankSeq = o.lastFlip, e.Sequence
 	overlayFreed := o.overlayFlipped()
@@ -2613,7 +2648,8 @@ func (o *Output) leaveOnScreen() error {
 		}
 	}
 	o.buffers, o.drawing, o.queued, o.front = nil, nil, nil, nil
-	o.enabled, o.lit, o.flipping = false, false, false
+	o.enabled, o.lit = false, false
+	o.forgetFlight()
 	o.clock.Cancel()
 	return errors.Join(errs...)
 }
@@ -2651,8 +2687,8 @@ func (b *Backend) Unpark() error {
 
 func (b *Backend) Flipping() string {
 	for _, o := range b.outputs {
-		if o.flipping {
-			return fmt.Sprintf("output %s has a flip on its way", o.Name())
+		if why := o.inflight.String(); why != "" {
+			return fmt.Sprintf("output %s %s", o.Name(), why)
 		}
 	}
 	return ""

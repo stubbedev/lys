@@ -129,7 +129,7 @@ func TestAnHDRCommitProgramsTheConnectorAndSDRPutsItBack(t *testing.T) {
 		t.Fatalf("the modeset's metadata blob is %d (%v), want %d", v, ok, blob)
 	}
 	r.dev.flip(t, 10, 1)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 
 	r.dev.commits = nil
 	if err := o.Commit(sdr); err != nil {
@@ -176,7 +176,7 @@ func TestAResumeRestoresTheSignalAnotherMasterLeft(t *testing.T) {
 	}
 	r.committedSince("the first frame", o, 0)
 	r.dev.flip(t, 10, 1)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	r.b.Pause()
 	r.dev.staleColorspace, r.dev.staleHDRBlob, r.dev.staleDegamma, r.dev.foundBPC = 7, 77, 88, 6
 	r.dev.commits = nil
@@ -303,7 +303,7 @@ func TestATenBitOutputRaisesMaxBPC(t *testing.T) {
 		t.Fatalf("modesets tested max bpc %v and set %v, want 10 in the mode test, the frame test and the commit", tests, sets)
 	}
 	r.dev.flip(t, 10, 1)
-	r.until("the flip", func() bool { return !o.flipping })
+	r.until("the flip", func() bool { return !o.inFlight() })
 	r.dev.commits = nil
 	deep.Mode = modeOf(modes[1])
 	if err := o.Commit(deep); err != nil {

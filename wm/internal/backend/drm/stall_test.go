@@ -68,10 +68,10 @@ func (r *rig) tookFrame(o *Output, seq uint32) {
 	if err := o.ScheduleFrame(); err != nil {
 		r.t.Fatal(err)
 	}
-	r.until("the frame to commit", func() bool { return o.flipping })
+	r.until("the frame to commit", func() bool { return o.inFlight() })
 	r.elapse(o.paceInterval())
 	r.dev.flip(r.t, 10, seq)
-	r.until("its flip", func() bool { return !o.flipping })
+	r.until("its flip", func() bool { return !o.inFlight() })
 }
 
 func TestATransientRefusedCommitDoesNotStallTheOutput(t *testing.T) {
@@ -80,9 +80,9 @@ func TestATransientRefusedCommitDoesNotStallTheOutput(t *testing.T) {
 	took := func(seq uint32) {
 		t.Helper()
 		r.dev.failCommits = nil
-		r.until("the retried frame", func() bool { return o.flipping })
+		r.until("the retried frame", func() bool { return o.inFlight() })
 		r.dev.flip(t, 10, seq)
-		r.until("its flip", func() bool { return !o.flipping })
+		r.until("its flip", func() bool { return !o.inFlight() })
 	}
 	took(2)
 	r.elapse(2 * backend.SustainedFor)

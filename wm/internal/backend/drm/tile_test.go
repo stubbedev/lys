@@ -120,8 +120,8 @@ func TestTiledConnectorsLightAsOneOutputAcrossTheirCRTCs(t *testing.T) {
 	}
 	r.dev.flip(t, 10, 1)
 	r.settle()
-	if !o.flipping || len(r.rec.presents) != 0 {
-		t.Fatalf("one of two tiles flipping finished the frame: flipping %v, presents %+v", o.flipping, r.rec.presents)
+	if !o.inFlight() || len(r.rec.presents) != 0 {
+		t.Fatalf("one of two tiles flipping finished the frame: flipping %v, presents %+v", o.inFlight(), r.rec.presents)
 	}
 	r.dev.flip(t, 10, 1)
 	r.committedSince("the frame after both tiles flipped", o, len(r.dev.commits))
@@ -144,7 +144,7 @@ func (r *rig) tiledFrame(o *Output) commit {
 	c := r.dev.commits[len(r.dev.commits)-1]
 	r.dev.flip(r.t, 10, 1)
 	r.dev.flip(r.t, 10, 1)
-	r.until("both tiles' flips", func() bool { return !o.flipping })
+	r.until("both tiles' flips", func() bool { return !o.inFlight() })
 	return c
 }
 
@@ -156,15 +156,15 @@ func TestATiledOutputSetsItsColourOnEveryCRTC(t *testing.T) {
 	if err := o.SetGamma(make([]uint16, 3*o.GammaSize())); err != nil {
 		t.Fatal(err)
 	}
-	r.until("the gamma commit", func() bool { return o.flipping })
+	r.until("the gamma commit", func() bool { return o.inFlight() })
 	c := r.dev.commits[len(r.dev.commits)-1]
 	r.dev.flip(t, 10, 1)
 	r.settle()
-	if !o.flipping {
+	if !o.inFlight() {
 		t.Fatal("one CRTC flipping finished a commit that changed both")
 	}
 	r.dev.flip(t, 10, 1)
-	r.until("both CRTCs' flips", func() bool { return !o.flipping })
+	r.until("both CRTCs' flips", func() bool { return !o.inFlight() })
 	lead, ok := c.values[[2]uint32{10, propGammaLUT}]
 	if !ok || lead == 0 || c.values[[2]uint32{11, propGammaLUT}] != lead {
 		t.Fatalf("gamma LUT %d on CRTC 10 and %d on CRTC 11, want the one blob on both", lead, c.values[[2]uint32{11, propGammaLUT}])

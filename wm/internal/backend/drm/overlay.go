@@ -65,7 +65,7 @@ type overlayFlip struct {
 }
 
 func (o *Output) overlaysUsable() bool {
-	return len(o.overlays) > 0 && o.enabled && o.lit && o.power == powerOn && !o.b.paused && o.kms == kmsFlip && !o.flipping && o.drawing == nil && o.front != nil
+	return len(o.overlays) > 0 && o.enabled && o.lit && o.power == powerOn && !o.b.paused && o.kms == kmsFlip && !o.inFlight() && o.drawing == nil && o.front != nil
 }
 
 func (o *Output) OverlayPlanes() int {
@@ -297,7 +297,7 @@ func (o *Output) FlipOverlays() (backend.OverlayFlip, error) {
 		return backend.OverlaysNotFlipped, fmt.Errorf("drm: flip the overlays of %s: %w", o.Name(), err)
 	}
 	o.sentOverlay()
-	o.flipping = true
+	o.inflight = kernelFlip
 	return backend.OverlaysFlipped, nil
 }
 

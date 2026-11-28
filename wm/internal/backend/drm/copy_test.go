@@ -91,7 +91,7 @@ func TestADisplayOnlyCardRefusedOnceForTheModeTakesTheLinearBufferAgainOnTheNext
 		t.Fatalf("framebuffer %d after the refusal is handle %d with reports %v, want the CPU copy named once", fb, r.dev.scanouts[uint32(fb)], r.reports)
 	}
 	r.dev.flip(r.t, 10, uint32(len(r.dev.commits)))
-	r.until("the copied frame's flip", func() bool { return !o.flipping })
+	r.until("the copied frame's flip", func() bool { return !o.inFlight() })
 	if err := o.Commit(backend.OutputState{Power: backend.PoweredOn, Mode: modeOf(modes[1])}); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestAnOffLoopCopyMovesOnlyTheRowsPaintedSinceItsBufferWasLastCopied(t *test
 		r.committedSince("the copied frame", o, n)
 		fb := r.dev.commits[len(r.dev.commits)-1].values[[2]uint32{40, propFB}]
 		r.dev.flip(r.t, 10, uint32(len(r.dev.commits)))
-		r.until("the flip", func() bool { return !o.flipping })
+		r.until("the flip", func() bool { return !o.inFlight() })
 		return r.dev.pix[r.dev.scanouts[uint32(fb)]]
 	}
 	first := present(nil)
@@ -227,7 +227,7 @@ func TestASynchronousCopyReadsBackOnlyTheRowsPaintedSinceItsBufferWasLastCopied(
 		}
 		fb := r.dev.commits[len(r.dev.commits)-1].values[[2]uint32{40, propFB}]
 		r.dev.flip(r.t, 10, uint32(len(r.dev.commits)))
-		r.until("the flip", func() bool { return !o.flipping })
+		r.until("the flip", func() bool { return !o.inFlight() })
 		return r.dev.pix[r.dev.scanouts[uint32(fb)]]
 	}
 	first := present(nil)

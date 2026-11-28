@@ -149,9 +149,9 @@ func (v *vrrCursorRun) play(ms int, frameEvery int) {
 	buffers := [2]*fakeBuffer{clientBuffer(7, fourcc.Linear), clientBuffer(8, fourcc.Linear)}
 	for tick := 1; tick <= ms; tick++ {
 		r.advance(time.Millisecond)
-		if o.flipping {
+		if o.inFlight() {
 			r.dev.flip(r.t, 10, uint32(tick))
-			r.until("the flip", func() bool { return !o.flipping })
+			r.until("the flip", func() bool { return !o.inFlight() })
 		}
 		n := len(r.dev.commits)
 		if frameEvery > 0 && tick%frameEvery == 0 {
@@ -162,11 +162,11 @@ func (v *vrrCursorRun) play(ms int, frameEvery int) {
 				v.stalePlanes++
 			}
 		}
-		flipping := o.flipping
+		flipping := o.inFlight()
 		if err := c.MoveCursor(image.Pt(100+tick%500, 300)); err != nil {
 			r.t.Fatal(err)
 		}
-		if !flipping && !o.filled && !o.flipping {
+		if !flipping && !o.filled && !o.inFlight() {
 			v.immediateMisses++
 		}
 		if o.planesWaiting && r.now() >= o.lastFlip+o.vrrHold {

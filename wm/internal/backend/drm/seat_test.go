@@ -197,7 +197,7 @@ func onASeat(t *testing.T, driver string) (*seat, *Output) {
 		t.Fatalf("%s lights no output", dev.Path())
 	}
 	o := s.b.Outputs()[0]
-	s.until("the first frame on screen", func() bool { return s.h.presents > 0 && !o.flipping })
+	s.until("the first frame on screen", func() bool { return s.h.presents > 0 && !o.inFlight() })
 	t.Logf("%s (%s): %s on CRTC %d, %v", dev.Path(), driver, o.Name(), o.crtc.id, modeOf(o.mode))
 	return s, o
 }
@@ -236,7 +236,7 @@ func (s *seat) frame(o *Output) {
 	if err := o.ScheduleFrame(); err != nil {
 		s.t.Fatal(err)
 	}
-	s.until("a frame on screen", func() bool { return s.h.presents > presents && !o.flipping })
+	s.until("a frame on screen", func() bool { return s.h.presents > presents && !o.inFlight() })
 }
 
 var seatDrivers = []string{"virtio_gpu", "vkms"}
@@ -257,14 +257,14 @@ func TestCursorMotionTakesOneRequestPerRefreshOnASeat(t *testing.T) {
 			if err := errors.Join(cp.LoadCursor(white, 16*4, image.Pt(16, 16), image.Pt(1, 1)), cp.MoveCursor(image.Pt(40, 40))); err != nil {
 				t.Fatal(err)
 			}
-			s.until("the cursor on its plane", func() bool { return !o.flipping && c.settled() })
+			s.until("the cursor on its plane", func() bool { return !o.inFlight() && c.settled() })
 			n := len(s.dev.commits)
 			const moves = 8
 			for i := range moves {
 				if err := cp.MoveCursor(image.Pt(60+7*i, 50+3*i)); err != nil {
 					t.Fatal(err)
 				}
-				s.until("the move's flip", func() bool { return !o.flipping && c.settled() })
+				s.until("the move's flip", func() bool { return !o.inFlight() && c.settled() })
 			}
 			real, tests := s.dev.since(n)
 			t.Logf("%d moves over %d refreshes: %d atomic commits, %d test commits", moves, moves, real, tests)
@@ -357,7 +357,7 @@ func TestAnOverlayTakesAClientBufferOnASeat(t *testing.T) {
 	if flip, err := o.FlipOverlays(); err != nil || flip != backend.OverlaysFlipped {
 		t.Fatalf("FlipOverlay = %d, %v", flip, err)
 	}
-	s.until("the overlay's flip", func() bool { return !o.flipping })
+	s.until("the overlay's flip", func() bool { return !o.inFlight() })
 	p := o.overlays[0].id
 	if fb, crtc, x := s.property(p, kdrm.ObjectPlane, "FB_ID"), s.property(p, kdrm.ObjectPlane, "CRTC_ID"), s.property(p, kdrm.ObjectPlane, "CRTC_X"); fb == 0 || crtc != uint64(o.crtc.id) || x != uint64(dst.Min.X) {
 		t.Fatalf("after the flip overlay plane %d shows framebuffer %d on CRTC %d at x %d", p, fb, crtc, x)
@@ -369,7 +369,7 @@ func TestAnOverlayTakesAClientBufferOnASeat(t *testing.T) {
 	if flip, err := o.FlipOverlays(); err != nil || flip != backend.OverlaysFlipped {
 		t.Fatalf("clearing the overlay: FlipOverlay = %d, %v", flip, err)
 	}
-	s.until("the cleared overlay's flip", func() bool { return !o.flipping && released })
+	s.until("the cleared overlay's flip", func() bool { return !o.inFlight() && released })
 	if fb := s.property(p, kdrm.ObjectPlane, "FB_ID"); fb != 0 {
 		t.Fatalf("a cleared overlay still shows framebuffer %d", fb)
 	}
@@ -381,7 +381,7 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 			s, o := onASeat(t, driver)
 			mode := modeOf(o.mode)
 			n := s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.PoweredOff, Mode: mode}) })
-			s.until("the output off", func() bool { return o.power == poweredOff && !o.flipping })
+			s.until("the output off", func() bool { return o.power == poweredOff && !o.inFlight() })
 			if active := s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE"); active != 0 {
 				t.Fatalf("CRTC %d is still active after power-off", o.crtc.id)
 			}
@@ -395,7 +395,7 @@ func TestPowerOffAndDisableDuringAFlipOnASeat(t *testing.T) {
 				t.Fatal(err)
 			}
 			s.until("a frame after power-on", func() bool {
-				return o.power == powerOn && s.h.presents > 0 && !o.flipping && s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE") == 1
+				return o.power == powerOn && s.h.presents > 0 && !o.inFlight() && s.property(o.crtc.id, kdrm.ObjectCRTC, "ACTIVE") == 1
 			})
 			n = s.duringAFlip(o, func() error { return o.Commit(backend.OutputState{Power: backend.Disabled, Mode: mode}) })
 			if o.enabled {
@@ -426,7 +426,7 @@ func (s *seat) duringAFlip(o *Output, act func() error) int {
 	s.t.Helper()
 	ran, flipping, acted := false, false, 0
 	s.h.then = func() error {
-		ran, flipping, acted = true, o.flipping, len(s.dev.commits)
+		ran, flipping, acted = true, o.inFlight(), len(s.dev.commits)
 		return act()
 	}
 	clear(o.tested)

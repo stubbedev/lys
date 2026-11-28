@@ -11,7 +11,7 @@ func TestAnAbortedFrameLeavesItsBufferWithNoAge(t *testing.T) {
 		}
 		r.committedSince("a frame", o, len(r.dev.commits))
 		r.dev.flip(t, 10, seq)
-		r.until("the flip to land", func() bool { return !o.flipping && len(r.rec.presents) > i })
+		r.until("the flip to land", func() bool { return !o.inFlight() && len(r.rec.presents) > i })
 	}
 	f, err := o.BeginFrame()
 	if err != nil {

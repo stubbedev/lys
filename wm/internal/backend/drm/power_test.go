@@ -28,10 +28,10 @@ func (r *rig) poweredOn(o *Output, seq uint32) {
 		r.t.Fatal(err)
 	}
 	r.until("the power-on modeset", func() bool {
-		return o.flipping && r.dev.commits[len(r.dev.commits)-1].values[[2]uint32{10, propActive}] == 1
+		return o.inFlight() && r.dev.commits[len(r.dev.commits)-1].values[[2]uint32{10, propActive}] == 1
 	})
 	r.dev.flip(r.t, 10, seq)
-	r.until("the power-on flip", func() bool { return !o.flipping })
+	r.until("the power-on flip", func() bool { return !o.inFlight() })
 }
 
 func TestEveryPowerOffFreesTheOutputsBuffersAndEveryPowerOnDrawsInAFreshSet(t *testing.T) {
@@ -141,7 +141,7 @@ func TestAPowerOnTheAllocatorRefusesLeaksNothingAndDrawsOnceItAllocates(t *testi
 		t.Fatal(err)
 	}
 	r.until("the power-on modeset once the allocator recovers", func() bool {
-		return o.flipping && r.dev.commits[len(r.dev.commits)-1].values[[2]uint32{10, propActive}] == 1
+		return o.inFlight() && r.dev.commits[len(r.dev.commits)-1].values[[2]uint32{10, propActive}] == 1
 	})
 	if c := r.dev.commits[len(r.dev.commits)-1]; c.flags&kdrm.AtomicAllowModeset == 0 {
 		t.Fatalf("the first frame after a refused power-on committed %+v, not a modeset", c)
