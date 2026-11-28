@@ -263,3 +263,48 @@ func TestWatchClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 	handled.RequireEveryCopyClosed(t)
 	unread.RequireEveryCopyClosed(t)
 }
+
+// A locked container and the cleartext device unlocking it are
+// encrypted; a plain filesystem is not.
+func TestEncryptedNamesTheContainerAndWhatItUnlocks(t *testing.T) {
+	u, c := fixture(t)
+	if s, _ := find(volumes(t, c), stickPart); s.Encrypted() {
+		t.Errorf("the plain stick reads encrypted: %+v", s)
+	}
+	if v, _ := find(volumes(t, c), vault); !v.Encrypted() {
+		t.Errorf("the locked vault reads unencrypted: %+v", v)
+	}
+	inner, err := c.Unlock(context.Background(), vault, []byte(u.Passphrase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := find(volumes(t, c), inner); !ok || !v.Encrypted() {
+		t.Errorf("the unlocked vault's cleartext device reads %+v (%v), want encrypted", v, ok)
+	}
+}
+
+// WatchFilesystems hands over each object given a filesystem, never a
+// drive, a locked container or a removal, until stopped.
+func TestWatchFilesystemsReportsEachFilesystemAdded(t *testing.T) {
+	u := udiskstest.Start(t)
+	c := udisks.New(u.Client(t))
+	added := make(chan dbus.ObjectPath, 16)
+	stop, err := c.WatchFilesystems(func(p dbus.ObjectPath) { added <- p })
+	if err != nil {
+		t.Fatal(err)
+	}
+	u.AddDrive(t, stick, udiskstest.Drive{Removable: true, CanPowerOff: true})
+	u.AddVolume(t, vault, udiskstest.Volume{Drive: stick, Encrypted: true})
+	u.AddVolume(t, stickPart, udiskstest.Volume{Label: "STICK", Drive: stick})
+	if got := waittest.For(t, added, "the stick's filesystem"); got != stickPart {
+		t.Errorf("the first filesystem reported is %s, want the stick's %s", got, stickPart)
+	}
+	u.Remove(t, stickPart)
+	stop()
+	u.AddVolume(t, stickPart, udiskstest.Volume{Label: "STICK", Drive: stick})
+	select {
+	case p := <-added:
+		t.Errorf("%s reported after a removal, a locked container or stop", p)
+	case <-time.After(quietWindow):
+	}
+}

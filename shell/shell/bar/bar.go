@@ -470,6 +470,9 @@ func (s *shellStart) startServices(system *dbus.Conn) {
 		if s.ctx.Battery != nil {
 			s.down.add(startBatteryAlerts(s.ctx.Battery, s.ctx.PowerProfiles, conn, s.current.Load))
 		}
+		if s.system != nil {
+			s.down.add(s.startAutomount(s.system, conn))
+		}
 		// The recorder asks the share picker on this bus for an output or
 		// a region, records it on the GPU with audio from the audio service,
 		// and reports through the OSD and desktop notifications.

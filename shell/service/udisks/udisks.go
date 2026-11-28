@@ -62,6 +62,10 @@ type Volume struct {
 // Mounted reports a volume mounted somewhere.
 func (v Volume) Mounted() bool { return len(v.MountPoints) > 0 }
 
+// Encrypted reports a volume on an encrypted container: the container
+// still locked, or the cleartext device unlocking it made.
+func (v Volume) Encrypted() bool { return v.Locked || v.container != noObject }
+
 // Client is a UDisks2 client on a system bus connection the caller
 // owns.
 type Client struct {
@@ -158,8 +162,7 @@ func sizeLabel(l *i18n.Loader, v Volume) string {
 // property changing (a mount), until stop, which returns once the last
 // call has. Only UDisks2 is heard.
 func (c *Client) Watch(changed func()) (stop func(), err error) {
-	watch, err := dbusx.WatchSignals(context.Background(), c.conn, dbusx.FromOwner(BusName),
-		func(err error) { log.Printf("udisks: %v", err) },
+	return c.watch("objects",
 		dbusx.On(dbusx.InterfacesAdded, ManagerPath, func(dbusx.AddedInterfaces, dbus.Sequence) error {
 			changed()
 			return nil
@@ -172,12 +175,32 @@ func (c *Client) Watch(changed func()) (stop func(), err error) {
 			changed()
 			return nil
 		}))
+}
+
+// WatchFilesystems calls added, from one goroutine, with each object
+// UDisks2 gives a filesystem: a device plugged in, a container
+// unlocked, a partition formatted. It runs until stop, which returns
+// once the last call has. Only UDisks2 is heard.
+func (c *Client) WatchFilesystems(added func(dbus.ObjectPath)) (stop func(), err error) {
+	return c.watch("filesystems",
+		dbusx.On(dbusx.InterfacesAdded, ManagerPath, func(a dbusx.AddedInterfaces, _ dbus.Sequence) error {
+			if _, ok := a.Interfaces[FilesystemIface]; ok {
+				added(a.Object)
+			}
+			return nil
+		}))
+}
+
+// watch routes UDisks2's signals to routes until the returned stop.
+func (c *Client) watch(what string, routes ...dbusx.Route) (stop func(), err error) {
+	watch, err := dbusx.WatchSignals(context.Background(), c.conn, dbusx.FromOwner(BusName),
+		func(err error) { log.Printf("udisks: %v", err) }, routes...)
 	if err != nil {
-		return nil, fmt.Errorf("udisks: watching objects: %w", err)
+		return nil, fmt.Errorf("udisks: watching %s: %w", what, err)
 	}
 	return func() {
 		if err := watch.Stop(); err != nil {
-			log.Printf("udisks: stop watching objects: %v", err)
+			log.Printf("udisks: stop watching %s: %v", what, err)
 		}
 	}, nil
 }
