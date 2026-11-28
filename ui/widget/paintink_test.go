@@ -246,3 +246,51 @@ func TestPlainLabelsLeaveTheirBoxBounded(t *testing.T) {
 		t.Error("a box of plain labels is left unbounded")
 	}
 }
+
+// plainRow builds on a Box and paints as the Box does, as an app's row
+// type does.
+type plainRow struct{ *Box }
+
+// wrappedRow builds on a type that paints on its own.
+type wrappedRow struct{ *shadowingBox }
+
+func TestAnEmbeddingTypeThatPaintsAsItsFieldKeepsItsInk(t *testing.T) {
+	paints := 0
+	row := &plainRow{Box: NewBox(Column, 0, 0).Append(&countLeaf{paints: &paints}, false)}
+	col := NewBox(Column, 0, 0).Append(row, false)
+	SizeWithin(col, Size{W: 200, H: 600})
+	col.Arrange(render.Rect{W: 200, H: 600})
+	if !row.inkClosed {
+		t.Error("a row type that paints as its Box is left unbounded, so it is never culled")
+	}
+}
+
+func TestATypeOnTopOfOneThatPaintsItselfIsNotTrusted(t *testing.T) {
+	col := NewBox(Column, 0, 0)
+	paints := 0
+	col.Append(NewSpacer(10, 500), false)
+	col.Append(&wrappedRow{&shadowingBox{Box: NewBox(Column, 0, 0), paints: &paints}}, false)
+	SizeWithin(col, Size{W: 200, H: 600})
+	col.Arrange(render.Rect{W: 200, H: 600})
+	paintWithin(col, 200, 600, render.Rect{W: 10, H: 10})
+	if paints != 1 {
+		t.Errorf("a type promoting a shadowing Paint was skipped: %d paints", paints)
+	}
+}
+
+func TestAWrappedLabelIsBoundedWhileItsRowsFit(t *testing.T) {
+	face := entryFace(t)
+	fits := NewLabel(face, 14, "A description that wraps over a few rows of this narrow label.", 0)
+	fits.SetWrap(true)
+	long := NewLabel(face, 14, "Unbreakable_words_like_this_one_are_wider_than_the_label_itself.", 0)
+	long.SetWrap(true)
+	col := NewBox(Column, 4, 4).Append(fits, false).Append(long, false)
+	SizeWithin(col, Size{W: 160, H: 400})
+	col.Arrange(render.Rect{W: 160, H: 400})
+	if !fits.inkClosed {
+		t.Error("a wrapped label whose rows fit its box is left unbounded")
+	}
+	if long.inkClosed {
+		t.Error("a wrapped label with a row wider than its box is bounded by it")
+	}
+}
