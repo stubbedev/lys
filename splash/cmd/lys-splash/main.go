@@ -45,8 +45,6 @@ import (
 const (
 	defaultTheme  = "/etc/lys-splash/theme.yaml"
 	daemonizedEnv = "LYS_SPLASH_DAEMONIZED"
-	logsToKmsg    = "kmsg"
-	logsToStderr  = "stderr"
 	readyTimeout  = 30 * time.Second
 	logFlushWait  = 2 * time.Second
 	selfExe       = "/proc/self/exe"
@@ -55,6 +53,35 @@ const (
 
 func main() {
 	os.Exit(run(os.Args))
+}
+
+// logTarget is where a detached daemon's or the shutdown hook's
+// standard error leads.
+type logTarget uint8
+
+const (
+	logsToStderr logTarget = iota
+	logsToKmsg
+)
+
+var logTargets = [...]string{logsToStderr: "stderr", logsToKmsg: "kmsg"}
+
+func (t logTarget) String() string { return logTargets[t] }
+
+// daemonizedAs is what daemonizedEnv, set to value, says of this
+// process: whether it is the daemon a plymouthd start detached, and the
+// log target its standard error leads to. Unset is a process not
+// detached, which logs to its own standard error.
+func daemonizedAs(value string) (target logTarget, daemonized bool, err error) {
+	if value == "" {
+		return logsToStderr, false, nil
+	}
+	for t, name := range logTargets {
+		if name == value {
+			return logTarget(t), true, nil
+		}
+	}
+	return 0, false, fmt.Errorf("%s=%q is no log target: %s or %s", daemonizedEnv, value, logsToStderr, logsToKmsg)
 }
 
 type role uint8
@@ -182,11 +209,16 @@ func runDaemon(argv []string, plymouthd bool) int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
+	target, daemonized, err := daemonizedAs(os.Getenv(daemonizedEnv))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
 	level := slog.LevelInfo
 	if o.debug {
 		level = slog.LevelDebug
 	}
-	log := slog.New(logHandler(os.Stderr, os.Getenv(daemonizedEnv), level))
+	log := slog.New(logHandler(os.Stderr, target, level))
 	initrd, err := daemon.InInitrd()
 	if err != nil {
 		log.Error("starting", "err", err)
@@ -203,7 +235,7 @@ func runDaemon(argv []string, plymouthd bool) int {
 		log.Error("re-executing with argv[0] marked for systemd to spare the splash", "err", err)
 		return 1
 	}
-	if plymouthd && !o.noDaemon && os.Getenv(daemonizedEnv) == "" {
+	if plymouthd && !o.noDaemon && !daemonized {
 		if err := daemonize(argv, log); err != nil {
 			log.Error("daemonizing", "err", err)
 			return 1
@@ -219,7 +251,7 @@ func runDaemon(argv []string, plymouthd bool) int {
 }
 
 // logHandler logs to w as a log target of detachedStderr's.
-func logHandler(w io.Writer, target string, level slog.Level) slog.Handler {
+func logHandler(w io.Writer, target logTarget, level slog.Level) slog.Handler {
 	if target == logsToKmsg {
 		return kmsg.NewHandler(w, os.Getpid(), level)
 	}
@@ -242,7 +274,7 @@ func daemonize(argv []string, log *slog.Logger) error {
 // detachedStderr opens where a detached daemon or the shutdown hook logs: the
 // kernel's log buffer, with this process's own standard error for a kernel
 // without one. It names the log target for logHandler.
-func detachedStderr(path string, log *slog.Logger) (stderr *os.File, target string, closeFile func() error) {
+func detachedStderr(path string, log *slog.Logger) (stderr *os.File, target logTarget, closeFile func() error) {
 	f, err := os.OpenFile(path, os.O_WRONLY, 0) //nolint:gosec // the path is the kernel's device
 	if err != nil {
 		log.Warn("logging to this standard error, not the kernel's log", "err", err)
@@ -257,7 +289,7 @@ func startDetached(argv []string, addr string, ready *net.UnixConn, log *slog.Lo
 	cmd := exec.Command(selfExe, argv[1:]...) //nolint:gosec // the daemon re-runs itself with its own arguments
 	cmd.Args[0] = argv[0]
 	cmd.Stderr = stderr
-	cmd.Env = append(os.Environ(), daemonizedEnv+"="+target, sdnotify.Env+"="+addr)
+	cmd.Env = append(os.Environ(), daemonizedEnv+"="+target.String(), sdnotify.Env+"="+addr)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start the daemon: %w", err)
