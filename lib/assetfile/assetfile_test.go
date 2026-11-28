@@ -9,8 +9,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/stubbedev/lys/lib/waittest"
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/lib/waittest"
 )
 
 func within(t *testing.T, fn func()) {

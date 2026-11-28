@@ -15372,8 +15372,7 @@
       "golang.org/x/sys/unix",
       "image",
       "runtime",
-      "sync",
-      "unsafe"
+      "sync"
     ],
     "testImports": [
       "lib/fdtest",
@@ -17221,8 +17220,10 @@
   },
   "wm/internal/testclient": {
     "imports": [
+      "lib/dmabuf",
       "lib/fdtest",
       "lib/fourcc",
+      "lib/udmabuf",
       "wm/internal/gpu",
       "wm/internal/protocol/client/cursorshape",
       "wm/internal/protocol/client/fractionalscale",
@@ -17249,8 +17250,7 @@
       "os",
       "slices",
       "testing",
-      "time",
-      "unsafe"
+      "time"
     ]
   },
   "wm/internal/testenv": {
