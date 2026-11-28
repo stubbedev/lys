@@ -36,6 +36,19 @@ type tabWidget struct {
 	bar  *TabBar
 	page *TabPage
 	look tabLook
+	// controls are the buttons inside the tab, its indicator and close
+	// button, which take their own clicks.
+	controls []*Button
+}
+
+// HitTest resolves to the control under p, else the tab.
+func (t *tabWidget) HitTest(p Point) Widget {
+	for _, c := range t.controls {
+		if hit := c.HitTest(p); hit != nil {
+			return hit
+		}
+	}
+	return t.Button.HitTest(p)
 }
 
 type tabLook struct {
@@ -109,6 +122,7 @@ func (b *TabBar) rebuild() {
 }
 
 func (b *TabBar) newTab(p *TabPage) *tabWidget {
+	var controls []*Button
 	content := NewBox(Row, 6, 0)
 	switch {
 	case p.loading:
@@ -138,6 +152,7 @@ func (b *TabBar) newTab(p *TabPage) *tabWidget {
 			}
 		}
 		content.AppendAligned(ind, false, AlignCenter)
+		controls = append(controls, ind)
 	}
 	if !p.pinned {
 		closeBtn := NewButton(NewSymbol(SymbolClose, int(b.sizePx)-2), 2, 4)
@@ -145,8 +160,9 @@ func (b *TabBar) newTab(p *TabPage) *tabWidget {
 		closeBtn.SetTooltip(Tr("Close Tab"))
 		closeBtn.OnClick = func() { b.view.ClosePage(p) }
 		content.AppendAligned(closeBtn, false, AlignCenter)
+		controls = append(controls, closeBtn)
 	}
-	t := &tabWidget{Button: *NewButton(content, 6, 6), bar: b, page: p, look: lookOf(p)}
+	t := &tabWidget{Button: *NewButton(content, 6, 6), bar: b, page: p, look: lookOf(p), controls: controls}
 	t.SetElement("tab")
 	t.OnClick = func() { b.view.Select(p) }
 	if p.tooltip != "" {

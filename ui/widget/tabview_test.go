@@ -107,6 +107,46 @@ func TestTabBarFollowsItsViewAndDropsMovePages(t *testing.T) {
 	}
 }
 
+// A click on a tab's close button closes its page, and a click on the
+// rest of the tab only selects it: the tab is a button holding buttons,
+// and its hit test once swallowed the close button's clicks.
+func TestTabBarCloseButtonTakesItsClick(t *testing.T) {
+	face := testFace(t)
+	v := NewTabView()
+	a := v.Append(NewSpacer(10, 10), "a")
+	b := v.Append(NewSpacer(10, 10), "b")
+	bar := NewTabBar(face, 12, v)
+	r := Router{Root: bar}
+	SizeWithin(bar, Size{W: 400, H: 40})
+	bar.Arrange(render.Rect{W: 400, H: 40})
+	click := func(at Point) {
+		r.Press(BTNLeft, at, 0)
+		r.Release(BTNLeft, at)
+	}
+	tabB := bar.Tabs()[1].(*tabWidget)
+	title := tabB.Bounds()
+	click(Point{X: title.X + 8, Y: title.Y + title.H/2})
+	if v.Selected() != b || v.NPages() != 2 {
+		t.Fatalf("a click on the title: selected b=%v, pages %d", v.Selected() == b, v.NPages())
+	}
+	closeA := tabCloseButton(t, bar.Tabs()[0].(*tabWidget)).Bounds()
+	click(Point{X: closeA.X + closeA.W/2, Y: closeA.Y + closeA.H/2})
+	if a.View() != nil || !slices.Equal(titles(v), []string{"b"}) {
+		t.Errorf("a click on a's close button left %v", titles(v))
+	}
+}
+
+func tabCloseButton(t *testing.T, tab *tabWidget) *Button {
+	t.Helper()
+	for _, w := range tab.Children()[0].(*Box).Children() {
+		if b, ok := w.(*Button); ok && b.HasClass("tab-close-button") {
+			return b
+		}
+	}
+	t.Fatal("the tab has no close button")
+	return nil
+}
+
 func TestTabOverviewSnapshotsPagesAndSelects(t *testing.T) {
 	face := testFace(t)
 	v := NewTabView()
