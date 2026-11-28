@@ -9,12 +9,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/appcli"
 	"github.com/stubbedev/lys/desktop/identity"
 	"github.com/stubbedev/lys/lib/fdtest"
 	"golang.org/x/sys/unix"
 )
 
-func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code int) {
+func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code appcli.Status) {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	code = run(args, &out, &errOut)
@@ -48,7 +49,7 @@ func TestHelpAndVersionNeedNoSession(t *testing.T) {
 		{"-V", "lys-settings dev\n"},
 	} {
 		stdout, stderr, code := runCaptured(t, tc.arg)
-		if code != exitOK || stderr != "" || stdout != tc.want {
+		if code != appcli.OK || stderr != "" || stdout != tc.want {
 			t.Errorf("lys-settings %s: code %d stderr %q stdout\n%s", tc.arg, code, stderr, stdout)
 		}
 	}
@@ -58,7 +59,7 @@ func TestWhatTheCommandDoesNotTakeIsAUsageError(t *testing.T) {
 	noSession(t)
 	for _, args := range [][]string{{"--bogus"}, {"stray"}, {"--page"}} {
 		stdout, stderr, code := runCaptured(t, args...)
-		if code != exitUsage || stdout != "" || !strings.HasPrefix(stderr, "error: ") {
+		if code != appcli.Misused || stdout != "" || !strings.HasPrefix(stderr, "error: ") {
 			t.Errorf("lys-settings %q: code %d stdout %q stderr %q", args, code, stdout, stderr)
 		}
 	}
@@ -67,7 +68,7 @@ func TestWhatTheCommandDoesNotTakeIsAUsageError(t *testing.T) {
 func TestListPagesPrintsJSONWithoutASession(t *testing.T) {
 	noSession(t)
 	stdout, stderr, code := runCaptured(t, "--list-pages")
-	if code != exitOK || stderr != "" {
+	if code != appcli.OK || stderr != "" {
 		t.Fatalf("code %d stderr %q", code, stderr)
 	}
 	var pages []struct{ ID, Title, Icon string }
@@ -92,7 +93,7 @@ func TestListPagesDoesNotReadTheConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	stdout, stderr, code := runCaptured(t, "--list-pages")
-	if code != exitOK || stderr != "" || !strings.Contains(stdout, `"id"`) {
+	if code != appcli.OK || stderr != "" || !strings.Contains(stdout, `"id"`) {
 		t.Fatalf("code %d stdout %q stderr %q", code, stdout, stderr)
 	}
 }
@@ -104,7 +105,7 @@ func TestAnUnknownSettingIsAUsageErrorNamingIt(t *testing.T) {
 		`"bar"`:            {"--page", "theme", "--setting", "bar.location"},
 	} {
 		stdout, stderr, code := runCaptured(t, want...)
-		if code != exitUsage || stdout != "" || !strings.HasPrefix(stderr, "error: ") || !strings.Contains(stderr, args) {
+		if code != appcli.Misused || stdout != "" || !strings.HasPrefix(stderr, "error: ") || !strings.Contains(stderr, args) {
 			t.Errorf("lys-settings %q: code %d stdout %q stderr %q", want, code, stdout, stderr)
 		}
 	}
@@ -129,7 +130,7 @@ func TestListPagesOpensNoConfigFile(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, stderr, code := runCaptured(t, "--list-pages"); code != exitOK {
+	if _, stderr, code := runCaptured(t, "--list-pages"); code != appcli.OK {
 		t.Fatalf("code %d stderr %q", code, stderr)
 	}
 	buf := make([]byte, 4096)

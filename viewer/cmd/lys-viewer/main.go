@@ -4,13 +4,10 @@ package main
 
 import (
 	"errors"
-	"flag"
-	"fmt"
 	"io"
 	"os"
 
-	"github.com/stubbedev/lys/desktop/argpaths"
-	"github.com/stubbedev/lys/lib/buildinfo"
+	"github.com/stubbedev/lys/desktop/appcli"
 
 	"github.com/stubbedev/lys/viewer/internal/viewer"
 )
@@ -28,47 +25,19 @@ Options:
   -V, --version  Print version
 `
 
-const (
-	exitOK    = 0
-	exitError = 1
-	exitUsage = 2
-)
+func main() { os.Exit(int(run(os.Args[1:], os.Stdout, os.Stderr, viewer.Run))) }
 
-func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, viewer.Run)) }
-
-func run(args []string, stdout, stderr io.Writer, show func([]string) error) int {
-	flags := flag.NewFlagSet("lys-viewer", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.Usage = func() {}
-	long := flags.Bool("version", false, "")
-	short := flags.Bool("V", false, "")
-	switch err := flags.Parse(args); {
-	case errors.Is(err, flag.ErrHelp):
-		fmt.Fprint(stdout, usage)
-		return exitOK
-	case err != nil:
-		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usage)
-		return exitUsage
-	case *long || *short:
-		fmt.Fprintln(stdout, "lys-viewer", buildinfo.Version())
-		return exitOK
-	case flags.NArg() == 0:
-		fmt.Fprintf(stderr, "error: no file to show\n\n%s", usage)
-		return exitUsage
+func run(args []string, stdout, stderr io.Writer, show func([]string) error) appcli.Status {
+	cmd := appcli.New("lys-viewer", usage, stdout, stderr)
+	if status, done := cmd.Parse(args); done {
+		return status
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintln(stderr, "lys-viewer: find the working directory:", err)
-		return exitError
+	if cmd.Flags.NArg() == 0 {
+		return cmd.Misuse(errors.New("no file to show"))
 	}
-	paths, err := argpaths.Parse(flags.Args(), cwd)
-	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usage)
-		return exitUsage
+	paths, status, ok := cmd.Paths()
+	if !ok {
+		return status
 	}
-	if err := show(paths); err != nil {
-		fmt.Fprintln(stderr, "lys-viewer:", err)
-		return exitError
-	}
-	return exitOK
+	return cmd.Report(show(paths))
 }

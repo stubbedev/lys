@@ -86,6 +86,25 @@
       "testing/fstest"
     ]
   },
+  "desktop/appcli": {
+    "imports": [
+      "desktop/argpaths",
+      "lib/buildinfo"
+    ],
+    "external": [
+      "errors",
+      "flag",
+      "fmt",
+      "io",
+      "os"
+    ],
+    "testExternal": [
+      "bytes",
+      "path/filepath",
+      "slices",
+      "testing"
+    ]
+  },
   "desktop/argpaths": {
     "imports": [
       "ui/transfer"
@@ -2969,14 +2988,10 @@
   },
   "files/cmd/lys-files": {
     "imports": [
-      "desktop/argpaths",
-      "files/internal/files",
-      "lib/buildinfo"
+      "desktop/appcli",
+      "files/internal/files"
     ],
     "external": [
-      "errors",
-      "flag",
-      "fmt",
       "io",
       "os"
     ],
@@ -2985,6 +3000,7 @@
     ],
     "testExternal": [
       "bytes",
+      "errors",
       "path/filepath",
       "slices",
       "strings",
@@ -8355,13 +8371,11 @@
   },
   "settings/cmd/lys-settings": {
     "imports": [
+      "desktop/appcli",
       "desktop/settingspage",
-      "lib/buildinfo",
       "settings/internal/settings"
     ],
     "external": [
-      "errors",
-      "flag",
       "fmt",
       "io",
       "os"
@@ -8374,6 +8388,7 @@
     "testExternal": [
       "bytes",
       "encoding/json",
+      "errors",
       "golang.org/x/sys/unix",
       "path/filepath",
       "strings",
@@ -14419,14 +14434,11 @@
   "ui/widget/css": {},
   "viewer/cmd/lys-viewer": {
     "imports": [
-      "desktop/argpaths",
-      "lib/buildinfo",
+      "desktop/appcli",
       "viewer/internal/viewer"
     ],
     "external": [
       "errors",
-      "flag",
-      "fmt",
       "io",
       "os"
     ],

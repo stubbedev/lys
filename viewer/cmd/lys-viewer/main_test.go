@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/appcli"
 	"github.com/stubbedev/lys/lib/testhome"
 )
 
@@ -27,7 +28,7 @@ func TestTheViewerLinksNoRenderer(t *testing.T) {
 	}
 }
 
-func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code int, shown [][]string) {
+func runCaptured(t *testing.T, args ...string) (stdout, stderr string, code appcli.Status, shown [][]string) {
 	t.Helper()
 	var out, errOut bytes.Buffer
 	code = run(args, &out, &errOut, func(paths []string) error {
@@ -42,7 +43,7 @@ func TestHelpAndVersionShowNothing(t *testing.T) {
 		{"-h", usage}, {"--help", usage}, {"--version", "lys-viewer dev\n"}, {"-V", "lys-viewer dev\n"},
 	} {
 		stdout, stderr, code, shown := runCaptured(t, tc.arg)
-		if code != exitOK || stderr != "" || stdout != tc.want || shown != nil {
+		if code != appcli.OK || stderr != "" || stdout != tc.want || shown != nil {
 			t.Errorf("lys-viewer %s: code %d stderr %q stdout %q shown %v", tc.arg, code, stderr, stdout, shown)
 		}
 	}
@@ -51,7 +52,7 @@ func TestHelpAndVersionShowNothing(t *testing.T) {
 func TestWhatTheCommandDoesNotTakeIsAUsageError(t *testing.T) {
 	for _, args := range [][]string{nil, {"--bogus"}, {"https://example.org/a.png"}, {"a.png", ""}} {
 		stdout, stderr, code, shown := runCaptured(t, args...)
-		if code != exitUsage || stdout != "" || !strings.HasPrefix(stderr, "error: ") || shown != nil {
+		if code != appcli.Misused || stdout != "" || !strings.HasPrefix(stderr, "error: ") || shown != nil {
 			t.Errorf("lys-viewer %q: code %d stdout %q stderr %q shown %v", args, code, stdout, stderr, shown)
 		}
 	}
@@ -63,7 +64,7 @@ func TestTheFilesShowAsAbsolutePaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, stderr, code, shown := runCaptured(t, "a.png", "file:///srv/b%20c.png")
-	if want := []string{filepath.Join(cwd, "a.png"), "/srv/b c.png"}; code != exitOK || stderr != "" || len(shown) != 1 || !slices.Equal(shown[0], want) {
+	if want := []string{filepath.Join(cwd, "a.png"), "/srv/b c.png"}; code != appcli.OK || stderr != "" || len(shown) != 1 || !slices.Equal(shown[0], want) {
 		t.Errorf("code %d stderr %q showed %v, want %v", code, stderr, shown, want)
 	}
 }
@@ -71,7 +72,7 @@ func TestTheFilesShowAsAbsolutePaths(t *testing.T) {
 func TestAViewerThatFailsSaysWhy(t *testing.T) {
 	var errOut bytes.Buffer
 	code := run([]string{"a.png"}, &bytes.Buffer{}, &errOut, func([]string) error { return errors.New("viewer: connect: no compositor") })
-	if code != exitError || errOut.String() != "lys-viewer: viewer: connect: no compositor\n" {
+	if code != appcli.Failed || errOut.String() != "lys-viewer: viewer: connect: no compositor\n" {
 		t.Errorf("code %d stderr %q", code, errOut.String())
 	}
 }

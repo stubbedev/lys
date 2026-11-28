@@ -4,14 +4,12 @@
 package main
 
 import (
-	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/stubbedev/lys/desktop/appcli"
 	"github.com/stubbedev/lys/desktop/settingspage"
-	"github.com/stubbedev/lys/lib/buildinfo"
 
 	"github.com/stubbedev/lys/settings/internal/settings"
 )
@@ -30,48 +28,29 @@ Options:
   -V, --version         Print version
 `
 
-const (
-	exitOK    = 0
-	exitError = 1
-	exitUsage = 2
-)
+func main() { os.Exit(int(run(os.Args[1:], os.Stdout, os.Stderr))) }
 
-func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
-
-func run(args []string, stdout, stderr io.Writer) int {
-	flags := flag.NewFlagSet("lys-settings", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.Usage = func() {}
-	page := flags.String("page", "", "")
-	setting := flags.String("setting", "", "")
-	list := flags.Bool("list-pages", false, "")
-	long := flags.Bool("version", false, "")
-	short := flags.Bool("V", false, "")
-	switch err := flags.Parse(args); {
-	case errors.Is(err, flag.ErrHelp):
-		fmt.Fprint(stdout, usage)
-		return exitOK
-	case err != nil:
-		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usage)
-		return exitUsage
-	case flags.NArg() != 0:
-		fmt.Fprintf(stderr, "error: unexpected argument %q\n\n%s", flags.Arg(0), usage)
-		return exitUsage
+func run(args []string, stdout, stderr io.Writer) appcli.Status {
+	cmd := appcli.New("lys-settings", usage, stdout, stderr)
+	page := cmd.Flags.String("page", "", "")
+	setting := cmd.Flags.String("setting", "", "")
+	list := cmd.Flags.Bool("list-pages", false, "")
+	if status, done := cmd.Parse(args); done {
+		return status
 	}
 	switch {
-	case *long || *short:
-		fmt.Fprintln(stdout, "lys-settings", buildinfo.Version())
-		return exitOK
+	case cmd.Flags.NArg() != 0:
+		return cmd.Misuse(fmt.Errorf("unexpected argument %q", cmd.Flags.Arg(0)))
 	case *list:
-		return report(stderr, listPages(stdout))
+		return cmd.Report(listPages(stdout))
 	}
 	if *setting != "" {
 		if err := settings.CheckSetting(*page, *setting); err != nil {
 			fmt.Fprintf(stderr, "error: %v\n", err)
-			return exitUsage
+			return appcli.Misused
 		}
 	}
-	return report(stderr, settings.Run(*page, *setting))
+	return cmd.Report(settings.Run(*page, *setting))
 }
 
 func listPages(stdout io.Writer) error {
@@ -81,12 +60,4 @@ func listPages(stdout io.Writer) error {
 	}
 	_, err = stdout.Write(data)
 	return err
-}
-
-func report(stderr io.Writer, err error) int {
-	if err == nil {
-		return exitOK
-	}
-	fmt.Fprintln(stderr, "lys-settings:", err)
-	return exitError
 }

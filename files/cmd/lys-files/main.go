@@ -2,14 +2,10 @@
 package main
 
 import (
-	"errors"
-	"flag"
-	"fmt"
 	"io"
 	"os"
 
-	"github.com/stubbedev/lys/desktop/argpaths"
-	"github.com/stubbedev/lys/lib/buildinfo"
+	"github.com/stubbedev/lys/desktop/appcli"
 
 	"github.com/stubbedev/lys/files/internal/files"
 )
@@ -29,45 +25,17 @@ Options:
   -V, --version  Print version
 `
 
-const (
-	exitOK    = 0
-	exitError = 1
-	exitUsage = 2
-)
+func main() { os.Exit(int(run(os.Args[1:], os.Stdout, os.Stderr, files.Run))) }
 
-func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, files.Run)) }
-
-func run(args []string, stdout, stderr io.Writer, show func(paths []string, service bool) error) int {
-	flags := flag.NewFlagSet("lys-files", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	flags.Usage = func() {}
-	long := flags.Bool("version", false, "")
-	short := flags.Bool("V", false, "")
-	service := flags.Bool(files.ServiceArg[2:], false, "")
-	switch err := flags.Parse(args); {
-	case errors.Is(err, flag.ErrHelp):
-		fmt.Fprint(stdout, usage)
-		return exitOK
-	case err != nil:
-		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usage)
-		return exitUsage
-	case *long || *short:
-		fmt.Fprintln(stdout, "lys-files", buildinfo.Version())
-		return exitOK
+func run(args []string, stdout, stderr io.Writer, show func(paths []string, service bool) error) appcli.Status {
+	cmd := appcli.New("lys-files", usage, stdout, stderr)
+	service := cmd.Flags.Bool(files.ServiceArg[2:], false, "")
+	if status, done := cmd.Parse(args); done {
+		return status
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintln(stderr, "lys-files: find the working directory:", err)
-		return exitError
+	paths, status, ok := cmd.Paths()
+	if !ok {
+		return status
 	}
-	paths, err := argpaths.Parse(flags.Args(), cwd)
-	if err != nil {
-		fmt.Fprintf(stderr, "error: %v\n\n%s", err, usage)
-		return exitUsage
-	}
-	if err := show(paths, *service); err != nil {
-		fmt.Fprintln(stderr, "lys-files:", err)
-		return exitError
-	}
-	return exitOK
+	return cmd.Report(show(paths, *service))
 }
