@@ -21,7 +21,6 @@ import (
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/fileuri"
-	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/procstat"
 	"github.com/stubbedev/lys/lib/recentfiles"
 	"github.com/stubbedev/lys/lib/xdg"
@@ -383,18 +382,6 @@ func hasPrefixFold(s, lower string) bool {
 		s, lower = s[ns:], lower[nl:]
 	}
 	return true
-}
-
-// HumanSize is a file size in the desktop locale's binary units.
-func HumanSize(n int64) string { return i18n.Shell().ByteSize(intconv.Clamp[uint64](n)) }
-
-// FormatTime is a modification time in local time, in the desktop
-// locale's numeric date and time, "" for none.
-func FormatTime(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-	return i18n.Shell().DateTime(t.Local())
 }
 
 // FormatModified is a modification time as the list reads it, on the

@@ -27,27 +27,6 @@ func names(entries []Entry) []string {
 	return out
 }
 
-func TestHumanSizeIsTheLocaleByteSize(t *testing.T) {
-	for _, n := range []int64{0, 512, 1536, 3 << 30} {
-		if got, want := HumanSize(n), i18n.Shell().ByteSize(uint64(n)); got != want {
-			t.Errorf("HumanSize(%d) = %q, want the locale's %q", n, got, want)
-		}
-	}
-	if got, want := HumanSize(-1), i18n.Shell().ByteSize(0); got != want {
-		t.Errorf("HumanSize(-1) = %q, want a negative size clamped to %q", got, want)
-	}
-}
-
-func TestFormatTimeIsTheLocaleDateTimeInLocalTime(t *testing.T) {
-	if got := FormatTime(time.Time{}); got != "" {
-		t.Errorf("no time = %q, want empty", got)
-	}
-	at := time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)
-	if got, want := FormatTime(at), i18n.Shell().DateTime(at.Local()); got != want {
-		t.Errorf("FormatTime = %q, want the locale's local %q", got, want)
-	}
-}
-
 func TestTextFilterIsSubstringThenGlob(t *testing.T) {
 	plain := newTextFilter("REP")
 	if !plain.matches("report.txt") || !plain.matches("my-Report") || plain.matches("notes.txt") {

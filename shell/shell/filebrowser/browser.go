@@ -1357,7 +1357,7 @@ func (c *Browser) fileRow(e Entry) widget.Widget {
 	}
 	var size string
 	if !e.IsDir {
-		size = HumanSize(e.Size)
+		size = preview.ByteSize(e.Size)
 	}
 	var labels [3]*widget.Label
 	var cells [3]widget.Widget

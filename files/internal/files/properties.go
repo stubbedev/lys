@@ -11,9 +11,9 @@ import (
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
-	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -84,7 +84,7 @@ func readFacts(db *mime.Database, paths []string) (facts, error) {
 // rows are the dialog's lines, label and value, in order.
 func (ft facts) rows(db *mime.Database) [][2]string {
 	tr := locale.T()
-	size := filebrowser.HumanSize(ft.size)
+	size := preview.ByteSize(ft.size)
 	if ft.contents > 0 || ft.mode.IsDir() {
 		size = tr.Get("files-prop-contents", i18n.Str("size", size), i18n.Int("count", ft.contents))
 	}
@@ -99,7 +99,7 @@ func (ft facts) rows(db *mime.Database) [][2]string {
 		{tr.Get("files-prop-type"), cmp.Or(db.Comment(ft.mimeType), ft.mimeType)},
 		{tr.Get("files-prop-location"), ft.dir},
 		{tr.Get("files-prop-size"), size},
-		{tr.Get("files-prop-modified"), filebrowser.FormatTime(ft.modified)},
+		{tr.Get("files-prop-modified"), preview.Modified(ft.modified)},
 		{tr.Get("files-prop-permissions"), permissions(ft.mode)},
 	}
 }

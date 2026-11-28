@@ -180,7 +180,7 @@ func TestAPictureInMemoryShowsAsAPictureFile(t *testing.T) {
 	if b := pic.Bounds(); b.W != 2*b.H {
 		t.Errorf("the 64x32 picture shows at %dx%d", b.W, b.H)
 	}
-	if want := "PNG image · 64 × 32 · " + byteSize(int64(len(data))); v.info.Text() != want {
+	if want := "PNG image · 64 × 32 · " + ByteSize(int64(len(data))); v.info.Text() != want {
 		t.Errorf("the detail line is %q, want %q", v.info.Text(), want)
 	}
 	if v.name.Visible() || v.open.Visible() || v.Path() != "" {

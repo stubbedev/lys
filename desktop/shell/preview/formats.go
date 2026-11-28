@@ -301,10 +301,10 @@ func loadArchive(ctx context.Context, path string, f archiveFormat, info Info) C
 	for i, e := range entries {
 		size := ""
 		if !e.dir {
-			size = byteSize(e.size)
+			size = ByteSize(e.size)
 			st.bytes += e.size
 		}
-		t.rows[i] = []string{e.name, size, modified(e.modified)}
+		t.rows[i] = []string{e.name, size, Modified(e.modified)}
 	}
 	return Content{info: info, renderer: Archive, table: t, folder: st}
 }

@@ -122,7 +122,7 @@ func TestAFolderCountsItsItemsAndSize(t *testing.T) {
 	if v.Renderer() != Folder {
 		t.Fatalf("a folder shows as %v", v.Renderer())
 	}
-	want := i18n.T("preview-kind-folder") + " · " + i18n.T("preview-folder-items", i18n.Int("count", 4), i18n.Str("shown", "4")) + " · " + byteSize(5048) + " · "
+	want := i18n.T("preview-kind-folder") + " · " + i18n.T("preview-folder-items", i18n.Int("count", 4), i18n.Str("shown", "4")) + " · " + ByteSize(5048) + " · "
 	if info := v.info.Text(); !strings.HasPrefix(info, want) {
 		t.Errorf("the detail line is %q, want it to start %q", info, want)
 	}
@@ -134,7 +134,7 @@ func TestAFolderCountsItsItemsAndSize(t *testing.T) {
 	if got := folderItems(st); got != i18n.T("preview-folder-items-capped", i18n.Str("shown", "2")) {
 		t.Errorf("a capped count reads %q", got)
 	}
-	if got := folderBytes(st); got != i18n.T("preview-size-at-least", i18n.Str("size", byteSize(st.bytes))) {
+	if got := folderBytes(st); got != i18n.T("preview-size-at-least", i18n.Str("size", ByteSize(st.bytes))) {
 		t.Errorf("a capped size reads %q", got)
 	}
 	st, err = walkFolder(context.Background(), dir, 4)

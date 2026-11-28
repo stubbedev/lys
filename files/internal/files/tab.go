@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
@@ -139,7 +140,7 @@ func status(sel []filebrowser.Entry, total int, loading bool) string {
 	if !hasFile {
 		return selection
 	}
-	return tr.Get("files-status-size", i18n.Str("selection", selection), i18n.Str("size", filebrowser.HumanSize(size)))
+	return tr.Get("files-status-size", i18n.Str("selection", selection), i18n.Str("size", preview.ByteSize(size)))
 }
 
 // dirShown titles the tab, and the window when it shows, by the

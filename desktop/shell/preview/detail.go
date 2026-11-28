@@ -24,7 +24,7 @@ const detailSeparator = " · "
 func detail(name string, c Content) string {
 	info := c.info
 	if c.renderer == Folder {
-		return joinDetail(i18n.T("preview-kind-folder"), folderItems(c.folder), folderBytes(c.folder), modified(info.Modified))
+		return joinDetail(i18n.T("preview-kind-folder"), folderItems(c.folder), folderBytes(c.folder), Modified(info.Modified))
 	}
 	kind := kindOf(name, info)
 	if info.Modified.IsZero() && info.Size == 0 {
@@ -37,7 +37,7 @@ func detail(name string, c Content) string {
 	case Table:
 		items = tableRows(c.table)
 	}
-	return joinDetail(kind, items, pixelSize(c.picture.size), byteSize(info.Size), modified(info.Modified))
+	return joinDetail(kind, items, pixelSize(c.picture.size), ByteSize(info.Size), Modified(info.Modified))
 }
 
 // kindOf names a file's type: its MIME type's description, else its
@@ -72,7 +72,7 @@ func tableRows(t table) string {
 }
 
 func folderBytes(st folderStats) string {
-	size := byteSize(st.bytes)
+	size := ByteSize(st.bytes)
 	if st.bytesMore {
 		return i18n.T("preview-size-at-least", i18n.Str("size", size))
 	}
@@ -86,11 +86,13 @@ func pixelSize(size image.Point) string {
 	return strconv.Itoa(size.X) + " × " + strconv.Itoa(size.Y)
 }
 
-func byteSize(n int64) string { return i18n.Shell().ByteSize(intconv.Clamp[uint64](n)) }
+// ByteSize is a file size in the desktop locale's binary units, a
+// negative size read as none.
+func ByteSize(n int64) string { return i18n.Shell().ByteSize(intconv.Clamp[uint64](n)) }
 
-// modified is a modification time in local time, in the desktop
-// locale's numeric date and time.
-func modified(t time.Time) string {
+// Modified is a modification time in local time, in the desktop
+// locale's numeric date and time, "" for none.
+func Modified(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}

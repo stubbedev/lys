@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
@@ -39,7 +40,7 @@ func selectedText(n, total int) string {
 }
 
 func sizedText(n, total int, size int64) string {
-	return locale.T().Get("files-status-size", i18n.Str("selection", selectedText(n, total)), i18n.Str("size", filebrowser.HumanSize(size)))
+	return locale.T().Get("files-status-size", i18n.Str("selection", selectedText(n, total)), i18n.Str("size", preview.ByteSize(size)))
 }
 
 // The status line counts the items of the folder, or the selection of

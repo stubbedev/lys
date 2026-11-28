@@ -325,7 +325,7 @@ func TestAnArchiveListsItsFiles(t *testing.T) {
 			continue
 		}
 		got := cells(t, v)
-		for _, want := range []string{i18n.T("preview-archive-name"), "readme.txt", "src/main.go", byteSize(12), modified(stamp)} {
+		for _, want := range []string{i18n.T("preview-archive-name"), "readme.txt", "src/main.go", ByteSize(12), Modified(stamp)} {
 			if !slices.Contains(got, want) {
 				t.Errorf("%s lists %q, missing %q", name, got, want)
 			}

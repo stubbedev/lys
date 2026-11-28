@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
@@ -1430,8 +1431,8 @@ func TestListRowsReadCountsDaysAndKinds(t *testing.T) {
 		"docs":   {itemsText(0), "", "Folder"},
 		"pics":   {itemsText(1), l.Date(now.AddDate(0, -2, 0)), "Folder"},
 		"locked": {"", "", "Folder"},
-		"a.png":  {HumanSize(0), l.Time(now.Add(-time.Hour)), "PNG image"},
-		"b.txt":  {HumanSize(0), i18n.T("file-chooser-modified-yesterday"), "plain text document"},
+		"a.png":  {preview.ByteSize(0), l.Time(now.Add(-time.Hour)), "PNG image"},
+		"b.txt":  {preview.ByteSize(0), i18n.T("file-chooser-modified-yesterday"), "plain text document"},
 	} {
 		got := hs.rowTexts(t, name)
 		if name == "docs" || name == "locked" {

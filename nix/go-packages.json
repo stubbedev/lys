@@ -3018,6 +3018,7 @@
       "desktop/i18n",
       "desktop/mime",
       "desktop/shell/apptheme",
+      "desktop/shell/preview",
       "desktop/shell/widgets",
       "desktop/spawn",
       "desktop/styling",
