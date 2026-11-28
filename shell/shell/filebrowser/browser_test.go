@@ -671,7 +671,43 @@ func TestWatchMountsStops(t *testing.T) {
 	waittest.For(t, done, "the mount watch to stop")
 }
 
-// A folder still being read says so, not "No items".
+// An empty listing says why under an icon, as Nautilus's status page
+// does: an empty folder, or a search that matched nothing; a folder
+// being read says so with no icon (TestListingShowsLoading).
+func TestTheEmptyStateSaysWhy(t *testing.T) {
+	hs := newHarness(t, "")
+	hs.open(t, openFile)
+	state := func() (text string, visible, icon bool) {
+		hs.run(func() {
+			e := hs.c.ui.empty
+			text, visible = e.Text(), e.Visible()
+			icon = e.icon.Visible() && len(treetest.All[*widget.Icon](e.icon)) == 1
+		})
+		return text, visible, icon
+	}
+	if _, visible, _ := state(); visible {
+		t.Error("a folder with files shows the empty state")
+	}
+	hs.do(func() { hs.c.setSearch("nothing-is-called-this") })
+	if text, visible, icon := state(); text != i18n.T("file-chooser-no-results") || !visible || !icon {
+		t.Errorf("a search matching nothing shows %q (shown %v, icon %v), want %q under an icon", text, visible, icon, i18n.T("file-chooser-no-results"))
+	}
+	hs.do(func() { hs.c.setSearch(""); hs.c.goTo(filepath.Join(hs.root, "docs")) })
+	if text, visible, icon := state(); text != i18n.T("file-chooser-empty-folder") || !visible || !icon {
+		t.Errorf("an empty folder shows %q (shown %v, icon %v), want %q under an icon", text, visible, icon, i18n.T("file-chooser-empty-folder"))
+	}
+	hs.run(func() {
+		hs.c.s.request = func(string) {}
+		hs.c.goTo(hs.root)
+	})
+	if text, _, icon := state(); text != i18n.T("file-chooser-loading") || icon {
+		t.Errorf("a folder being read shows %q with an icon %v, want %q alone", text, icon, i18n.T("file-chooser-loading"))
+	}
+	hs.run(func() { hs.c.s.loading = false })
+	hs.hide()
+}
+
+// A folder still being read says so, not that it is empty.
 func TestListingShowsLoading(t *testing.T) {
 	hs := newHarness(t, "")
 	hs.open(t, openFile)

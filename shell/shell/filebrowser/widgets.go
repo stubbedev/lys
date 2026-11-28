@@ -3,8 +3,10 @@ package filebrowser
 import (
 	"slices"
 
+	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
 )
 
 // dropZone is a box that takes files dropped anywhere on it: onDrop
@@ -387,3 +389,38 @@ func (t *crumbTrail) HitTest(p widget.Point) widget.Widget {
 // Children exposes the crumbs and separators to the tree walks and the
 // cascade.
 func (t *crumbTrail) Children() []widget.Widget { return t.kids }
+
+// emptyState is what the file views show over a listing with no rows:
+// a large, dim icon over a line saying why, Nautilus's status page.
+type emptyState struct {
+	*widget.Box
+	icon  *widget.Box
+	label *widget.Label
+}
+
+// newEmptyState is the empty state, hidden.
+func (c *Browser) newEmptyState() *emptyState {
+	th := widget.Current()
+	e := &emptyState{Box: widget.NewBox(widget.Column, th.Spacing, 0), icon: widget.NewBox(widget.Row, 0, 0)}
+	e.AddClass("file-chooser-empty")
+	e.icon.AddClass("file-chooser-empty-icon", css.DimLabel)
+	e.label = c.Label("", "file-chooser-empty-label", css.DimLabel)
+	e.label.SetAlignment(render.AlignCenter)
+	e.Append(widgets.Center(e.icon), false)
+	e.Append(e.label, false)
+	e.SetVisible(false)
+	return e
+}
+
+// show says text under icon, under no icon for "".
+func (e *emptyState) show(icon, text string) {
+	e.icon.Clear()
+	if icon != "" {
+		e.icon.Append(widget.NewThemeIcon(icon, emptyIconPx), false)
+	}
+	e.icon.SetVisible(icon != "")
+	e.label.SetText(text)
+}
+
+// Text is the line the empty state shows.
+func (e *emptyState) Text() string { return e.label.Text() }

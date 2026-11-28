@@ -56,6 +56,7 @@ const (
 	gridIconPx    = 48
 	previewIconPx = 96
 	navIconPx     = 16
+	emptyIconPx   = 64
 	minColumnW    = 50
 	nameMinW      = 160
 	maxColumnW    = 400
@@ -963,7 +964,7 @@ type ui struct {
 	sortButtons        [4]*widget.Button
 	sortLabels         [4]*widget.Label
 	columns            [3]widget.Widget
-	empty              *widget.Label
+	empty              *emptyState
 	// quicklook and preview are Quick Look's card and the preview
 	// pane, ql and pv what shows in them.
 	preview                 *widget.Box
@@ -1158,7 +1159,7 @@ func (c *Browser) views(u *ui) widget.Widget {
 		l.OnPointer = c.rowPress(l)
 	}
 
-	u.empty = c.Label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
+	u.empty = c.newEmptyState()
 	u.ql, u.quicklook = c.newQuicklook()
 
 	stack := widget.NewOverlay()
@@ -1643,14 +1644,16 @@ func (c *Browser) relist() {
 	u.grid.SetVisible(grid)
 	u.list.Reset()
 	u.grid.Reset()
-	empty := i18n.T("file-chooser-empty-folder")
 	switch {
 	case c.s.loading:
-		empty = i18n.T("file-chooser-loading")
+		u.empty.show("", i18n.T("file-chooser-loading"))
 	case c.s.listErr != nil && !c.s.searching():
-		empty = i18n.T("file-chooser-unreadable")
+		u.empty.show("ld-lock-symbolic", i18n.T("file-chooser-unreadable"))
+	case c.s.search != "":
+		u.empty.show("ld-folder-search-symbolic", i18n.T("file-chooser-no-results"))
+	default:
+		u.empty.show("ld-folder-symbolic", i18n.T("file-chooser-empty-folder"))
 	}
-	u.empty.SetText(empty)
 	u.empty.SetVisible(len(c.s.entries) == 0)
 	c.closeQuicklook()
 	c.refreshPreview()
