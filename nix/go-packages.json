@@ -212,6 +212,7 @@
       "lib/atomicfile",
       "lib/intconv",
       "lib/logind",
+      "lib/render",
       "lib/vaultserver",
       "lib/xdg",
       "power/profile"

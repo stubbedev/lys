@@ -2,7 +2,8 @@ package config
 
 import (
 	"fmt"
-	"strings"
+
+	"github.com/stubbedev/lys/lib/render"
 )
 
 // HexColor is a validated GTK4 CSS hex color: #rgb, #rgba, #rrggbb, or
@@ -12,22 +13,12 @@ type HexColor struct {
 	s string
 }
 
-// ParseHexColor validates a hex color string. A missing '#', a digit
-// count other than 3, 4, 6, or 8, or a non-hex character is an error.
+// ParseHexColor validates a hex color string as render.ParseHex reads
+// one: a missing '#', a digit count other than 3, 4, 6, or 8, or a
+// non-hex character is an error.
 func ParseHexColor(s string) (HexColor, error) {
-	if !strings.HasPrefix(s, "#") {
-		return HexColor{}, fmt.Errorf("hex color must start with '#', got: %s", s)
-	}
-	digits := s[1:]
-	switch len(digits) {
-	case 3, 4, 6, 8:
-	default:
-		return HexColor{}, fmt.Errorf("hex color must have 3, 4, 6, or 8 hex digits after '#', got %d digits in: %s", len(digits), s)
-	}
-	for _, r := range digits {
-		if !strings.ContainsRune("0123456789abcdefABCDEF", r) {
-			return HexColor{}, fmt.Errorf("hex color contains invalid character '%c' in: %s", r, s)
-		}
+	if _, ok := render.ParseHex(s); !ok {
+		return HexColor{}, fmt.Errorf("hex color must be #rgb, #rgba, #rrggbb or #rrggbbaa, got %q", s)
 	}
 	return HexColor{s: s}, nil
 }
