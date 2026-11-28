@@ -198,7 +198,7 @@ func (f *glassFace) fill(mask glyphMask) {
 		return
 	}
 	em := float64(f.key.dev.H)
-	reach := int(math.Ceil(3*shadowSigma*em + shadowDrop*em))
+	reach := int(math.Ceil(float64(3*shadowSigma*em) + float64(shadowDrop*em)))
 	out := (render.Insets{Top: reach, Right: reach, Bottom: reach, Left: reach}).Grow(ink).Intersect(f.key.dev)
 	m := mask.crop(out)
 	bezel := gaussian(m, bezelSigma*em)
@@ -217,7 +217,7 @@ func (f *glassFace) fill(mask glyphMask) {
 			var c [4]float32
 			if cov > 0 {
 				gx, gy := grad(bezel, dx, dy)
-				col := f.frost.sample(float32(dx)+0.5+bend*gx, float32(dy)+0.5+bend*gy)
+				col := f.frost.sample(float32(dx)+0.5+float32(bend*gx), float32(dy)+0.5+float32(bend*gy))
 				rx, ry := grad(rim, dx, dy)
 				c = glassInkAt(col, [2]float32{-rx * rimGain, -ry * rimGain})
 				for i := range c {
@@ -228,7 +228,7 @@ func (f *glassFace) fill(mask glyphMask) {
 			for i := range 3 {
 				img.Pix[o+i] = unit8(c[i] * 255)
 			}
-			img.Pix[o+3] = unit8((c[3] + sh*(1-c[3])) * 255)
+			img.Pix[o+3] = unit8((c[3] + float32(sh*(1-c[3]))) * 255)
 		}
 	}
 	f.img, f.at = render.StillImage{RGBA: img}, image.Pt(out.X, out.Y)
@@ -240,17 +240,17 @@ func (f *glassFace) fill(mask glyphMask) {
 // round. edge is the rim's outward normal scaled by how much of the
 // edge band the pixel is in.
 func glassInkAt(frost [3]float32, edge [2]float32) [4]float32 {
-	band := min(float32(math.Sqrt(float64(edge[0]*edge[0]+edge[1]*edge[1]))), 1)
+	band := min(float32(math.Sqrt(float64(float32(edge[0]*edge[0])+float32(edge[1]*edge[1])))), 1)
 	facing := float32(0)
 	if band > 0 {
-		facing = (edge[0]*float32(lightDir[0]) + edge[1]*float32(lightDir[1])) / max(band, 1e-6)
+		facing = (float32(edge[0]*float32(lightDir[0])) + float32(edge[1]*float32(lightDir[1]))) / max(band, 1e-6)
 		facing = max(min(facing, 1), -1)
 	}
-	light := band * (rimAmbient + rimLight*max(facing, 0))
-	shade := band * rimShade * max(-facing, 0)
+	light := float32(band * (rimAmbient + float32(rimLight*max(facing, 0))))
+	shade := float32(band * rimShade * max(-facing, 0))
 	var c [4]float32
 	for i, v := range frost {
-		c[i] = v*(1-light)*(1-shade) + light
+		c[i] = float32(float32(v*float32(1-light))*float32(1-shade)) + light
 	}
 	c[3] = 1
 	return c
@@ -325,9 +325,9 @@ func newFrostField(bg *image.RGBA, key frostKey) *frostField {
 	sy := float64(src.Dy()) / float64(dst.H)
 	ox, oy := float64(key.box.X+dst.X), float64(key.box.Y+dst.Y)
 	for y := range h {
-		v := float64(src.Min.Y) + (float64(region.Y+y*glassScale)+float64(glassScale)/2-oy)*sy - 0.5
+		v := float64(src.Min.Y) + float64((float64(region.Y+y*glassScale)+float64(glassScale)/2-oy)*sy) - 0.5
 		for x := range w {
-			u := float64(src.Min.X) + (float64(region.X+x*glassScale)+float64(glassScale)/2-ox)*sx - 0.5
+			u := float64(src.Min.X) + float64((float64(region.X+x*glassScale)+float64(glassScale)/2-ox)*sx) - 0.5
 			c := bilinear(bg, src, u, v)
 			o := f.rgba.PixOffset(x, y)
 			for i := range 4 {
@@ -349,11 +349,11 @@ func newFrostField(bg *image.RGBA, key frostKey) *frostField {
 // frostTone saturates c by frostSat about its luma and lifts it
 // frostWhite of the way to white.
 func frostTone(c [3]float32) [3]float32 {
-	luma := 0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]
+	luma := float32(0.2126*c[0]) + float32(0.7152*c[1]) + float32(0.0722*c[2])
 	var out [3]float32
 	for i, v := range c {
-		s := min(max(luma+frostSat*(v-luma), 0), 1)
-		out[i] = s + frostWhite*(1-s)
+		s := min(max(luma+float32(frostSat*(v-luma)), 0), 1)
+		out[i] = s + float32(frostWhite*(1-s))
 	}
 	return out
 }
@@ -372,7 +372,7 @@ func bilinear(img *image.RGBA, within image.Rectangle, u, v float64) [4]float32 
 		p10 := float32(img.Pix[img.PixOffset(x1, y0)+i])
 		p01 := float32(img.Pix[img.PixOffset(x0, y1)+i])
 		p11 := float32(img.Pix[img.PixOffset(x1, y1)+i])
-		c[i] = (p00*(1-fx)+p10*fx)*(1-fy) + (p01*(1-fx)+p11*fx)*fy
+		c[i] = float32((float32(p00*(1-fx))+float32(p10*fx))*(1-fy)) + float32((float32(p01*(1-fx))+float32(p11*fx))*fy)
 	}
 	return c
 }
@@ -380,8 +380,8 @@ func bilinear(img *image.RGBA, within image.Rectangle, u, v float64) [4]float32 
 // sample is the frost's straight color in [0, 1] at device point (x, y),
 // clamped to the field.
 func (f *frostField) sample(x, y float32) [3]float32 {
-	u := float64(x-float32(f.region.X))/glassScale - 0.5
-	v := float64(y-float32(f.region.Y))/glassScale - 0.5
+	u := float64(float64(x-float32(f.region.X))/glassScale) - 0.5
+	v := float64(float64(y-float32(f.region.Y))/glassScale) - 0.5
 	c := bilinear(f.rgba, f.rgba.Rect, u, v)
 	return [3]float32{c[0] / 255, c[1] / 255, c[2] / 255}
 }
