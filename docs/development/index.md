@@ -192,6 +192,21 @@ with the cap and 11.3 without it; caps from 12 to 15 all came to 10.6 to 11.0.
 The cost is that a Go job past the fourteenth waits for a runner even when one
 is free.
 
+The twenty runners are the account's, not the run's. Run 46141152927
+(4e16d9f50) took 17.2 minutes on 168 runner-minutes. It never had more than
+13 jobs running at once, because the docs build (18 minutes on one runner) and
+CodeQL (10 minutes) ran beside it. The login and desktop VM jobs were ready at
+3.7 to 3.9 minutes but waited until 10.0 to 11.5. The docs and security
+workflows on `main` therefore start once `ci` has finished (`workflow_run`), so
+they no longer take its runners. The docs build runs only when something it
+builds from changed since the last deployed build. Security still runs on
+every pull request and every night. login's `login-vms-sessions` and
+`login-vms-greetd`, 7.2 minutes as one job and the run's last, are a job each.
+That run's work cannot finish in ten minutes even on twenty runners: the same
+simulation, reproducing it at 17.3 minutes on twelve runners, gives 12.6 with
+the cap on twenty, and a scheduler with perfect priority 11.1. Its cold builds
+built `lys-login` in four jobs, `lys-settings` in three and `lys-shell` in two.
+
 The jobs run in lanes, each a build and the jobs on it, none waiting for
 another lane's build:
 

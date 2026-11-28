@@ -1,13 +1,9 @@
 name: docs
 on:
-  push:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
     branches: [main]
-    paths:
-      - "docs/**"
-      - ".github/workflows/docs.yml"
-      - "lib/third_party/*/README.lys-lib.md"
-      - "splash/internal/theme/testdata/golden/*.png"
-      - "ui/component/example_test.go"
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +13,45 @@ concurrency:
   group: docs
   cancel-in-progress: true
 jobs:
+  changed:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      docs: ${{ steps.changed.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          deployed=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow docs --branch main --status success --limit 1 --json headSha --jq '.[0].headSha // ""')
+          if [ -z "$deployed" ] || ! git merge-base --is-ancestor "$deployed" HEAD; then
+            echo "docs: no deployed docs build is an ancestor of $(git rev-parse HEAD), so the docs build"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --quiet "$deployed" HEAD -- docs .github/workflows/docs.yml 'lib/third_party/*/README.lys-lib.md' 'splash/internal/theme/testdata/golden/*.png' ui/component/example_test.go; then
+            echo "docs: nothing the docs build from changed since ${deployed}"
+            echo "docs=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+          fi
   pages:
+    needs: changed
+    if: needs.changed.outputs.docs == 'true'
     uses: stubbedev/lys-docs-theme/.github/workflows/pages.yml@7ae5fd05b520aca671ebf64488f5ad45bc18e314 # v0.1.2
     with:
       nix-prebuild: just in ui docshots ../docs/public/ui-widgets
