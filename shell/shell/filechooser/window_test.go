@@ -25,7 +25,7 @@ func (hs *harness) openWindow(t *testing.T) chan []string {
 	hs.mu.Lock()
 	hs.surface = dialogsurface.OnWindow
 	hs.mu.Unlock()
-	return hs.open(t, OpenRequest{})
+	return hs.open(t, OpenRequest{Title: "Open File"})
 }
 
 func TestAChooserWindowOpensAtItsSizeWithinThePanelBounds(t *testing.T) {

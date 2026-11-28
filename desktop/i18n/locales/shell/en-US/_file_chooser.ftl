@@ -1,6 +1,8 @@
 ### File Chooser
 
 ## Header
+file-chooser-nav-back = Back
+file-chooser-nav-forward = Forward
 file-chooser-nav-up = Up
 file-chooser-nav-new-folder = Create Folder
 file-chooser-nav-grid = Toggle grid view

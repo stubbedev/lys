@@ -54,7 +54,9 @@ func TestHeadlessKeysFollowTheKeymap(t *testing.T) {
 		})
 		return on
 	}
-	locating := func() bool { return widget.IsVisible(classed(t, c.b.Main(), "file-chooser-location").(widget.Widget)) }
+	locating := func() bool {
+		return widget.IsVisible(classed(t, c.b.Header(), "file-chooser-location").(widget.Widget))
+	}
 	kb.CtrlTap(keytest.H)
 	apptest.Until(t, a, "Ctrl+H showed hidden files", hidden)
 	if apptest.On(a, locating) {

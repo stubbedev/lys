@@ -545,7 +545,7 @@ func TestPanelFloatsOnTheOutput(t *testing.T) {
 	dp1, dp2 := &app.Output{Name: "DP-1"}, &app.Output{Name: "DP-2"}
 	target := dp1
 	hs.c.d.Target = func() *app.Output { return target }
-	got := hs.open(t, OpenRequest{})
+	got := hs.open(t, OpenRequest{Title: "Open File"})
 	c := hs.cfg
 	if c.Output != dp1 {
 		t.Errorf("mapped on %v, want the target output", c.Output)
@@ -670,7 +670,7 @@ func TestASqueezedPanelKeepsTheSizeItWasChosenAt(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			hs := newHarness(t, "")
-			got := hs.open(t, OpenRequest{})
+			got := hs.open(t, OpenRequest{Title: "Open File"})
 			panel := hs.panel(t)
 			hs.do(func() {
 				lay(hs.cfg.Root, room.W, room.H)
@@ -726,10 +726,10 @@ func TestLongTitleKeepsClearOfTheHeaderButtons(t *testing.T) {
 		request func(hs *harness) []string
 		buttons int
 	}{
-		{name: "open", buttons: 5, request: func(hs *harness) []string {
+		{name: "open", buttons: 7, request: func(hs *harness) []string {
 			return hs.c.Open(testCaller, OpenRequest{Title: title, CurrentFolder: hs.root}).URIs
 		}},
-		{name: "save", buttons: 6, request: func(hs *harness) []string {
+		{name: "save", buttons: 8, request: func(hs *harness) []string {
 			return hs.c.Save(testCaller, SaveRequest{Title: title, CurrentFolder: hs.root, CurrentName: "a.txt"}).URIs
 		}},
 	} {

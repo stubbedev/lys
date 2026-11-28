@@ -251,3 +251,139 @@ func (r *columnRow) HitTest(p widget.Point) widget.Widget {
 
 // Children exposes the cells to the tree walks and the cascade.
 func (r *columnRow) Children() []widget.Widget { return r.kids }
+
+// crumbTrail lays the breadcrumbs out in a row, spacing apart, a
+// separator before each but the first: the crumbs that do not fit give
+// way from the start, so the folder shown stays in view; when it alone
+// does not fit it takes what width there is, and below its least none
+// shows.
+type crumbTrail struct {
+	widget.Base
+	spacing int
+	crumbs  []widget.Widget
+	seps    []widget.Widget
+	kids    []widget.Widget
+}
+
+func newCrumbTrail(spacing int) *crumbTrail { return &crumbTrail{spacing: spacing} }
+
+// set replaces the trail: crumbs in order, and seps, one fewer, between
+// them.
+func (t *crumbTrail) set(crumbs, seps []widget.Widget) {
+	if len(seps) != max(len(crumbs)-1, 0) {
+		panic("filebrowser: a crumb trail needs one separator between each two crumbs")
+	}
+	t.crumbs, t.seps = crumbs, seps
+	t.kids = t.kids[:0]
+	for i, c := range crumbs {
+		if i > 0 {
+			t.kids = append(t.kids, seps[i-1])
+		}
+		t.kids = append(t.kids, c)
+	}
+	widget.SetParents(t, t.kids...)
+	t.InvalidateLayout()
+}
+
+// nat is crumb i's natural width.
+func (t *crumbTrail) nat(i int) int { return t.crumbs[i].Measure(widget.Row, widget.Unknown).Nat }
+
+// gap is the width the separator before crumb i takes, spacing on
+// either side.
+func (t *crumbTrail) gap(i int) int {
+	return 2*t.spacing + t.seps[i-1].Measure(widget.Row, widget.Unknown).Nat
+}
+
+// first is the first crumb shown in w: as many trailing ones as fit,
+// the last always.
+func (t *crumbTrail) first(w int) int {
+	i := len(t.crumbs) - 1
+	if i <= 0 {
+		return 0
+	}
+	used := t.nat(i)
+	for ; i > 0; i-- {
+		next := used + t.gap(i) + t.nat(i-1)
+		if next > w {
+			break
+		}
+		used = next
+	}
+	return i
+}
+
+// Measure asks for no width of its own, the crumbs giving way, and
+// for all of them at their natural widths; its height is the
+// tallest's.
+func (t *crumbTrail) Measure(axis widget.Axis, _ int) widget.Sizes {
+	widget.SetParents(t, t.kids...)
+	if axis == widget.Row {
+		w := 0
+		for i := range t.crumbs {
+			w += t.nat(i)
+			if i > 0 {
+				w += t.gap(i)
+			}
+		}
+		return widget.Sizes{Nat: w}
+	}
+	h := 0
+	for _, k := range t.kids {
+		h = max(h, k.Measure(axis, widget.Unknown).Nat)
+	}
+	return widget.FixedSizes(h)
+}
+
+func (t *crumbTrail) Arrange(rect render.Rect) {
+	t.ArrangeSelf(rect)
+	widget.SetParents(t, t.kids...)
+	first := t.first(rect.W)
+	if n := len(t.crumbs); n > 0 && t.crumbs[n-1].Measure(widget.Row, widget.Unknown).Min > rect.W {
+		first = n
+	}
+	x, right := rect.X, rect.X+rect.W
+	for i, c := range t.crumbs {
+		shown := i >= first
+		setShown(c, shown)
+		if i > 0 {
+			setShown(t.seps[i-1], shown && i > first)
+		}
+		if !shown {
+			continue
+		}
+		if i > first {
+			sep := t.seps[i-1]
+			sw := t.gap(i) - 2*t.spacing
+			t.center(sep, x+t.spacing, sw, rect)
+			x += sw + 2*t.spacing
+		}
+		cw := max(min(t.nat(i), right-x), 0)
+		t.center(c, x, cw, rect)
+		x += cw
+	}
+}
+
+// center lays k out w wide at x, at its height, centred in rect.
+func (t *crumbTrail) center(k widget.Widget, x, w int, rect render.Rect) {
+	h := min(k.Measure(widget.Column, w).Nat, rect.H)
+	k.Arrange(render.Rect{X: x, Y: rect.Y + (rect.H-h)/2, W: w, H: h})
+}
+
+func (t *crumbTrail) Paint(cv *render.Canvas) {
+	for _, k := range t.kids {
+		widget.PaintChild(cv, k)
+	}
+}
+
+func (t *crumbTrail) HitTest(p widget.Point) widget.Widget {
+	for _, k := range t.kids {
+		if hit := widget.HitChild(k, p); hit != nil {
+			return hit
+		}
+	}
+	return nil
+}
+
+// Children exposes the crumbs and separators to the tree walks and the
+// cascade.
+func (t *crumbTrail) Children() []widget.Widget { return t.kids }

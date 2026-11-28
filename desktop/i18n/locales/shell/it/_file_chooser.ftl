@@ -1,6 +1,8 @@
 ### Selettore di file
 
 ## Intestazione
+file-chooser-nav-back = Indietro
+file-chooser-nav-forward = Avanti
 file-chooser-nav-up = Su
 file-chooser-nav-new-folder = Crea cartella
 file-chooser-nav-grid = Attiva/disattiva vista a griglia

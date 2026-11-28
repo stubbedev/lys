@@ -1,6 +1,8 @@
 ### Bestandskiezer
 
 ## Kop
+file-chooser-nav-back = Terug
+file-chooser-nav-forward = Vooruit
 file-chooser-nav-up = Omhoog
 file-chooser-nav-new-folder = Map aanmaken
 file-chooser-nav-grid = Rasterweergave omschakelen

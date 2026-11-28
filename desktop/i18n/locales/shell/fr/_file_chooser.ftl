@@ -1,6 +1,8 @@
 ### Sélecteur de fichiers
 
 ## En-tête
+file-chooser-nav-back = Précédent
+file-chooser-nav-forward = Suivant
 file-chooser-nav-up = Dossier parent
 file-chooser-nav-new-folder = Créer un dossier
 file-chooser-nav-grid = Basculer la vue en grille

@@ -1,0 +1,18 @@
+<svg width='16' height='16'
+     xmlns:gpa='https://www.gtk.org/grappa'
+     gpa:version='3'>
+  <metadata>
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>
+      <path d='M8.00 12.67L12.67 8.00L8.00 3.33' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+      <path d='M3.33 8.00L12.67 8.00' fill='none' stroke='rgb(0,0,0)' stroke-width='1.33' stroke-linecap='round' stroke-linejoin='round' stroke-miterlimit='4.00'/>
+    </svg>
+  </metadata>
+  <path d='M8.47 13.14L13.14 8.47Q13.33 8.28 13.33 8.00Q13.33 7.72 13.14 7.53L8.47 2.86Q8.28 2.67 8.00 2.67Q7.72 2.67 7.53 2.86Q7.33 3.06 7.33 3.33Q7.33 3.61 7.53 3.80L12.20 8.47L12.67 8.00L12.20 7.53L7.53 12.20Q7.33 12.39 7.33 12.67Q7.33 12.94 7.53 13.14Q7.72 13.33 8.00 13.33Q8.28 13.33 8.47 13.14Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+  <path d='M3.33 8.67L12.67 8.67Q12.94 8.67 13.14 8.47Q13.33 8.28 13.33 8.00Q13.33 7.72 13.14 7.53Q12.94 7.33 12.67 7.33L3.33 7.33Q3.06 7.33 2.86 7.53Q2.67 7.72 2.67 8.00Q2.67 8.28 2.86 8.47Q3.06 8.67 3.33 8.67Z'
+stroke='none'
+fill='rgb(0,0,0)'
+gpa:fill='foreground'/>
+</svg>

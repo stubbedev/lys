@@ -1,3 +1,5 @@
+ld-arrow-left-symbolic
+ld-arrow-right-symbolic
 ld-arrow-up-symbolic
 ld-calendar-symbolic
 ld-disc-3-symbolic

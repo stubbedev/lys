@@ -26,6 +26,52 @@ import (
 	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
+// shownCrumbs are the crumbs the trail shows laid out w wide, in order.
+func (hs *harness) shownCrumbs(w int) []string {
+	var got []string
+	hs.run(func() {
+		tr := hs.c.ui.crumbs
+		tr.Arrange(render.Rect{X: 0, Y: 0, W: w, H: 40})
+		for _, k := range tr.crumbs {
+			if k.(interface{ Visible() bool }).Visible() {
+				got = append(got, widget.Describe(k).Name)
+			}
+		}
+	})
+	return got
+}
+
+// The crumbs that do not fit give way from the start, the folder shown
+// last of all; with room for all, all show.
+func TestCrumbsGiveWayFromTheStart(t *testing.T) {
+	hs := newHarness(t, "")
+	deep := filepath.Join(hs.root, "docs", "deep-folder-name")
+	browsertest.Touch(t, hs.root, "docs/deep-folder-name/")
+	hs.open(t, openFile)
+	hs.do(func() { hs.c.goTo(deep) })
+	if got, want := hs.shownCrumbs(2000), []string{"Home", "docs", "deep-folder-name"}; !slices.Equal(got, want) {
+		t.Errorf("with room the trail shows %q, want %q", got, want)
+	}
+	var lastTwo, last int
+	hs.run(func() {
+		tr := hs.c.ui.crumbs
+		last = tr.nat(2)
+		lastTwo = last + tr.gap(2) + tr.nat(1)
+	})
+	if got, want := hs.shownCrumbs(lastTwo), []string{"docs", "deep-folder-name"}; !slices.Equal(got, want) {
+		t.Errorf("with room for two the trail shows %q, want %q", got, want)
+	}
+	if got, want := hs.shownCrumbs(lastTwo-1), []string{"deep-folder-name"}; !slices.Equal(got, want) {
+		t.Errorf("with room for less than two the trail shows %q, want %q", got, want)
+	}
+	if got := hs.shownCrumbs(0); len(got) != 0 {
+		t.Errorf("with no room the trail shows %q", got)
+	}
+	if got, want := hs.shownCrumbs(last - 1)[0], "deep-folder-name"; got != want {
+		t.Errorf("squeezed under its width the trail shows %q, want the folder shown", got)
+	}
+}
+
 // A breadcrumb longer than crumbMaxChars characters keeps what fits and
 // ends in an ellipsis, cut between characters, not inside one; a short
 // one is shown whole.
@@ -69,6 +115,100 @@ func TestHistoryButtonsAndUp(t *testing.T) {
 		t.Errorf("up = %s", dir)
 	}
 }
+
+// navEnabled reports which of Back, Forward and Up take a click.
+func (hs *harness) navEnabled() [3]bool {
+	var on [3]bool
+	hs.run(func() {
+		for i, b := range []*widget.Button{hs.c.ui.back, hs.c.ui.forward, hs.c.ui.up} {
+			on[i] = widget.IsEnabled(b)
+		}
+	})
+	return on
+}
+
+// Back and Forward walk the history and are disabled at its ends; Up
+// is disabled where there is no parent.
+func TestBackAndForwardButtonsWalkTheHistory(t *testing.T) {
+	hs := newHarness(t, "")
+	hs.open(t, openFile)
+	if got := hs.navEnabled(); got != [3]bool{false, false, true} {
+		t.Errorf("a fresh browse enables back, forward, up = %v, want only up", got)
+	}
+	docs := filepath.Join(hs.root, "docs")
+	hs.do(func() { hs.c.goTo(docs) })
+	if got := hs.navEnabled(); got != [3]bool{true, false, true} {
+		t.Errorf("after entering docs back, forward, up = %v, want back and up", got)
+	}
+	hs.click(t, "Back")
+	if dir := hs.dir(); dir != hs.root {
+		t.Errorf("Back showed %s, want %s", dir, hs.root)
+	}
+	if got := hs.navEnabled(); got != [3]bool{false, true, true} {
+		t.Errorf("back at the start back, forward, up = %v, want forward and up", got)
+	}
+	hs.click(t, "Back")
+	if dir := hs.dir(); dir != hs.root {
+		t.Errorf("Back at the history's start moved to %s", dir)
+	}
+	hs.click(t, "Forward")
+	if dir := hs.dir(); dir != docs {
+		t.Errorf("Forward showed %s, want %s", dir, docs)
+	}
+	hs.click(t, "Forward")
+	if dir := hs.dir(); dir != docs {
+		t.Errorf("Forward at the history's end moved to %s", dir)
+	}
+	hs.do(func() { hs.c.goTo("/") })
+	if got := hs.navEnabled(); got != [3]bool{true, false, false} {
+		t.Errorf("at / back, forward, up = %v, want back alone", got)
+	}
+	hs.do(func() { hs.c.goTo(recentLocation) })
+	if got := hs.navEnabled(); got[2] {
+		t.Error("Up is enabled in Recent")
+	}
+}
+
+// The header is one row of the history, the crumbs and the search,
+// under the title when the browse has one, and only then.
+func TestTheCrumbsAndSearchShareTheHeaderRow(t *testing.T) {
+	for _, title := range []string{"", "Open File"} {
+		t.Run(title, func(t *testing.T) { headerRow(t, title) })
+	}
+}
+
+// headerRow checks the header of a browse titled title ("" for none).
+func headerRow(t *testing.T, title string) {
+	hs := newHarness(t, "")
+	o := openFile
+	o.Title = title
+	hs.open(t, o)
+	hs.run(func() {
+		root := hs.cfg.Root
+		lay(root, defaultW, defaultH)
+		header := classed(t, root, "file-chooser-header").Bounds()
+		row := classed(t, root, "file-chooser-navbar").Bounds()
+		for _, w := range []widget.Boundser{hs.c.ui.back, hs.c.ui.forward, hs.c.ui.up, hs.c.ui.crumbs, hs.c.ui.search, hs.c.ui.viewToggle} {
+			b := w.Bounds()
+			if b.W <= 0 || !inRect(b, row) || !inRect(row, header) {
+				t.Errorf("title %q: %T at %v, want it in the header row %v inside the header %v", title, w, b, row, header)
+			}
+		}
+		if b, s := hs.c.ui.back.Bounds(), hs.c.ui.search.Bounds(); b.X >= s.X || hs.c.ui.crumbs.Bounds().X >= s.X {
+			t.Errorf("title %q: back at %v, crumbs at %v, search at %v; want back, then the crumbs, then the search", title, b, hs.c.ui.crumbs.Bounds(), s)
+		}
+		titles := treetest.WithClass(root, "file-chooser-title")
+		switch {
+		case title == "" && len(titles) != 0:
+			t.Errorf("a browse without a title shows %d title labels", len(titles))
+		case title != "" && (len(titles) != 1 || titles[0].(*widget.Label).Text() != title || titles[0].(widget.Boundser).Bounds().Y >= row.Y):
+			t.Errorf("a browse titled %q shows %d titles, want it once over the header row", title, len(titles))
+		}
+	})
+}
+
+// inRect reports whether r lies inside outer.
+func inRect(r, outer render.Rect) bool { return r.Intersect(outer) == r }
 
 func TestSpaceInATextFieldTypes(t *testing.T) {
 	hs := newHarness(t, "")
@@ -1121,7 +1261,9 @@ func TestTrashPlace(t *testing.T) {
 // headings over the sidebar sections, dim cells.
 func TestBrowserTakesLysUiParts(t *testing.T) {
 	hs := newHarness(t, "")
-	hs.open(t, openFile)
+	o := openFile
+	o.Title = "Open File"
+	hs.open(t, o)
 	hs.run(func() {
 		root := hs.cfg.Root
 		all := func(class string, want ...string) {

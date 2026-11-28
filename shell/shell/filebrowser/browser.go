@@ -344,11 +344,13 @@ func (c *Browser) Close() {
 	c.viewFile.Wait()
 }
 
-// Header is the browse's header bar: up, Create Folder when offered,
-// the title, the view toggles. The host's surface may drag by it.
+// Header is the browse's header bar: the title, when the browse has
+// one, over Back, Forward, Up, Create Folder when offered, the
+// breadcrumbs, the search and the view toggles. The host's surface may
+// drag by it.
 func (c *Browser) Header() widget.Widget { return c.ui.header }
 
-// Main is the browse's body under the header: the path bar, the
+// Main is the browse's body under the header: the new folder row, the
 // sidebar, the files and the preview, then the host's rows around the
 // notice. A file dropped on it opens its folder.
 func (c *Browser) Main() widget.Widget { return c.ui.main }
@@ -493,35 +495,34 @@ func (c *Browser) build() {
 	u := &ui{}
 	o := c.o
 
-	// Header: up, the title, the view toggles. The bar is the panel's
-	// drag handle.
+	// Header: the title, when there is one, over one row of the
+	// history and up, the breadcrumbs (or the location entry), the
+	// search and the view toggles. The bar is the panel's drag handle.
 	th := widget.Current()
-	headerRow := widget.NewBox(widget.Row, th.Spacing/4, 0)
-	headerRow.Append(c.iconButton("ld-arrow-up-symbolic", i18n.T("file-chooser-nav-up"), c.goUp), false)
-	if o.NewFolder {
-		headerRow.Append(c.iconButton("ld-folder-plus-symbolic", i18n.T("file-chooser-nav-new-folder"), c.showNewFolder), false)
-	}
-	titleLabel := widget.NewLabel(c.d.Font, widgets.TextPx(styling.Subtitle, 1), o.Title, 0)
-	titleLabel.AddClass("file-chooser-title", css.Heading)
-	titleLabel.SetAlignment(render.AlignCenter)
-	titleLabel.SetEllipsize(widget.EllipsizeEnd)
-	headerRow.AppendAligned(titleLabel, true, widget.AlignCenter)
-	u.viewToggle, u.viewIcon = c.swappableIconButton(viewIcon(c.view.grid), i18n.T("file-chooser-nav-grid"), c.toggleView)
-	u.previewToggle = c.iconToggle("ld-panel-right-symbolic", i18n.T("file-chooser-nav-preview"), false, c.togglePreview)
-	u.hiddenTg = c.iconToggle("ld-eye-symbolic", i18n.T("file-chooser-nav-hidden"), c.hidden, c.toggleHidden)
-	u.recursiveToggle = c.iconToggle("ld-folder-search-symbolic", i18n.T("file-chooser-nav-recursive"), c.recursive, c.toggleRecursive)
-	headerRow.Append(u.viewToggle, false)
-	for _, b := range []*widget.ToggleButton{u.previewToggle, u.hiddenTg, u.recursiveToggle} {
-		headerRow.Append(b, false)
-	}
 	header := Section(widget.Column, "file-chooser-header")
-	header.Append(headerRow, false)
-
-	// Path bar: breadcrumbs and the search box.
-	crumbBar := Section(widget.Row, "file-chooser-crumbbar")
-	u.crumbs = widget.NewBox(widget.Row, th.Spacing/4, 0)
+	if o.Title != "" {
+		titleLabel := widget.NewLabel(c.d.Font, widgets.TextPx(styling.Subtitle, 1), o.Title, 0)
+		titleLabel.AddClass("file-chooser-title", css.Heading)
+		titleLabel.SetAlignment(render.AlignCenter)
+		titleLabel.SetEllipsize(widget.EllipsizeEnd)
+		header.Append(titleLabel, false)
+	}
+	nav := widget.NewBox(widget.Row, th.Spacing, 0)
+	nav.AddClass("file-chooser-navbar")
+	moves := widget.NewBox(widget.Row, th.Spacing/4, 0)
+	u.back = c.iconButton("ld-arrow-left-symbolic", i18n.T("file-chooser-nav-back"), func() { c.step(true) })
+	u.forward = c.iconButton("ld-arrow-right-symbolic", i18n.T("file-chooser-nav-forward"), func() { c.step(false) })
+	u.up = c.iconButton("ld-arrow-up-symbolic", i18n.T("file-chooser-nav-up"), c.goUp)
+	for _, b := range []*widget.Button{u.back, u.forward, u.up} {
+		moves.Append(b, false)
+	}
+	if o.NewFolder {
+		moves.Append(c.iconButton("ld-folder-plus-symbolic", i18n.T("file-chooser-nav-new-folder"), c.showNewFolder), false)
+	}
+	nav.AppendAligned(moves, false, widget.AlignCenter)
+	u.crumbs = newCrumbTrail(th.Spacing / 4)
 	u.crumbs.AddClass("file-chooser-crumbs")
-	crumbBar.Append(u.crumbs, true)
+	nav.AppendAligned(u.crumbs, true, widget.AlignCenter)
 	combo := widget.NewComboEntry(c.d.Font, widgets.TextPx(styling.Body, 1), nil, "")
 	combo.SetTrailingIcon("", 0, nil)
 	u.location = &locationEntry{ComboEntry: combo, tab: c.tabLocation}
@@ -531,7 +532,7 @@ func (c *Browser) build() {
 	u.location.OnActivate = c.goToLocation
 	u.location.OnEscape = func() bool { c.HideLocation(); return true }
 	u.location.SetVisible(false)
-	crumbBar.Append(u.location, true)
+	nav.AppendAligned(u.location, true, widget.AlignCenter)
 	// No debounce: filtering the cached listing
 	// is an in-memory scan, and a recursive walk is cancelled by its
 	// generation instead.
@@ -540,8 +541,18 @@ func (c *Browser) build() {
 	u.search.SetDelay(0)
 	u.search.OnSearchChanged = c.setSearch
 	u.search.SetSizeRequest(searchW, 0)
-	u.search.SetVAlign(widget.AlignCenter)
-	crumbBar.Append(u.search, false)
+	nav.AppendAligned(u.search, false, widget.AlignCenter)
+	toggles := widget.NewBox(widget.Row, th.Spacing/4, 0)
+	u.viewToggle, u.viewIcon = c.swappableIconButton(viewIcon(c.view.grid), i18n.T("file-chooser-nav-grid"), c.toggleView)
+	u.previewToggle = c.iconToggle("ld-panel-right-symbolic", i18n.T("file-chooser-nav-preview"), false, c.togglePreview)
+	u.hiddenTg = c.iconToggle("ld-eye-symbolic", i18n.T("file-chooser-nav-hidden"), c.hidden, c.toggleHidden)
+	u.recursiveToggle = c.iconToggle("ld-folder-search-symbolic", i18n.T("file-chooser-nav-recursive"), c.recursive, c.toggleRecursive)
+	toggles.Append(u.viewToggle, false)
+	for _, b := range []*widget.ToggleButton{u.previewToggle, u.hiddenTg, u.recursiveToggle} {
+		toggles.Append(b, false)
+	}
+	nav.AppendAligned(toggles, false, widget.AlignCenter)
+	header.Append(nav, false)
 
 	// Body: sidebar, the file views, the preview pane.
 	body := widget.NewBox(widget.Row, 0, 0)
@@ -566,22 +577,24 @@ func (c *Browser) build() {
 	}
 	u.notice.SetVisible(false)
 
-	// The new folder row: a name and Create.
-	u.newFolder = Section(widget.Row, "file-chooser-new-folder")
+	// The new folder row, a name and Create, with the separator under
+	// it.
+	newFolderRow := Section(widget.Row, "file-chooser-new-folder")
 	u.newFolderName = widget.NewEntry(c.d.Font, widgets.TextPx(styling.Body, 1), 0)
 	u.newFolderName.SetPlaceholder(i18n.T("file-chooser-placeholder-folder-name"))
 	u.newFolderName.OnActivate = func(string) { c.createFolder() }
 	u.newFolderName.OnEscape = func() bool { c.ui.newFolder.SetVisible(false); return true }
-	u.newFolder.Append(u.newFolderName, true)
+	newFolderRow.Append(u.newFolderName, true)
 	create, _ := c.TextButton(i18n.T("file-chooser-button-create"), "file-chooser-create-folder", css.SuggestedAction, c.createFolder)
-	u.newFolder.Append(create, false)
+	newFolderRow.Append(create, false)
+	u.newFolder = widget.NewBox(widget.Column, 0, 0)
+	u.newFolder.Append(newFolderRow, false)
+	u.newFolder.Append(widget.NewSeparator(widget.Horizontal), false)
 	u.newFolder.SetVisible(false)
 
 	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.droppedOnMain, over: c.dragOverMain, left: c.dragLeftMain}
 	main.Append(widget.NewSeparator(widget.Horizontal), false)
-	main.Append(crumbBar, false)
 	main.Append(u.newFolder, false)
-	main.Append(widget.NewSeparator(widget.Horizontal), false)
 	main.Append(body, true)
 	main.Append(widget.NewSeparator(widget.Horizontal), false)
 	for _, row := range o.Above {
@@ -825,7 +838,8 @@ func (c *Browser) unwatch() {
 // ui holds the widgets a browse updates.
 type ui struct {
 	header, main       widget.Widget
-	crumbs             *widget.Box
+	back, forward, up  *widget.Button
+	crumbs             *crumbTrail
 	search             *widget.SearchEntry
 	list               *widget.List
 	grid               *widget.GridView
@@ -1375,22 +1389,10 @@ func (c *Browser) relist() {
 		c.renaming = nil
 		defer c.Focus(c.focusView())
 	}
-	u.crumbs.Clear()
-	for i, cr := range Crumbs(c.s.dir, c.d.Home) {
-		if i > 0 {
-			u.crumbs.AppendAligned(c.Label("›", "file-chooser-crumb-sep", css.DimLabel), false, widget.AlignCenter)
-		}
-		b, l := c.TextButton(text.Ellipsize(cr.Label, crumbMaxChars), "file-chooser-crumb", css.Ghost, nil)
-		b.AddClass(css.Small)
-		if cr.Current {
-			b.AddClass("current")
-		} else {
-			l.AddClass(css.DimLabel)
-		}
-		path := cr.Path
-		b.OnClick = func() { c.goTo(path) }
-		u.crumbs.Append(b, false)
-	}
+	c.fillCrumbs()
+	u.back.SetEnabled(len(c.s.back) > 0)
+	u.forward.SetEnabled(len(c.s.forward) > 0)
+	u.up.SetEnabled(c.s.canUp())
 	grid := c.s.view.grid
 	u.colHeader.SetVisible(!grid)
 	u.list.SetVisible(!grid)
@@ -1409,6 +1411,28 @@ func (c *Browser) relist() {
 	c.closeQuicklook()
 	c.refreshPreview()
 	c.selectionChanged()
+}
+
+// fillCrumbs lays the folder shown's breadcrumbs into the trail.
+func (c *Browser) fillCrumbs() {
+	var crumbs, seps []widget.Widget
+	for i, cr := range Crumbs(c.s.dir, c.d.Home) {
+		if i > 0 {
+			seps = append(seps, c.Label("›", "file-chooser-crumb-sep", css.DimLabel))
+		}
+		b, l := c.TextButton(text.Ellipsize(cr.Label, crumbMaxChars), "file-chooser-crumb", css.Ghost, nil)
+		b.AddClass(css.Small)
+		l.SetEllipsize(widget.EllipsizeEnd)
+		if cr.Current {
+			b.AddClass("current")
+		} else {
+			l.AddClass(css.DimLabel)
+		}
+		path := cr.Path
+		b.OnClick = func() { c.goTo(path) }
+		crumbs = append(crumbs, b)
+	}
+	c.ui.crumbs.set(crumbs, seps)
 }
 
 // relistKeeping repaints a listing read again where it stands: the

@@ -1,6 +1,8 @@
 ### Seletor de ficheiros
 
 ## Cabeçalho
+file-chooser-nav-back = Voltar
+file-chooser-nav-forward = Avançar
 file-chooser-nav-up = Subir
 file-chooser-nav-new-folder = Criar pasta
 file-chooser-nav-grid = Alternar vista em grelha

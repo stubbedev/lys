@@ -296,13 +296,16 @@ func (s *session) step(back bool) bool {
 	return true
 }
 
-// up goes to the parent; false at the root, and in Recent or Trash.
+// canUp reports a parent to go up to: none at the root, nor in Recent
+// or Trash.
+func (s *session) canUp() bool { return filepath.Dir(s.dir) != s.dir && !VirtualLocation(s.dir) }
+
+// up goes to the parent; false where there is none (canUp).
 func (s *session) up() bool {
-	parent := filepath.Dir(s.dir)
-	if parent == s.dir || VirtualLocation(s.dir) {
+	if !s.canUp() {
 		return false
 	}
-	s.goTo(parent)
+	s.goTo(filepath.Dir(s.dir))
 	return true
 }
 

@@ -1,6 +1,8 @@
 ### Selector de archivos
 
 ## Cabecera
+file-chooser-nav-back = Atrás
+file-chooser-nav-forward = Adelante
 file-chooser-nav-up = Subir
 file-chooser-nav-new-folder = Crear carpeta
 file-chooser-nav-grid = Alternar vista de cuadrícula

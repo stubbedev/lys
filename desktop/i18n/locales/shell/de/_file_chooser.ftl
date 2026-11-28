@@ -1,6 +1,8 @@
 ### Dateiauswahl
 
 ## Kopfzeile
+file-chooser-nav-back = Zurück
+file-chooser-nav-forward = Vor
 file-chooser-nav-up = Nach oben
 file-chooser-nav-new-folder = Ordner erstellen
 file-chooser-nav-grid = Rasteransicht umschalten
