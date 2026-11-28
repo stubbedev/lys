@@ -420,41 +420,41 @@ func TestStem(t *testing.T) {
 func TestTheHostHearsTheSelection(t *testing.T) {
 	hs := newHarness(t, "")
 	var heard [][]string
+	take := func() [][]string {
+		var got [][]string
+		hs.run(func() { got, heard = heard, nil })
+		return got
+	}
 	o := openFiles
 	o.OnSelection = func(sel []Entry) { heard = append(heard, names(sel)) }
 	hs.open(t, o)
-	if len(heard) == 0 || len(heard[len(heard)-1]) != 0 {
-		t.Fatalf("the first listing told the host %v, want an empty selection last", heard)
+	if got := take(); len(got) == 0 || len(got[len(got)-1]) != 0 {
+		t.Fatalf("the first listing told the host %v, want an empty selection last", got)
 	}
-	heard = nil
 	hs.clickRow(t, widget.BTNLeft, "b.txt")
-	if !slices.EqualFunc(heard, [][]string{{"b.txt"}}, slices.Equal) {
-		t.Errorf("a click on b.txt told the host %v", heard)
+	if got := take(); !slices.EqualFunc(got, [][]string{{"b.txt"}}, slices.Equal) {
+		t.Errorf("a click on b.txt told the host %v", got)
 	}
-	heard = nil
 	browsertest.Touch(t, hs.root, "c.txt")
+	var changed [][]string
 	waittest.Until(t, func() bool {
-		var n int
-		hs.run(func() { n = len(heard) })
-		return n > 0
+		changed = append(changed, take()...)
+		return len(changed) > 0
 	}, "the host to hear the listing change")
-	hs.run(func() {
-		if got := heard[len(heard)-1]; !slices.Equal(got, []string{"b.txt"}) {
-			t.Errorf("after c.txt appeared the host heard %v, want b.txt still selected", got)
-		}
-	})
-	heard = nil
+	if got := changed[len(changed)-1]; !slices.Equal(got, []string{"b.txt"}) {
+		t.Errorf("after c.txt appeared the host heard %v, want b.txt still selected", got)
+	}
 	hs.do(func() { hs.c.activate(slices.Index(names(hs.c.s.entries), "docs")) })
-	if len(heard) == 0 || len(heard[len(heard)-1]) != 0 {
-		t.Errorf("entering docs told the host %v, want an empty selection last", heard)
+	if got := take(); len(got) == 0 || len(got[len(got)-1]) != 0 {
+		t.Errorf("entering docs told the host %v, want an empty selection last", got)
 	}
 
 	hs.hide()
-	heard = nil
+	take()
 	hs.open(t, openFiles)
 	hs.clickRow(t, widget.BTNLeft, "b.txt")
-	if got := hs.selectedNames(); len(heard) != 0 || !slices.Equal(got, []string{"b.txt"}) {
-		t.Errorf("without the hook the host heard %v and a click on b.txt selected %v", heard, got)
+	if got, late := hs.selectedNames(), take(); len(late) != 0 || !slices.Equal(got, []string{"b.txt"}) {
+		t.Errorf("without the hook the host heard %v and a click on b.txt selected %v", late, got)
 	}
 }
 
