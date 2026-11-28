@@ -199,27 +199,37 @@ func (c *Compositor) commitOutput(b backend.Output, rule OutputRule) (changed, r
 	changed = next != current
 	if changed {
 		err = b.Commit(next)
-		if color != nil && (errors.Is(err, backend.ErrHDRUnsupported) || errors.Is(err, backend.ErrDepthUnsupported)) {
-			c.report(fmt.Errorf("compositor: output %s stays SDR: %w", b.Name(), err))
-			color, next.Depth, next.HDR = nil, rule.Depth, backend.HDRMetadata{}
-			changed = next != current
-			err = nil
-			if changed {
-				err = b.Commit(next)
-			}
+	}
+	for _, f := range []struct {
+		refused func(error) bool
+		instead string
+		degrade func()
+	}{
+		{
+			refused: func(err error) bool {
+				return color != nil && (errors.Is(err, backend.ErrHDRUnsupported) || errors.Is(err, backend.ErrDepthUnsupported))
+			},
+			instead: "stays SDR",
+			degrade: func() { color, next.Depth, next.HDR = nil, rule.Depth, backend.HDRMetadata{} },
+		},
+		{
+			refused: func(err error) bool { return errors.Is(err, backend.ErrDepthUnsupported) },
+			instead: "shows 8-bit frames instead",
+			degrade: func() { next.Depth = backend.Depth8 },
+		},
+	} {
+		if !f.refused(err) {
+			continue
 		}
-		if errors.Is(err, backend.ErrDepthUnsupported) {
-			c.report(fmt.Errorf("compositor: output %s shows 8-bit frames instead: %w", b.Name(), err))
-			next.Depth = backend.Depth8
-			changed = next != current
-			err = nil
-			if changed {
-				err = b.Commit(next)
-			}
+		c.report(fmt.Errorf("compositor: output %s %s: %w", b.Name(), f.instead, err))
+		f.degrade()
+		changed, err = next != current, nil
+		if changed {
+			err = b.Commit(next)
 		}
-		if err != nil {
-			return false, false, fmt.Errorf("compositor: output %s: %w", b.Name(), err)
-		}
+	}
+	if err != nil {
+		return false, false, fmt.Errorf("compositor: output %s: %w", b.Name(), err)
 	}
 	if !next.Enabled() {
 		delete(c.hdr, b)

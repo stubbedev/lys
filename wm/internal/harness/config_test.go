@@ -392,6 +392,30 @@ func TestAReenabledOutputComesBackPoweredOn(t *testing.T) {
 	})
 }
 
+func TestAnHDROutputRefusingTenBitsFallsBackToSDR(t *testing.T) {
+	t.Parallel()
+	var r reports
+	h := StartWith(t, func(c *compositor.Config) {
+		c.Report = r.report
+		c.Outputs = compositor.OutputRules{Fallback: compositor.OutputRule{HDR: compositor.HDROn}}
+	})
+	h.Do(func(b *headless.Backend, _ *compositor.Compositor) error {
+		b.RefuseDepth10()
+		o, err := b.AddOutput(big)
+		if err != nil {
+			return err
+		}
+		if got := o.State(); got.HDR.Active || got.Depth == backend.Depth10 || !got.Lit() {
+			t.Errorf("an HDR output refusing 10 bits is at %+v, want lit in SDR", got)
+		}
+		return nil
+	})
+	errs := r.take()
+	if len(errs) != 1 || !errors.Is(errs[0], backend.ErrDepthUnsupported) || !strings.Contains(errs[0].Error(), "stays SDR") {
+		t.Fatalf("reports %v, want the one output that stays SDR", errs)
+	}
+}
+
 func TestTenBitOutputsFallBackToEightBitsWhenRefused(t *testing.T) {
 	t.Parallel()
 	var r reports
