@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // application/x-www-form-urlencoded encoding. Both the login

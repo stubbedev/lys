@@ -304,6 +304,10 @@ func TestANonFileURIAndANonListEntryYieldNoPaths(t *testing.T) {
 	if got := entry(URIListMime, "https://example.com/a\n").paths(); len(got) != 0 {
 		t.Errorf("paths = %v", got)
 	}
+	// A file on another host is not on this disk, wherever its path points.
+	if got := entry(URIListMime, "file://otherhost/etc/passwd\nfile://localhost/tmp/a\n").paths(); !slices.Equal(got, []string{"/tmp/a"}) {
+		t.Errorf("paths = %v, want only the local file", got)
+	}
 	// Text that happens to look like one is still text.
 	if got := entry(textMime, "file:///tmp/a").paths(); len(got) != 0 {
 		t.Errorf("paths = %v", got)

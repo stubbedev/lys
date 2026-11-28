@@ -14,6 +14,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/notifyview"
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/shell/internal/appicons"
@@ -45,14 +46,15 @@ func ResolveIcon(source config.IconSource, n *notifications.Notification) notify
 	return mappedIcon(n.AppName)
 }
 
-// iconString reads an icon hint: an absolute path (file:// stripped) is
-// a file, unless it is a -symbolic.svg, which resolves to its theme
-// name so it recolors; anything else is a theme name.
+// iconString reads an icon hint: an absolute path or a local file URI
+// is a file, unless it is a -symbolic.svg, which resolves to its theme
+// name so it recolors; a remote file URI is none; anything else is a
+// theme name.
 func iconString(value string) (notifyview.Icon, bool) {
-	if value == "" {
+	path, ok := fileuri.PathOf(value)
+	if !ok {
 		return notifyview.Icon{}, false
 	}
-	path := strings.TrimPrefix(value, "file://")
 	if !strings.HasPrefix(path, "/") {
 		return notifyview.Icon{Name: value}, true
 	}

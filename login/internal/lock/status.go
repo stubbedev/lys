@@ -2,11 +2,11 @@ package lock
 
 import (
 	"math"
-	"net/url"
 
 	"github.com/stubbedev/lys/desktop/service/mpris"
 	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/lockview"
+	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 type nowPlaying struct {
@@ -19,8 +19,8 @@ func nowPlayingOf(p mpris.Player, ok bool) (nowPlaying, bool) {
 		return nowPlaying{}, false
 	}
 	np := nowPlaying{bus: p.BusName, Title: p.Title, Artist: p.Artist, Playing: p.State == mpris.StatePlaying, CanNext: p.CanGoNext}
-	if u, err := url.Parse(p.ArtURL); err == nil && u.Scheme == "file" {
-		np.ArtPath = u.Path
+	if path, ok := fileuri.Path(p.ArtURL); ok {
+		np.ArtPath = path
 	}
 	return np, true
 }

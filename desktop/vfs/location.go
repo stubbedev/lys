@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/fileuri"
 )
 
 // Scheme is the protocol a location is reached through; the local

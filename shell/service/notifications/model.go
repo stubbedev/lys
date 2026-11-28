@@ -3,8 +3,8 @@ package notifications
 import (
 	"path/filepath"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/service/notifications/notifymodel"
+	"github.com/stubbedev/lys/lib/fileuri"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 

@@ -272,10 +272,10 @@
   },
   "desktop/desktopentry": {
     "imports": [
-      "desktop/fileuri",
       "desktop/shlex",
       "desktop/spawn",
       "lib/atomicfile",
+      "lib/fileuri",
       "lib/i18n",
       "lib/third_party/godbus",
       "lib/xdg"
@@ -442,8 +442,8 @@
   },
   "desktop/fileops": {
     "imports": [
-      "desktop/fileuri",
       "desktop/vfs",
+      "lib/fileuri",
       "lib/xdg"
     ],
     "external": [
@@ -474,15 +474,6 @@
     "testExternal": [
       "golang.org/x/crypto/ssh/knownhosts",
       "sync",
-      "testing"
-    ]
-  },
-  "desktop/fileuri": {
-    "external": [
-      "fmt",
-      "strings"
-    ],
-    "testExternal": [
       "testing"
     ]
   },
@@ -1020,8 +1011,8 @@
   "desktop/opener": {
     "imports": [
       "desktop/desktopentry",
-      "desktop/fileuri",
-      "desktop/mime"
+      "desktop/mime",
+      "lib/fileuri"
     ],
     "external": [
       "fmt",
@@ -1259,7 +1250,6 @@
   },
   "desktop/service/clipboard": {
     "imports": [
-      "desktop/fileuri",
       "desktop/offheap",
       "desktop/service/clipboard/historybudget",
       "lib/atomicfile",
@@ -1512,9 +1502,9 @@
   "desktop/service/network/openconnect": {
     "imports": [
       "desktop/desktopentry",
-      "desktop/fileuri",
       "desktop/opener",
       "desktop/service/network/secrets",
+      "lib/fileuri",
       "lib/third_party/godbus"
     ],
     "external": [
@@ -2152,6 +2142,7 @@
       "desktop/service/notifications/notifymodel",
       "desktop/shell/widgets",
       "desktop/styling",
+      "lib/fileuri",
       "lib/render",
       "ui/app",
       "ui/widget",
@@ -2327,6 +2318,7 @@
     "imports": [
       "desktop/config",
       "desktop/styling",
+      "lib/fileuri",
       "lib/portaldialogs",
       "lib/render",
       "ui/highlight",
@@ -2354,6 +2346,9 @@
     ],
     "testExternal": [
       "golang.org/x/sys/unix",
+      "image",
+      "image/color",
+      "image/png",
       "os",
       "slices",
       "testing"
@@ -2555,11 +2550,11 @@
   "desktop/thumbnail": {
     "imports": [
       "desktop/dochelper",
-      "desktop/fileuri",
       "desktop/imagedecode",
       "desktop/offheap",
       "lib/atomicfile",
       "lib/exif",
+      "lib/fileuri",
       "lib/gpu",
       "lib/render",
       "lib/xdg",
@@ -2674,7 +2669,7 @@
   },
   "desktop/vfs": {
     "imports": [
-      "desktop/fileuri"
+      "lib/fileuri"
     ],
     "external": [
       "bytes",
@@ -2711,8 +2706,8 @@
   },
   "desktop/vfs/davfs": {
     "imports": [
-      "desktop/fileuri",
-      "desktop/vfs"
+      "desktop/vfs",
+      "lib/fileuri"
     ],
     "external": [
       "context",
@@ -3010,7 +3005,6 @@
       "desktop/desktopentry",
       "desktop/dochelper",
       "desktop/fileops",
-      "desktop/fileuri",
       "desktop/i18n",
       "desktop/logging",
       "desktop/mime",
@@ -3024,6 +3018,7 @@
       "files/internal/filemanager1",
       "files/internal/locale",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/third_party/godbus",
       "lib/xdg",
       "lib/xkb",
@@ -3601,6 +3596,18 @@
       "runtime",
       "strings",
       "sync"
+    ]
+  },
+  "lib/fileuri": {
+    "external": [
+      "fmt",
+      "strings"
+    ],
+    "testImports": [
+      "lib/testbuild"
+    ],
+    "testExternal": [
+      "testing"
     ]
   },
   "lib/fourcc": {
@@ -6601,6 +6608,7 @@
       "desktop/shell/reveal",
       "desktop/useraccount",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/logind",
       "lib/render",
       "lib/third_party/godbus",
@@ -6629,7 +6637,6 @@
       "io/fs",
       "log",
       "math",
-      "net/url",
       "os",
       "os/exec",
       "path/filepath",
@@ -8895,7 +8902,6 @@
       "time"
     ],
     "testImports": [
-      "desktop/fileuri",
       "desktop/icons/icontest",
       "desktop/opener/openertest",
       "desktop/portal/permissions/permstoretest",
@@ -8908,6 +8914,7 @@
       "lib/capture",
       "lib/dbustest",
       "lib/fdtest",
+      "lib/fileuri",
       "lib/logind/logindtest",
       "lib/pulse/native",
       "lib/pulse/pulsetest",
@@ -9323,6 +9330,7 @@
   "shell/internal/portal": {
     "imports": [
       "lib/dbusx",
+      "lib/fileuri",
       "lib/third_party/godbus"
     ],
     "external": [
@@ -9331,7 +9339,6 @@
       "encoding/hex",
       "errors",
       "fmt",
-      "net/url",
       "strings"
     ],
     "testImports": [
@@ -9521,7 +9528,6 @@
       "desktop/config",
       "desktop/desktopentry",
       "desktop/drmconn",
-      "desktop/fileuri",
       "desktop/fswatch",
       "desktop/identity",
       "desktop/imagedecode",
@@ -9538,6 +9544,7 @@
       "lib/dmabufprobe",
       "lib/edid",
       "lib/eis",
+      "lib/fileuri",
       "lib/fourcc",
       "lib/gpu",
       "lib/intconv",
@@ -10101,6 +10108,7 @@
       "desktop/spawn",
       "desktop/thumbnail",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/xdg"
     ],
     "external": [
@@ -10113,7 +10121,6 @@
       "log",
       "maps",
       "modernc.org/sqlite",
-      "net/url",
       "os",
       "os/exec",
       "path/filepath",
@@ -10263,12 +10270,12 @@
       "shell/service/launcher/modes/emojidata"
     ],
     "testImports": [
-      "desktop/fileuri",
       "desktop/i18n/locales/shell",
       "desktop/launchermatch",
       "desktop/opener/openertest",
       "desktop/service/clipboard/historybudget",
       "lib/fdtest",
+      "lib/fileuri",
       "lib/logtest",
       "lib/sockdir",
       "shell/service/launcher/launchertest"
@@ -10528,7 +10535,6 @@
   "shell/service/notifications": {
     "imports": [
       "desktop/feed",
-      "desktop/fileuri",
       "desktop/glob",
       "desktop/identity",
       "desktop/service/notifications/notifymodel",
@@ -10536,6 +10542,7 @@
       "lib/atomicfile",
       "lib/buildinfo",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/intconv",
       "lib/third_party/godbus",
       "lib/xdg",
@@ -11104,7 +11111,6 @@
       "desktop/desktopentry",
       "desktop/dochelper",
       "desktop/feed",
-      "desktop/fileuri",
       "desktop/geo",
       "desktop/glob",
       "desktop/i18n",
@@ -11155,6 +11161,7 @@
       "desktop/vfs",
       "desktop/vfs/localcopy",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/glibclocale",
       "lib/intconv",
       "lib/logind",
@@ -11449,7 +11456,6 @@
       "desktop/config",
       "desktop/dochelper",
       "desktop/fileops",
-      "desktop/fileuri",
       "desktop/fswatch",
       "desktop/glob",
       "desktop/i18n",
@@ -11463,6 +11469,7 @@
       "desktop/vfs/localcopy",
       "desktop/vfs/netfs",
       "lib/atomicfile",
+      "lib/fileuri",
       "lib/intconv",
       "lib/render",
       "lib/text",
@@ -11549,7 +11556,6 @@
   "shell/shell/filechooser": {
     "imports": [
       "desktop/config",
-      "desktop/fileuri",
       "desktop/glob",
       "desktop/i18n",
       "desktop/mime",
@@ -11560,6 +11566,7 @@
       "desktop/vfs",
       "desktop/vfs/localcopy",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/portaldialogs",
       "lib/render",
       "lib/third_party/godbus",
@@ -11752,6 +11759,7 @@
     "imports": [
       "desktop/config",
       "desktop/shell/notifyview",
+      "lib/fileuri",
       "shell/internal/appicons",
       "shell/service/launcher",
       "shell/service/notifications",
@@ -11860,12 +11868,12 @@
     "imports": [
       "desktop/config",
       "desktop/desktopentry",
-      "desktop/fileuri",
       "desktop/imagedecode",
       "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
+      "lib/fileuri",
       "lib/portaldialogs",
       "lib/render",
       "shell/shell/dialogqueue",
@@ -11934,13 +11942,13 @@
   "shell/shell/printdialog": {
     "imports": [
       "desktop/config",
-      "desktop/fileuri",
       "desktop/shell/layers",
       "desktop/shell/reveal",
       "desktop/shell/widgets",
       "desktop/styling",
       "lib/atomicfile",
       "lib/dbusx",
+      "lib/fileuri",
       "lib/intconv",
       "lib/portaldialogs",
       "lib/render",
@@ -13841,6 +13849,7 @@
   "ui/internal/style": {
     "imports": [
       "lib/assetfile",
+      "lib/fileuri",
       "lib/intconv",
       "lib/logutil",
       "lib/motion",
@@ -14150,6 +14159,9 @@
     ]
   },
   "ui/transfer": {
+    "imports": [
+      "lib/fileuri"
+    ],
     "external": [
       "bytes",
       "errors",
@@ -14160,7 +14172,6 @@
       "image/jpeg",
       "image/png",
       "io",
-      "net/url",
       "path/filepath",
       "slices",
       "strings",
@@ -14336,7 +14347,6 @@
       "desktop/desktopentry",
       "desktop/dochelper",
       "desktop/fileops",
-      "desktop/fileuri",
       "desktop/i18n",
       "desktop/imagedecode",
       "desktop/logging",
@@ -14348,6 +14358,7 @@
       "desktop/styling",
       "desktop/thumbnail",
       "lib/exif",
+      "lib/fileuri",
       "lib/media/demux",
       "lib/render",
       "shell/shell/filebrowser",

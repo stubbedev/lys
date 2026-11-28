@@ -10,7 +10,6 @@ import (
 
 	"github.com/rivo/uniseg"
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/layers"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
@@ -18,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/desktop/vfs/localcopy"
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/portaldialogs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/app"

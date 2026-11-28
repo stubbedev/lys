@@ -21,6 +21,7 @@ func TestIconString(t *testing.T) {
 		"firefox":                              {Name: "firefox"},
 		"/opt/icons/si-gmail-symbolic.svg":     {Name: "si-gmail-symbolic"},
 		"file:///x/tb-brand-edge-symbolic.svg": {Name: "tb-brand-edge-symbolic"},
+		"file:///My%20Icons/icon.png":          {File: "/My Icons/icon.png"},
 		"/opt/icons/gmail.svg":                 {File: "/opt/icons/gmail.svg"},
 		"/opt/icons/si-gmail-symbolic.png":     {File: "/opt/icons/si-gmail-symbolic.png"},
 	} {
@@ -29,8 +30,10 @@ func TestIconString(t *testing.T) {
 			t.Errorf("iconString(%q) = %+v %v, want %+v", in, got, ok, want)
 		}
 	}
-	if _, ok := iconString(""); ok {
-		t.Error("empty string resolved")
+	for _, in := range []string{"", "file://otherhost/usr/share/icon.png"} {
+		if got, ok := iconString(in); ok {
+			t.Errorf("iconString(%q) resolved to %+v", in, got)
+		}
 	}
 }
 

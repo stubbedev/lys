@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/vfs"
 )
 

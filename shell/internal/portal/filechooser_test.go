@@ -104,10 +104,12 @@ func TestOpenFileCancelledAndRemote(t *testing.T) {
 	if _, err := OpenFile(context.Background(), bus.Conn(t), "Import"); !errors.Is(err, ErrCancelled) {
 		t.Errorf("cancelled = %v", err)
 	}
-	bus2 := dbustest.Start(t)
-	serveChooser(t, bus2, "https://example.com/x.conf", false)
-	if _, err := OpenFile(context.Background(), bus2.Conn(t), "Import"); err == nil {
-		t.Error("a remote uri was accepted")
+	for _, uri := range []string{"https://example.com/x.conf", "file://otherhost/etc/wg0.conf"} {
+		bus := dbustest.Start(t)
+		serveChooser(t, bus, uri, false)
+		if path, err := OpenFile(context.Background(), bus.Conn(t), "Import"); err == nil {
+			t.Errorf("remote uri %s was accepted as %q", uri, path)
+		}
 	}
 }
 

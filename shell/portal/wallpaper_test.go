@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/config"
-	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/lib/fileuri"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 

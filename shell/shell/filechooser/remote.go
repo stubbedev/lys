@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/desktop/vfs/localcopy"
+	"github.com/stubbedev/lys/lib/fileuri"
 
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 )
