@@ -32,7 +32,7 @@ func lay(root widget.Widget) {
 }
 
 // Each type is shown first as its renderer: a picture imagedecode reads
-// as one, a video or an audio file as a video, text as text, a folder as
+// as one, an SVG drawing as one too, a video or an audio file as a video, text as text, a folder as
 // a folder, and anything else, a picture imagedecode does not read
 // included, as its thumbnail.
 func TestTheRendererFollowsTheMIMEType(t *testing.T) {
@@ -42,7 +42,7 @@ func TestTheRendererFollowsTheMIMEType(t *testing.T) {
 		"video/mp4": Video, "video/x-y4m": Video, "audio/x-matroska": Video,
 		"text/plain": Text, "text/x-go": Text,
 		mime.Directory:    Folder,
-		"application/pdf": Thumbnail, "image/svg+xml": Thumbnail, mime.Unknown: Thumbnail, "application/x-thing": Thumbnail,
+		"application/pdf": Thumbnail, "image/svg+xml": Image, mime.Unknown: Thumbnail, "application/x-thing": Thumbnail,
 	} {
 		if got := RendererFor(db, mimeType); got != want {
 			t.Errorf("RendererFor(%s) = %v, want %v", mimeType, got, want)

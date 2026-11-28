@@ -16,7 +16,8 @@ import (
 const detailSeparator = " · "
 
 // detail is the line under a loaded file's name: a folder's kind, item
-// count and size, a file's kind, a picture's pixel size, the file's
+// count and size, a file's kind, an archive's item count or a table's
+// rows, a picture's pixel size, the file's
 // size, and when it was modified. What is not known is left out: a file
 // that does not stat says its kind alone, and a picture held in memory
 // has no time.
@@ -29,7 +30,14 @@ func detail(name string, c Content) string {
 	if info.Modified.IsZero() && info.Size == 0 {
 		return kind
 	}
-	return joinDetail(kind, pixelSize(c.picture.size), byteSize(info.Size), modified(info.Modified))
+	items := ""
+	switch c.renderer {
+	case Archive:
+		items = folderItems(c.folder)
+	case Table:
+		items = tableRows(c.table)
+	}
+	return joinDetail(kind, items, pixelSize(c.picture.size), byteSize(info.Size), modified(info.Modified))
 }
 
 // kindOf names a file's type: its MIME type's description, else its
@@ -53,6 +61,14 @@ func folderItems(st folderStats) string {
 		return i18n.T("preview-folder-items-capped", i18n.Str("shown", shown))
 	}
 	return i18n.T("preview-folder-items", i18n.Int("count", int64(st.items)), i18n.Str("shown", shown))
+}
+
+func tableRows(t table) string {
+	shown := i18n.Shell().Integer(int64(len(t.rows)))
+	if t.more {
+		return i18n.T("preview-table-rows-capped", i18n.Str("shown", shown))
+	}
+	return i18n.T("preview-table-rows", i18n.Int("count", int64(len(t.rows))), i18n.Str("shown", shown))
 }
 
 func folderBytes(st folderStats) string {

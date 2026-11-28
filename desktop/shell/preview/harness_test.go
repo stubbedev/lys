@@ -26,7 +26,12 @@ func testDB(t *testing.T) *mime.Database {
 	dir := t.TempDir()
 	files := map[string]string{
 		"globs2": "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/gif:*.gif\n50:image/svg+xml:*.svg\n50:text/plain:*.txt\n50:text/x-go:*.go\n" +
-			"50:application/pdf:*.pdf\n50:video/x-y4m:*.y4m\n50:video/mp4:*.mp4\n50:audio/x-matroska:*.mka\n50:application/x-thing:*.thing\n",
+			"50:application/pdf:*.pdf\n50:video/x-y4m:*.y4m\n50:video/mp4:*.mp4\n50:audio/x-matroska:*.mka\n50:audio/mpeg:*.mp3\n50:application/x-thing:*.thing\n" +
+			"50:text/markdown:*.md\n50:text/csv:*.csv\n50:text/tab-separated-values:*.tsv\n50:application/json:*.json\n50:application/x-desktop:*.desktop\n" +
+			"50:application/zip:*.zip\n50:application/x-tar:*.tar\n50:application/x-compressed-tar:*.tar.gz\n50:application/x-bzip2-compressed-tar:*.tar.bz2\n" +
+			"50:application/x-xz-compressed-tar:*.tar.xz\n50:application/epub+zip:*.epub\n50:font/ttf:*.ttf\n50:font/woff:*.woff\n",
+		"subclasses": "text/x-go text/plain\ntext/markdown text/plain\ntext/csv text/plain\ntext/tab-separated-values text/plain\napplication/json text/plain\n" +
+			"application/x-desktop text/plain\nimage/svg+xml application/xml\napplication/xml text/plain\napplication/epub+zip application/zip\n",
 		"image/png.xml": `<?xml version="1.0"?><mime-type xmlns="http://www.freedesktop.org/standards/shared-mime-info" type="image/png"><comment>PNG image</comment></mime-type>`,
 	}
 	for name, body := range files {

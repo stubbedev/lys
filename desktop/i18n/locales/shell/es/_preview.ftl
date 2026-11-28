@@ -19,3 +19,12 @@ preview-document-too-large = La página es demasiado grande para mostrarla.
 preview-document-timeout = La página tardó demasiado en mostrarse.
 preview-document-unsupported = Este tipo de documento no se puede mostrar.
 preview-document-failed = No se pudo mostrar el documento.
+preview-archive-name = Nombre
+preview-archive-size = Tamaño
+preview-archive-modified = Modificado
+preview-font-sample = El veloz murciélago hindú comía feliz cardillo y kiwi
+preview-table-rows = { $count ->
+    [one] { $shown } fila
+   *[other] { $shown } filas
+}
+preview-table-rows-capped = Más de { $shown } filas

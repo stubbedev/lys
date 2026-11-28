@@ -19,3 +19,12 @@ preview-document-too-large = La page est trop grande pour être affichée.
 preview-document-timeout = L’affichage de la page a pris trop de temps.
 preview-document-unsupported = Ce type de document ne peut pas être affiché.
 preview-document-failed = Le document n’a pas pu être affiché.
+preview-archive-name = Nom
+preview-archive-size = Taille
+preview-archive-modified = Modifié
+preview-font-sample = Portez ce vieux whisky au juge blond qui fume
+preview-table-rows = { $count ->
+    [one] { $shown } ligne
+   *[other] { $shown } lignes
+}
+preview-table-rows-capped = Plus de { $shown } lignes

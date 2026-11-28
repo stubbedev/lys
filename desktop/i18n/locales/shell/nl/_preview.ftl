@@ -19,3 +19,12 @@ preview-document-too-large = De pagina is te groot om te tonen.
 preview-document-timeout = Het tonen van de pagina duurde te lang.
 preview-document-unsupported = Dit soort document kan niet worden getoond.
 preview-document-failed = Het document kon niet worden getoond.
+preview-archive-name = Naam
+preview-archive-size = Grootte
+preview-archive-modified = Gewijzigd
+preview-font-sample = Pa’s wijze lynx bezag vroom het fikse aquaduct
+preview-table-rows = { $count ->
+    [one] { $shown } rij
+   *[other] { $shown } rijen
+}
+preview-table-rows-capped = { $shown }+ rijen

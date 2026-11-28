@@ -97,9 +97,13 @@ type View struct {
 	message *widget.Label
 	open    *widget.Button
 	code    *widgets.CodeView
-	picture *widget.ImageView
-	video   *widget.Video
-	pages   *pages
+	// markdown and specimen show Markdown and a font's specimen, table
+	// a table's or an archive's rows, nil while none shows.
+	markdown, specimen scrolled
+	table              *widget.ColumnView[[]string]
+	picture            *widget.ImageView
+	video              *widget.Video
+	pages              *pages
 
 	path     string
 	memory   *Memory
@@ -114,8 +118,8 @@ type View struct {
 // New builds a view showing nothing.
 func New(cfg Config) *View {
 	th := widget.Current()
-	small := widgets.TextPx(styling.Caption, 1)
-	v := &View{cfg: cfg}
+	small := smallPx()
+	v := &View{cfg: cfg, markdown: newScrolled("preview-markdown", th.Spacing), specimen: newScrolled("preview-font", th.Spacing)}
 	v.visual = widget.NewBox(widget.Column, th.Spacing, 0)
 	v.visual.AddClass("preview-visual")
 	v.name = widget.NewLabel(cfg.Font, widgets.TextPx(styling.Body, 1), cfg.Placeholder, 0)
@@ -139,6 +143,10 @@ func New(cfg Config) *View {
 	v.root.AddClass(cfg.Class)
 	return v
 }
+
+// smallPx is the size of the detail line, the message, code and a
+// table's cells.
+func smallPx() float64 { return widgets.TextPx(styling.Caption, 1) }
 
 // stack lays the view out as a column: what it shows, the name, the
 // detail line and the Open button under it.
@@ -379,6 +387,19 @@ func (v *View) apply(c Content) {
 			v.code.SetText(c.text, name)
 		}
 		v.fit(v.code, v.cfg.Text)
+	case Markdown:
+		v.markdown.showMarkdown(v.cfg.Font, widgets.TextPx(styling.Body, 1), c.markdown)
+		v.fit(v.markdown.scroll, v.cfg.Text)
+	case Table, Archive:
+		expand := -1
+		if c.renderer == Archive {
+			expand = 0
+		}
+		v.table = newTable(v.cfg.Font, smallPx(), c.table, expand)
+		v.fit(v.table, v.cfg.Text)
+	case Font:
+		v.specimen.showSpecimen(v.cfg.Font, widgets.TextPx(styling.Body, 1), c.font)
+		v.fit(v.specimen.scroll, v.cfg.Text)
 	case Folder:
 		v.showIcon(folderIcon)
 	case Icon:
@@ -506,12 +527,26 @@ func (v *View) Fit(img, text image.Point) {
 		v.fitPicture()
 	case Video:
 		v.fitVideo()
-	case Text:
-		v.fit(v.code, v.cfg.Text)
+	case Text, Markdown, Table, Archive, Font:
+		v.fit(v.textual(), v.cfg.Text)
 	case Document:
 		v.pages.fit(v.cfg.Image)
 		v.fit(v.pages.scroll, v.pagesSize())
 	}
+}
+
+// textual is what fills the Text box under the renderer shown: the
+// code, the Markdown, the table or the specimen.
+func (v *View) textual() widget.Widget {
+	switch v.renderer {
+	case Markdown:
+		return v.markdown.scroll
+	case Table, Archive:
+		return v.table
+	case Font:
+		return v.specimen.scroll
+	}
+	return v.code
 }
 
 // pagesSize is the size a document's pages show in: as wide as they
@@ -562,6 +597,9 @@ func (v *View) drop() {
 		v.picture.SetImage(nil, exif.TopLeft)
 	}
 	v.pages.clear()
+	v.markdown.reset()
+	v.specimen.reset()
+	v.table = nil
 	v.discard(v.shown)
 	v.shown = Content{}
 }

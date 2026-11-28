@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/stubbedev/lys/lib/exif"
+	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/media"
 	"github.com/stubbedev/memory-go"
 
@@ -129,14 +130,17 @@ const (
 )
 
 // Content is a loaded preview of one file: its Info and what it shows
-// as, by its renderer, and for a document shown as its thumbnail or
-// icon, why its pages are not (docErr). A view frees what it holds
-// once nothing shows it (discard).
+// as, by its renderer (an archive's item count and size in folder), and
+// for a document shown as its thumbnail or icon, why its pages are not
+// (docErr). A view frees what it holds once nothing shows it (discard).
 type Content struct {
 	info     Info
 	renderer Renderer
 	picture  picture
 	text     string
+	markdown []mdBlock
+	table    table
+	font     *render.Typeface
 	video    media.Source
 	folder   folderStats
 	document document
@@ -175,10 +179,14 @@ func failed(info Info, f Failure, err error) Content {
 
 // Load finds out what to show of a file, off the UI loop, and gives up
 // with a Failed content once ctx is done. A folder counts what it
-// holds; a picture decodes whole within the budget; a video opens its
-// demuxer; text reads its first TextBytes. A video without a picture,
-// text that does not read as text, and every other type show their
-// thumbnail fitted into the request's box, else their icon. A picture
+// holds; a picture decodes whole within the budget, an SVG drawing
+// drawn to fill the request's box; a video opens its demuxer; text
+// reads its first TextBytes, Markdown laid out, a CSV or TSV table read
+// into rows and JSON indented; an archive lists its entries; a font
+// parses for its specimen. A drawing or table that does not read shows
+// as its text. A video without a picture, text that does not read as
+// text, a font or archive that does not read, and every other type show
+// their thumbnail fitted into the request's box, else their icon. A picture
 // held in memory decodes as a picture file does. A document asked for
 // its pages opens through the helper, falling back to its thumbnail,
 // else its icon, with why. A file on a network location loads as its
@@ -215,15 +223,43 @@ func Load(ctx context.Context, src Sources, req Request) Content {
 		}
 		return Content{info: info, renderer: Folder, folder: stats}
 	case Image:
-		return loadPicture(ctx, src.Pictures, req.Path, info)
+		if !src.MIME.IsA(info.Type, svgType) {
+			return loadPicture(ctx, src.Pictures, req.Path, info)
+		}
+		if c, ok := loadSVG(ctx, src.Pictures, req, info); ok {
+			return c
+		}
+		return loadTextOr(ctx, src, req, info)
 	case Video:
 		if c, ok := loadVideo(req.Path, info); ok {
 			return c
 		}
-	case Text:
-		if c, ok := loadText(req.Path, info); ok {
+	case Markdown:
+		if c, ok := loadMarkdown(req.Path, info); ok {
 			return c
 		}
+	case Table:
+		if c, ok := loadTable(src.MIME, req.Path, info); ok {
+			return c
+		}
+		return loadTextOr(ctx, src, req, info)
+	case Archive:
+		return loadArchive(ctx, req.Path, archiveFormatOf(src.MIME, info.Type), info)
+	case Font:
+		if c, ok := loadFont(req.Path, info); ok {
+			return c
+		}
+	case Text:
+		return loadTextOr(ctx, src, req, info)
+	}
+	return loadThumbnail(ctx, src.Thumbnails, req, info)
+}
+
+// loadTextOr is the file as text, JSON indented, else its thumbnail,
+// else its icon.
+func loadTextOr(ctx context.Context, src Sources, req Request, info Info) Content {
+	if c, ok := loadText(src.MIME, req.Path, info); ok {
+		return c
 	}
 	return loadThumbnail(ctx, src.Thumbnails, req, info)
 }
@@ -294,16 +330,20 @@ func loadVideo(path string, info Info) (Content, bool) {
 	return failed(info, Unsupported, err), true
 }
 
-// loadText reads the first TextBytes of path as text, false when they
-// do not read as text.
-func loadText(path string, info Info) (Content, bool) {
-	head, err := readHead(path, TextBytes)
-	if err != nil {
+// loadText reads the first TextBytes of path as text, a whole JSON
+// file indented, false when they do not read as text.
+func loadText(db *mime.Database, path string, info Info) (Content, bool) {
+	text, cut, ok, err := readText(path, info)
+	switch {
+	case err != nil:
 		return failed(info, Unreadable, err), true
-	}
-	text, ok := textOf(head, int64(len(head)) < info.Size)
-	if !ok {
+	case !ok:
 		return Content{}, false
+	}
+	if !cut && db.IsA(info.Type, jsonType) {
+		if formatted, ok := formatJSON(text); ok {
+			text = formatted
+		}
 	}
 	return Content{info: info, renderer: Text, text: text}, true
 }

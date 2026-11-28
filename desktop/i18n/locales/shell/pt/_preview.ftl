@@ -19,3 +19,12 @@ preview-document-too-large = A página é demasiado grande para ser mostrada.
 preview-document-timeout = A página demorou demasiado a ser mostrada.
 preview-document-unsupported = Este tipo de documento não pode ser mostrado.
 preview-document-failed = Não foi possível mostrar o documento.
+preview-archive-name = Nome
+preview-archive-size = Tamanho
+preview-archive-modified = Modificado
+preview-font-sample = Luís argüia à Júlia que «brações, fé, chá, óxido, pôr, zângão» eram palavras do português
+preview-table-rows = { $count ->
+    [one] { $shown } linha
+   *[other] { $shown } linhas
+}
+preview-table-rows-capped = Mais de { $shown } linhas

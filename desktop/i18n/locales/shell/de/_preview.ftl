@@ -19,3 +19,12 @@ preview-document-too-large = Die Seite ist zu groß zum Anzeigen.
 preview-document-timeout = Das Anzeigen der Seite hat zu lange gedauert.
 preview-document-unsupported = Diese Art von Dokument kann nicht angezeigt werden.
 preview-document-failed = Das Dokument konnte nicht angezeigt werden.
+preview-archive-name = Name
+preview-archive-size = Größe
+preview-archive-modified = Geändert
+preview-font-sample = Victor jagt zwölf Boxkämpfer quer über den großen Sylter Deich
+preview-table-rows = { $count ->
+    [one] { $shown } Zeile
+   *[other] { $shown } Zeilen
+}
+preview-table-rows-capped = { $shown }+ Zeilen

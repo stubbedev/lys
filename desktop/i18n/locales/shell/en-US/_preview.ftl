@@ -19,3 +19,12 @@ preview-document-too-large = The page is too large to show.
 preview-document-timeout = The page took too long to show.
 preview-document-unsupported = This kind of document cannot be shown.
 preview-document-failed = The document could not be shown.
+preview-archive-name = Name
+preview-archive-size = Size
+preview-archive-modified = Modified
+preview-font-sample = The quick brown fox jumps over the lazy dog
+preview-table-rows = { $count ->
+    [one] { $shown } row
+   *[other] { $shown } rows
+}
+preview-table-rows-capped = { $shown }+ rows
