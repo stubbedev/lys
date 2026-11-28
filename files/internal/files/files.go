@@ -143,9 +143,46 @@ const tabIconPx = 16
 // Root is the window's tree.
 func (f *Files) Root() widget.Widget { return f.root }
 
-// OnKey is the window's key hook.
+// OnKey is the window's key hook. A key pressed with Ctrl alone that
+// types neither a Latin letter nor a digit reads as the digit it has on
+// the US layout, as browsers read Ctrl+digit, so Ctrl+1 and Ctrl+2 work
+// on layouts whose digit row types other characters without Shift.
 func (f *Files) OnKey() func(r *widget.Router, code uint32, mods app.Mods) {
-	return keys.OnKey(f.cfg.KeySym, f.key)
+	read := f.cfg.KeySym
+	plain := keys.OnKey(read, f.key)
+	digits := keys.OnKey(func(code uint32) xkb.Keysym { return physicalDigit(code, read(code)) }, f.key)
+	return func(r *widget.Router, code uint32, mods app.Mods) {
+		if heldMods(mods) == app.ModCtrl {
+			digits(r, code, mods)
+			return
+		}
+		plain(r, code, mods)
+	}
+}
+
+// Evdev's codes of the digit row, KEY_1 to KEY_9 and then KEY_0.
+const (
+	evdevKey1 = 2
+	evdevKey0 = 11
+)
+
+// physicalDigit is sym, or the digit the US layout puts on code when
+// sym is no ASCII letter or digit.
+func physicalDigit(code uint32, sym xkb.Keysym) xkb.Keysym {
+	switch {
+	case sym >= '0' && sym <= '9', sym >= 'a' && sym <= 'z', sym >= 'A' && sym <= 'Z':
+		return sym
+	case code == evdevKey0:
+		return '0'
+	case code >= evdevKey1 && code < evdevKey0:
+		return xkb.Keysym('1' + code - evdevKey1)
+	}
+	return sym
+}
+
+// heldMods is the modifiers of mods that bindings tell apart.
+func heldMods(mods app.Mods) app.Mods {
+	return mods & (app.ModCtrl | app.ModAlt | app.ModSuper | app.ModShift)
 }
 
 // OnPress is the window's press hook: the mouse's thumb buttons walk
@@ -322,7 +359,7 @@ func (f *Files) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	if t == nil {
 		return
 	}
-	held := mods & (app.ModCtrl | app.ModAlt | app.ModSuper | app.ModShift)
+	held := heldMods(mods)
 	ctrl, ctrlShift := held == app.ModCtrl, held == app.ModCtrl|app.ModShift
 	switch {
 	case ctrl && sym == 't':

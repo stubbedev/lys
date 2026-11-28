@@ -811,6 +811,65 @@ func TestLayoutAndReloadKeys(t *testing.T) {
 	}
 }
 
+// azerty reads evdev codes through the French layout, whose digit row
+// types &, é, " and the rest without Shift.
+func azerty(t *testing.T) func(code uint32) xkb.Keysym {
+	t.Helper()
+	km, err := xkb.NewContext(os.Getenv).NewKeymapFromNames(xkb.Names{Layout: "fr"})
+	if err != nil {
+		t.Fatalf("compile the French keymap (XKB_CONFIG_ROOT %q): %v", os.Getenv("XKB_CONFIG_ROOT"), err)
+	}
+	state := km.NewState()
+	return func(code uint32) xkb.Keysym { return state.KeyGetOneSym(xkb.Keycode(code + 8)) }
+}
+
+// press presses the key of evdev code on the window, nothing focused.
+func (hs *harness) press(code uint32, mods app.Mods) {
+	hs.do(func() { hs.f.OnKey()(&widget.Router{Root: hs.f.Root()}, code, mods) })
+}
+
+// On AZERTY, Ctrl with the keys of 2 and 1 switches to the grid and
+// back, as on the US layout; without Ctrl, or with Ctrl and Alt, those
+// keys leave the layout alone, and a layout that puts a letter on the
+// key keeps the letter's binding.
+func TestLayoutKeysFollowThePhysicalDigitOnAzerty(t *testing.T) {
+	const key1, key2 = 2, 3
+	hs := newHarness(t)
+	hs.open(hs.root)
+	fr := azerty(t)
+	if got := fr(key2); got == '2' {
+		t.Fatalf("the French layout types %#x on the 2 key, want no digit", got)
+	}
+	hs.run(func() { hs.f.cfg.KeySym = fr })
+	hs.press(key2, 0)
+	hs.press(key2, app.ModCtrl|app.ModAlt)
+	if hs.grid() {
+		t.Fatal("the 2 key without Ctrl alone showed the grid")
+	}
+	hs.press(key2, app.ModCtrl)
+	if !hs.grid() {
+		t.Fatal("Ctrl with the 2 key on AZERTY left the list")
+	}
+	hs.press(key1, app.ModCtrl)
+	if hs.grid() {
+		t.Fatal("Ctrl with the 1 key on AZERTY left the grid")
+	}
+	hs.run(func() {
+		hs.f.cfg.KeySym = func(code uint32) xkb.Keysym {
+			if code == key1 {
+				return 'w'
+			}
+			return fr(code)
+		}
+	})
+	hs.open(hs.path("docs"))
+	tabs := len(hs.tabs())
+	hs.press(key1, app.ModCtrl)
+	if got := len(hs.tabs()); got != tabs-1 {
+		t.Errorf("Ctrl with a key typing w left %d of %d tabs, want it read as Ctrl+W", got, tabs)
+	}
+}
+
 // None of the layout, reload and reopen keys acts while a text field
 // has the key.
 func TestATextFieldKeepsTheTabAndViewKeys(t *testing.T) {
