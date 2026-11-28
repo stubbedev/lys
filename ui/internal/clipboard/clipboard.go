@@ -302,15 +302,15 @@ func bytesToString(data []byte) string { return string(data) }
 
 // ReadText delivers the selection as text, as Read does.
 func (c *Clipboard) ReadText(done func(string, error)) {
-	c.fetchText(c.regularView(), transfer.TextMimes, bytesToString, done)
+	c.fetchText(c.regularView(), transfer.TextMimes(), bytesToString, done)
 }
 
 // ReadImageBytes delivers the selection's image payload - the best of
-// transfer.ImageMimes the offer carries - as encoded bytes with its
+// transfer.ImageMimes() the offer carries - as encoded bytes with its
 // mime type, as Read does. Decoding is the caller's: the widget pipeline
 // decodes off the loop goroutine.
 func (c *Clipboard) ReadImageBytes(done func(data []byte, mime string, err error)) {
-	c.Read(transfer.ImageMimes, done)
+	c.Read(transfer.ImageMimes(), done)
 }
 
 // ReadURIs delivers the selection's uri list - files a file manager
@@ -332,7 +332,7 @@ func (c *Clipboard) ReadHTML(done func(string, error)) {
 // to read; everything else is as in Read - the two selections share one
 // hardened transfer, and this client's own claim is served in process.
 func (c *Clipboard) ReadPrimary(done func(string, error)) {
-	c.fetchText(c.primaryView(), transfer.TextMimes, bytesToString, done)
+	c.fetchText(c.primaryView(), transfer.TextMimes(), bytesToString, done)
 }
 
 // Stop ends every running transfer and waits for them: an application
