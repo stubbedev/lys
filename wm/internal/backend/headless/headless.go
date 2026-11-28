@@ -199,11 +199,11 @@ func (b *Backend) AddNamedOutput(name string, modes ...backend.Mode) (*Output, e
 		o.cursor = &Cursor{o: o}
 	}
 	var err error
-	if o.timer, err = b.loop.AddTimer(o.vblank); err != nil {
-		return nil, errors.Join(err, o.freeSlots())
+	if o.vblanks, err = backend.NewVblankTimer(b.loop, o.vblank); err != nil {
+		return nil, errors.Join(fmt.Errorf("headless: %s: %w", o.name, err), o.freeSlots())
 	}
 	if o.latch, err = b.loop.AddTimer(o.clock.Woke); err != nil {
-		return nil, errors.Join(err, o.timer.Remove(), o.freeSlots())
+		return nil, errors.Join(err, o.vblanks.Remove(), o.freeSlots())
 	}
 	b.outputs = append(b.outputs, o)
 	if b.handler != nil {
@@ -225,7 +225,7 @@ func (b *Backend) RemoveOutput(o *Output) error {
 	if b.handler != nil {
 		errs = append(errs, b.handler.OutputRemoved(o))
 	}
-	errs = append(errs, o.releaseClientBuffers(), o.timer.Remove(), o.latch.Remove(), o.renderFence.Drop(), o.freeSlots())
+	errs = append(errs, o.releaseClientBuffers(), o.vblanks.Remove(), o.latch.Remove(), o.renderFence.Drop(), o.freeSlots())
 	if o.cursor != nil {
 		errs = append(errs, o.cursor.destroy())
 	}
@@ -250,7 +250,7 @@ type Output struct {
 	drawing        int
 	latest         int
 	renders        uint64
-	timer          *loop.Timer
+	vblanks        *backend.VblankTimer
 	latch          *loop.Timer
 	budget         backend.RenderBudget
 	frameStart     time.Duration
@@ -258,16 +258,11 @@ type Output struct {
 	renderFence    backend.Fence
 	fenceStart     time.Duration
 	timing         frameTiming
-	armed          bool
 	clock          *backend.FrameClock
 	presentPending bool
 	empties        int
 	inFrame        bool
-	lastVblank     time.Duration
 	lastShown      time.Duration
-	nextVblank     time.Duration
-	seq            uint64
-	nextSeq        uint64
 	presents       uint64
 	frames         uint64
 	damage         render.Region
@@ -784,7 +779,7 @@ func (o *Output) paceInterval() time.Duration {
 }
 
 func (o *Output) pacing() backend.Pacing {
-	return backend.Pacing{Vblank: o.lastVblank, Shown: o.lastShown, Refresh: o.state.Mode.Interval(), Paced: o.paceInterval(), Variable: o.vrr}
+	return backend.Pacing{Vblank: o.vblanks.Last(), Shown: o.lastShown, Refresh: o.state.Mode.Interval(), Paced: o.paceInterval(), Variable: o.vrr}
 }
 
 func (o *Output) SetContentType(t wm.ContentType) {
@@ -875,37 +870,28 @@ func (o *Output) Snapshot() (*soft.Buffer, error) {
 }
 
 func (o *Output) arm() error {
-	if o.armed {
-		return nil
+	if err := o.vblanks.Arm(o.state.Mode.Interval()); err != nil {
+		return fmt.Errorf("headless: %s: %w", o.name, err)
 	}
-	now := o.backend.loop.Now()
-	at, ticks := backend.NextVblank(o.lastVblank, now, o.state.Mode.Interval())
-	o.nextVblank, o.nextSeq = at, o.seq+ticks
-	if err := o.timer.ArmFrame(o.nextVblank - now); err != nil {
-		return fmt.Errorf("headless: arm frame timer for %s: %w", o.name, err)
-	}
-	o.armed = true
 	return nil
 }
 
 func (o *Output) vblank() error {
-	o.armed = false
-	o.lastVblank, o.seq = o.nextVblank, o.nextSeq
 	idle := o.empties > 0
 	o.empties = 0
 	if o.state.Enabled() {
-		if err := o.timeFrame(o.lastVblank, o.presentPending); err != nil {
+		if err := o.timeFrame(o.vblanks.Last(), o.presentPending); err != nil {
 			return err
 		}
 	}
 	switch {
 	case o.presentPending:
-		o.lastShown = o.lastVblank
+		o.lastShown = o.vblanks.Last()
 		if err := o.present(); err != nil {
 			return err
 		}
 	case idle && o.backend.handler != nil:
-		if err := o.backend.handler.Presented(o, backend.Presentation{Time: o.lastVblank, Refresh: o.paceInterval(), Seq: o.seq, Idle: true}); err != nil {
+		if err := o.backend.handler.Presented(o, backend.Presentation{Time: o.vblanks.Last(), Refresh: o.paceInterval(), Seq: o.vblanks.Seq(), Idle: true}); err != nil {
 			return err
 		}
 	}
@@ -933,7 +919,7 @@ func (o *Output) present() error {
 	}
 	torn := o.queuedTorn
 	o.queuedTorn = false
-	return h.Presented(o, backend.Presentation{Time: o.lastVblank, Refresh: o.paceInterval(), Seq: o.seq, Torn: torn, Hardware: o.hardwareClock, Variable: o.vrr})
+	return h.Presented(o, backend.Presentation{Time: o.vblanks.Last(), Refresh: o.paceInterval(), Seq: o.vblanks.Seq(), Torn: torn, Hardware: o.hardwareClock, Variable: o.vrr})
 }
 
 type device struct {

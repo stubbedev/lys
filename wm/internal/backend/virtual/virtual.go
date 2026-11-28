@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"time"
 
 	"github.com/stubbedev/lys/lib/edid"
 
@@ -27,26 +26,20 @@ type Handler interface {
 }
 
 type Output struct {
-	loop       *loop.Loop
-	name       string
-	mode       backend.Mode
-	state      backend.OutputState
-	renderer   render.Renderer
-	handler    Handler
-	target     render.ReadTarget
-	drawn      bool
-	clock      *backend.FrameClock
-	timer      *loop.Timer
-	armed      bool
-	pending    bool
-	inFrame    bool
-	closed     bool
-	empties    int
-	lastVblank time.Duration
-	nextVblank time.Duration
-	seq        uint64
-	nextSeq    uint64
-	frames     uint64
+	name     string
+	mode     backend.Mode
+	state    backend.OutputState
+	renderer render.Renderer
+	handler  Handler
+	target   render.ReadTarget
+	drawn    bool
+	clock    *backend.FrameClock
+	vblanks  *backend.VblankTimer
+	pending  bool
+	inFrame  bool
+	closed   bool
+	empties  int
+	frames   uint64
 }
 
 var _ backend.Output = (*Output)(nil)
@@ -66,11 +59,11 @@ func New(l *loop.Loop, r render.Renderer, h Handler, name string, m backend.Mode
 		return nil, fmt.Errorf("virtual: %s: %w", name, err)
 	}
 	m.Preferred = true
-	o := &Output{loop: l, name: name, mode: m, state: backend.OutputState{Mode: m}, renderer: r, handler: h}
+	o := &Output{name: name, mode: m, state: backend.OutputState{Mode: m}, renderer: r, handler: h}
 	o.clock = backend.NewFrameClock(l.Idle, o.frameReady, o.runFrame, nil)
 	var err error
-	if o.timer, err = l.AddTimer(o.vblank); err != nil {
-		return nil, fmt.Errorf("virtual: %s: frame timer: %w", name, err)
+	if o.vblanks, err = backend.NewVblankTimer(l, o.vblank); err != nil {
+		return nil, fmt.Errorf("virtual: %s: %w", name, err)
 	}
 	return o, nil
 }
@@ -81,7 +74,7 @@ func (o *Output) Close() error {
 	}
 	o.closed = true
 	o.clock.Cancel()
-	return errors.Join(o.timer.Remove(), o.freeTarget())
+	return errors.Join(o.vblanks.Remove(), o.freeTarget())
 }
 
 func (o *Output) Renew() error {
@@ -232,25 +225,16 @@ func (*Output) CursorPlane() (backend.CursorPlane, error) {
 }
 
 func (o *Output) arm() error {
-	if o.armed {
-		return nil
+	if err := o.vblanks.Arm(o.state.Mode.Interval()); err != nil {
+		return fmt.Errorf("virtual: %s: %w", o.name, err)
 	}
-	now := o.loop.Now()
-	at, ticks := backend.NextVblank(o.lastVblank, now, o.state.Mode.Interval())
-	o.nextVblank, o.nextSeq = at, o.seq+ticks
-	if err := o.timer.ArmFrame(at - now); err != nil {
-		return fmt.Errorf("virtual: arm the frame timer of %s: %w", o.name, err)
-	}
-	o.armed = true
 	return nil
 }
 
 func (o *Output) vblank() error {
-	o.armed = false
-	o.lastVblank, o.seq = o.nextVblank, o.nextSeq
 	idle := o.empties > 0
 	o.empties = 0
-	p := backend.Presentation{Time: o.lastVblank, Refresh: o.state.Mode.Interval(), Seq: o.seq}
+	p := backend.Presentation{Time: o.vblanks.Last(), Refresh: o.state.Mode.Interval(), Seq: o.vblanks.Seq()}
 	switch {
 	case o.closed:
 		return nil

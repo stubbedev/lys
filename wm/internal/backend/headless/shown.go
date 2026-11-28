@@ -37,7 +37,7 @@ func (o *Output) noteShown() error {
 	if err != nil {
 		return err
 	}
-	o.shownFrames = append(o.shownFrames, ShownFrame{Seq: o.seq, Overlays: o.ShownOverlays(), Image: img})
+	o.shownFrames = append(o.shownFrames, ShownFrame{Seq: o.vblanks.Seq(), Overlays: o.ShownOverlays(), Image: img})
 	return nil
 }
 
