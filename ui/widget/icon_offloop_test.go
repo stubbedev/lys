@@ -116,6 +116,7 @@ func TestThemeIconPaintNeverWaitsForTheIndex(t *testing.T) {
 		def.SetTheme("hicolor")
 	})
 
+	release := occupyAssetWorkers(t)
 	w := NewThemeIcon("flag", 16)
 	var data []byte
 	onTime(t, "a paint", func() { data, _ = paintIcon(w, 16, 1, 1) })
@@ -125,6 +126,7 @@ func TestThemeIconPaintNeverWaitsForTheIndex(t *testing.T) {
 	onTime(t, "the generation", func() { _ = def.Generation() })
 	CollectDamage(w)
 
+	release()
 	settleAssets(t, f)
 	if _, any := CollectDamage(w); !any {
 		t.Fatal("the decode's answer repainted nothing")
