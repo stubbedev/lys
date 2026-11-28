@@ -51,11 +51,15 @@ func (f *Files) menu(t *tab, sel []filebrowser.Entry) []widget.MenuItem {
 			item("files-properties", func() { f.properties([]string{t.b.Dir()}) }),
 		}
 	}
-	items := []widget.MenuItem{
-		item("files-open", func() { f.open(t, sel) }),
-		f.openWith(sel),
-		widget.MenuSeparator(),
+	items := []widget.MenuItem{item("files-open", func() { f.open(t, sel) })}
+	if !slices.ContainsFunc(sel, func(e filebrowser.Entry) bool { return !e.IsDir }) {
+		items = append(items, item("files-open-in-new-tab", func() {
+			for _, p := range slices.Backward(paths) {
+				f.openBehind(p)
+			}
+		}))
 	}
+	items = append(items, f.openWith(sel), widget.MenuSeparator())
 	if !t.virtual() {
 		items = append(items, item("files-cut", func() { f.copyFiles(t, true) }))
 	}

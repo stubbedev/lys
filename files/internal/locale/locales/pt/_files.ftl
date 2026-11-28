@@ -3,6 +3,7 @@
 files-title = Ficheiros
 files-new-tab = Novo separador
 files-open = Abrir
+files-open-in-new-tab = Abrir num novo separador
 files-open-with = Abrir com
 files-no-apps = Nenhuma app abre estes ficheiros
 files-cut = Cortar

@@ -3,6 +3,7 @@
 files-title = File
 files-new-tab = Nuova scheda
 files-open = Apri
+files-open-in-new-tab = Apri in una nuova scheda
 files-open-with = Apri con
 files-no-apps = Nessuna app apre questi file
 files-cut = Taglia

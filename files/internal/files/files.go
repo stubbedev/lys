@@ -96,6 +96,9 @@ type Files struct {
 	tabs map[*widget.TabPage]*tab
 	// closed are the browsers of the tabs closed, which Close waits for.
 	closed []*filebrowser.Browser
+	// reopen are the tabs closed that Ctrl+Shift+T reopens, the last
+	// closed last, at most reopenKept.
+	reopen []closedTab
 	jobs   *jobs
 	undos  []*fileops.Undo
 	// asking is set while the dialog asking to close over the
@@ -111,6 +114,7 @@ func New(cfg Config) *Files {
 	f.jobs = newJobs(f)
 	f.view.OnSelect = func(*widget.TabPage) { f.selected() }
 	f.view.OnPageDetached = f.detached
+	f.view.OnClosePage = f.closing
 	bar := widget.NewTabBar(cfg.Browser.Font, widgets.TextPx(styling.Body, 1), f.view)
 	add := widget.NewButton(widgets.Center(widget.NewThemeIcon("ld-plus-symbolic", tabIconPx)), 0, 0)
 	add.AddClass("files-new-tab", css.Ghost, css.Icon, css.Small)
@@ -202,6 +206,41 @@ func (f *Files) selected() {
 	}
 }
 
+// closedTab is a tab closed: the folder it showed and where it sat.
+type closedTab struct {
+	dir string
+	at  int
+}
+
+// reopenKept is how many closed tabs Ctrl+Shift+T can reopen.
+const reopenKept = 16
+
+// closing remembers the tab of p closing, for reopenClosed.
+func (f *Files) closing(p *widget.TabPage) bool {
+	t, ok := f.tabs[p]
+	if !ok {
+		return true
+	}
+	f.reopen = append(f.reopen, closedTab{dir: t.b.Dir(), at: f.view.Index(p)})
+	if len(f.reopen) > reopenKept {
+		f.reopen = slices.Delete(f.reopen, 0, len(f.reopen)-reopenKept)
+	}
+	return true
+}
+
+// reopenClosed opens the tab closed last again where it sat, on the
+// folder it showed, and shows it.
+func (f *Files) reopenClosed() {
+	if len(f.reopen) == 0 {
+		return
+	}
+	c := f.reopen[len(f.reopen)-1]
+	f.reopen = f.reopen[:len(f.reopen)-1]
+	t := f.insertTab(c.at, c.dir)
+	f.view.Select(t.page)
+	f.selected()
+}
+
 // detached ends a closed tab's browse; the last tab gone closes the
 // window, as CloseRequest does, a tab coming back on its folder when
 // the window stays open.
@@ -265,10 +304,11 @@ func (f *Files) CloseRequest() bool {
 }
 
 // key binds the window's keys: Ctrl+T, Ctrl+W and Ctrl+(Shift+)Tab or
-// Ctrl+Page Up/Down for the tabs anywhere; Ctrl+X, Ctrl+C, Ctrl+V,
-// Ctrl+Z, F2, Delete, Shift+Delete, Ctrl+Shift+N and Alt+Enter for
-// the files, unless a text field has the key; the browser's own keys
-// after them.
+// Ctrl+Page Up/Down for the tabs anywhere; Ctrl+Shift+T to reopen a
+// tab, Ctrl+1 and Ctrl+2 for the list and the grid, F5 and Ctrl+R to
+// reload, and Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+Z, F2, Delete,
+// Shift+Delete, Ctrl+Shift+N and Alt+Enter for the files, unless a
+// text field has the key; the browser's own keys after them.
 func (f *Files) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 	t := f.active()
 	if t == nil {
@@ -287,6 +327,14 @@ func (f *Files) key(r *widget.Router, sym xkb.Keysym, mods app.Mods) {
 		f.view.SelectPrevious()
 	case t.b.Typing(r):
 		t.b.Key(r, sym, mods)
+	case ctrlShift && sym == 't':
+		f.reopenClosed()
+	case ctrl && sym == '1':
+		t.b.SetGrid(false)
+	case ctrl && sym == '2':
+		t.b.SetGrid(true)
+	case held == 0 && sym == xkb.KeyF5, ctrl && sym == 'r':
+		t.b.Reload()
 	case ctrl && sym == 'x':
 		f.copyFiles(t, true)
 	case ctrl && sym == 'c':

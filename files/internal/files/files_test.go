@@ -2,6 +2,7 @@ package files
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
@@ -667,6 +669,146 @@ func TestTheTabRowKeepsItsMargins(t *testing.T) {
 			t.Errorf("New Tab at %v is %dpx from the tabs at %v, want %d", add, add.X-(bar.X+bar.W), bar, gap)
 		}
 	})
+}
+
+// pressRow lays the window out and presses button on the list row of
+// the tab showing that reads name.
+func (hs *harness) pressRow(t *testing.T, button uint32, name string) {
+	t.Helper()
+	hs.do(func() {
+		root := hs.f.Root()
+		widget.SizeWithin(root, widget.Size{W: 900, H: 600})
+		root.Arrange(render.Rect{W: 900, H: 600})
+		tb := hs.f.active()
+		i := slices.IndexFunc(tb.b.Entries(), func(e filebrowser.Entry) bool { return e.Name() == name })
+		if i < 0 {
+			t.Fatalf("no %s in the listing of %s", name, tb.b.Dir())
+		}
+		list := tb.b.FileView().(widget.Boundser).Bounds()
+		at := widget.Point{X: list.X + list.W/2, Y: list.Y + i*filebrowser.ListRowH + filebrowser.ListRowH/2}
+		r := &widget.Router{Root: root}
+		r.Move(at)
+		r.Press(button, at, 0)
+		r.Release(button, at)
+	})
+}
+
+// A middle click on a folder, or Open in New Tab on folders selected,
+// opens each in a tab after the one showing, which stays showing; a
+// middle click on a file opens nothing, and a selection holding a file
+// offers no Open in New Tab.
+func TestOpenInNewTabOpensFoldersBehind(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root, hs.path("pics"))
+	hs.do(func() { hs.f.view.SelectIndex(0) })
+	hs.pressRow(t, widget.BTNMiddle, "docs")
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.root, hs.path("docs"), hs.path("pics")}) || hs.tab().b.Dir() != hs.root {
+		t.Fatalf("a middle click on docs: tabs %v, showing %s", got, hs.tab().b.Dir())
+	}
+	hs.pressRow(t, widget.BTNMiddle, "b.txt")
+	if got := hs.tabs(); len(got) != 3 || len(hs.opened) != 0 {
+		t.Errorf("a middle click on b.txt: tabs %v, opened %v", got, hs.opened)
+	}
+	hs.pick(t, "docs", "pics")
+	hs.menu(t, msg("files-open-in-new-tab"))
+	want := []string{hs.root, hs.path("docs"), hs.path("pics"), hs.path("docs"), hs.path("pics")}
+	if got := hs.tabs(); !slices.Equal(got, want) || hs.tab().b.Dir() != hs.root {
+		t.Errorf("Open in New Tab on docs and pics: tabs %v, showing %s", got, hs.tab().b.Dir())
+	}
+	hs.pick(t, "docs", "b.txt")
+	var items []widget.MenuItem
+	hs.run(func() { items = hs.f.menu(hs.f.active(), hs.f.active().b.Selected()) })
+	if slices.Contains(labels(items), msg("files-open-in-new-tab")) {
+		t.Error("a selection holding a file offers Open in New Tab")
+	}
+}
+
+// Ctrl+Shift+T reopens the tabs closed, the last first, each where it
+// sat on the folder it showed, by Ctrl+W or a middle click; with none
+// closed it opens nothing.
+func TestCtrlShiftTReopensTheTabClosed(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root, hs.path("docs"), hs.path("pics"))
+	hs.key('t', app.ModCtrl|app.ModShift, nil)
+	if got := hs.tabs(); len(got) != 3 {
+		t.Fatalf("Ctrl+Shift+T with no tab closed: tabs %v", got)
+	}
+	hs.do(func() { hs.f.view.SelectIndex(1) })
+	hs.key('w', app.ModCtrl, nil)
+	hs.do(func() {
+		tab := treetest.First[*widget.TabBar](t, hs.f.Root()).Tabs()[0].(widget.Boundser)
+		r, at := treetest.Pointer(hs.f.Root(), tab, 900, 600)
+		r.Press(widget.BTNMiddle, at, 0)
+		r.Release(widget.BTNMiddle, at)
+	})
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.path("pics")}) {
+		t.Fatalf("Ctrl+W on docs and a middle click on home left %v", got)
+	}
+	hs.key('t', app.ModCtrl|app.ModShift, nil)
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.root, hs.path("pics")}) || hs.tab().b.Dir() != hs.root {
+		t.Fatalf("Ctrl+Shift+T reopened %v, showing %s", got, hs.tab().b.Dir())
+	}
+	hs.key('t', app.ModCtrl|app.ModShift, nil)
+	if got := hs.tabs(); !slices.Equal(got, []string{hs.root, hs.path("docs"), hs.path("pics")}) || hs.tab().b.Dir() != hs.path("docs") {
+		t.Errorf("a second Ctrl+Shift+T reopened %v, showing %s", got, hs.tab().b.Dir())
+	}
+	hs.key('t', app.ModCtrl|app.ModShift, nil)
+	if got := hs.tabs(); len(got) != 3 {
+		t.Errorf("Ctrl+Shift+T with every closed tab reopened: tabs %v", got)
+	}
+}
+
+// grid reports whether the tab showing shows a grid.
+func (hs *harness) grid() bool {
+	var on bool
+	hs.run(func() { on = hs.f.active().b.Grid() })
+	return on
+}
+
+// Ctrl+2 shows the grid and Ctrl+1 the list; F5 and Ctrl+R read the
+// folder again, which brings a file trashed elsewhere into the trash
+// no watch follows.
+func TestLayoutAndReloadKeys(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root)
+	hs.key('2', app.ModCtrl, nil)
+	if !hs.grid() {
+		t.Error("Ctrl+2 left the list")
+	}
+	hs.key('1', app.ModCtrl, nil)
+	if hs.grid() {
+		t.Error("Ctrl+1 left the grid")
+	}
+	hs.do(func() { hs.f.active().b.GoTo(filebrowser.TrashLocation) })
+	for i, press := range []func(){
+		func() { hs.key(xkb.KeyF5, 0, nil) },
+		func() { hs.key('r', app.ModCtrl, nil) },
+	} {
+		browsertest.Trashed(t, hs.trash, fmt.Sprintf("f%d", i), browsertest.TrashInfo(hs.path(fmt.Sprintf("f%d", i))))
+		press()
+		if got := len(hs.tab().b.Entries()); got != i+1 {
+			t.Errorf("reload %d: the trash lists %d files, want %d", i, got, i+1)
+		}
+	}
+}
+
+// None of the layout, reload and reopen keys acts while a text field
+// has the key.
+func TestATextFieldKeepsTheTabAndViewKeys(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.root, hs.path("docs"))
+	hs.key('w', app.ModCtrl, nil)
+	hs.do(func() { hs.f.active().b.GoTo(filebrowser.TrashLocation) })
+	browsertest.Trashed(t, hs.trash, "f", browsertest.TrashInfo(hs.path("f")))
+	var entry widget.Widget
+	hs.run(func() { entry = treetest.First[*widget.SearchEntry](t, hs.f.Root()) })
+	hs.key('2', app.ModCtrl, entry)
+	hs.key(xkb.KeyF5, 0, entry)
+	hs.key('r', app.ModCtrl, entry)
+	hs.key('t', app.ModCtrl|app.ModShift, entry)
+	if hs.grid() || len(hs.tab().b.Entries()) != 0 || len(hs.tabs()) != 1 {
+		t.Errorf("keys in a text field: grid %v, the trash lists %d, tabs %v", hs.grid(), len(hs.tab().b.Entries()), hs.tabs())
+	}
 }
 
 // Keys a text field takes stay its: Ctrl+V in the search box pastes no

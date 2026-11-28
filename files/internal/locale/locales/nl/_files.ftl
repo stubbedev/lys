@@ -3,6 +3,7 @@
 files-title = Bestanden
 files-new-tab = Nieuw tabblad
 files-open = Openen
+files-open-in-new-tab = Openen in nieuw tabblad
 files-open-with = Openen met
 files-no-apps = Geen app opent deze bestanden
 files-cut = Knippen

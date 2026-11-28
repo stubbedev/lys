@@ -19,9 +19,29 @@ type tab struct {
 	home   string
 }
 
-// newTab opens a tab on dir ("" for home) with selected selected, and
-// shows it.
+// newTab opens a tab on dir ("" for home) after the others with
+// selected selected, and shows it.
 func (f *Files) newTab(dir string, selected []string) {
+	t := f.insertTab(f.view.NPages(), dir)
+	f.view.Select(t.page)
+	f.selected()
+	if len(selected) > 0 {
+		t.b.Reveal(t.b.Dir(), selected)
+	}
+}
+
+// openBehind opens a tab on dir right after the tab showing, which
+// stays showing.
+func (f *Files) openBehind(dir string) {
+	at := f.view.NPages()
+	if t := f.active(); t != nil {
+		at = f.view.Index(t.page) + 1
+	}
+	f.insertTab(at, dir)
+}
+
+// insertTab opens a tab on dir ("" for home) at position at, unshown.
+func (f *Files) insertTab(at int, dir string) *tab {
 	t := &tab{home: f.cfg.Browser.Home}
 	t.b = filebrowser.New(f.cfg.Browser, func(w widget.Widget) error {
 		if f.active() != t {
@@ -31,27 +51,24 @@ func (f *Files) newTab(dir string, selected []string) {
 	})
 	t.prompt = newPrompt(f, t)
 	t.b.Begin(filebrowser.Options{
-		Folder:      dir,
-		Kinds:       filebrowser.FilesAndFolders,
-		Selection:   widget.SelectionMultiple,
-		Gathered:    true,
-		Above:       []widget.Widget{t.prompt.row},
-		OnFile:      func(e filebrowser.Entry) { f.cfg.Host.OpenFile(e.Path) },
-		ContextMenu: func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
-		OnDrop:      f.drop,
-		DragActions: dragActions,
-		OnDir:       func(string) { f.dirShown(t) },
+		Folder:         dir,
+		Kinds:          filebrowser.FilesAndFolders,
+		Selection:      widget.SelectionMultiple,
+		Gathered:       true,
+		Above:          []widget.Widget{t.prompt.row},
+		OnFile:         func(e filebrowser.Entry) { f.cfg.Host.OpenFile(e.Path) },
+		ContextMenu:    func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
+		OnDrop:         f.drop,
+		DragActions:    dragActions,
+		OnDir:          func(string) { f.dirShown(t) },
+		OnOpenInNewTab: func(e filebrowser.Entry) { f.openBehind(e.Path) },
 	})
 	content := widget.NewBox(widget.Column, 0, 0)
 	content.Append(t.b.Header(), false)
 	content.Append(t.b.Main(), true)
-	t.page = f.view.Append(content, t.title())
+	t.page = f.view.Insert(at, content, t.title())
 	f.tabs[t.page] = t
-	f.view.Select(t.page)
-	f.selected()
-	if len(selected) > 0 {
-		t.b.Reveal(t.b.Dir(), selected)
-	}
+	return t
 }
 
 // dirShown titles the tab, and the window when it shows, by the

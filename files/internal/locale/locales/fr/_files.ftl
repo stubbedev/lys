@@ -3,6 +3,7 @@
 files-title = Fichiers
 files-new-tab = Nouvel onglet
 files-open = Ouvrir
+files-open-in-new-tab = Ouvrir dans un nouvel onglet
 files-open-with = Ouvrir avec
 files-no-apps = Aucune app n’ouvre ces fichiers
 files-cut = Couper

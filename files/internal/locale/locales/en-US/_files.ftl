@@ -3,6 +3,7 @@
 files-title = Files
 files-new-tab = New Tab
 files-open = Open
+files-open-in-new-tab = Open in New Tab
 files-open-with = Open With
 files-no-apps = No app opens these files
 files-cut = Cut
