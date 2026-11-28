@@ -920,7 +920,7 @@ func (w *watcher) register(service string) {
 	}
 	w.items = append(w.items, service)
 	w.mu.Unlock()
-	_ = w.host.conn.Emit(WatcherPath, WatcherIface+".StatusNotifierItemRegistered", service)
+	w.announce("StatusNotifierItemRegistered", service)
 	w.host.requestTrack(service)
 }
 
@@ -971,12 +971,12 @@ func (w *watcher) nameVanished(loss nameLoss) {
 	}
 	w.mu.Unlock()
 	for _, s := range removed {
-		_ = w.host.conn.Emit(WatcherPath, WatcherIface+".StatusNotifierItemUnregistered", s)
+		w.announce("StatusNotifierItemUnregistered", s)
 		bus, path := ParseAddress(s)
 		w.host.forget(bus, path)
 	}
 	if hostGone && emptied {
-		_ = w.host.conn.Emit(WatcherPath, WatcherIface+".StatusNotifierHostUnregistered")
+		w.announce("StatusNotifierHostUnregistered")
 	}
 }
 
@@ -990,8 +990,20 @@ func (w *watcher) RegisterStatusNotifierHost(service string) *dbus.Error {
 	}
 	w.hosts = append(w.hosts, service)
 	w.mu.Unlock()
-	_ = w.host.conn.Emit(WatcherPath, WatcherIface+".StatusNotifierHostRegistered")
+	w.announce("StatusNotifierHostRegistered")
 	return nil
+}
+
+// announce emits the watcher's signal member, about service when it
+// names one, reporting a signal that could not be sent.
+func (w *watcher) announce(member string, service ...string) {
+	args := make([]any, len(service))
+	for i, s := range service {
+		args[i] = s
+	}
+	if err := w.host.conn.Emit(WatcherPath, WatcherIface+"."+member, args...); err != nil {
+		w.host.failed(fmt.Errorf("announce %s: %w", strings.Join(append([]string{member}, service...), " "), err))
+	}
 }
 
 // properties are the watcher's three read-only properties.
