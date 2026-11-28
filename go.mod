@@ -11,8 +11,11 @@ require (
 	filippo.io/edwards25519 v1.2.0
 	github.com/ebitengine/purego v0.11.3
 	github.com/gen2brain/folio v0.3.1
+	github.com/hirochachacha/go-smb2 v1.1.0
+	github.com/jlaffaye/ftp v0.2.4
 	github.com/kettek/apng v0.0.0-20250827064933-2bb5f5fcf253
 	github.com/makiuchi-d/gozxing v0.1.1
+	github.com/pkg/sftp v1.13.13
 	github.com/rivo/uniseg v0.4.7
 	github.com/stubbedev/memory-go v0.6.0
 	go.yaml.in/yaml/v3 v3.0.6
@@ -26,7 +29,9 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.1.0 // indirect
+	github.com/geoffgarside/ber v1.1.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

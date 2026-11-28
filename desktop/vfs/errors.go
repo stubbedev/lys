@@ -20,6 +20,10 @@ var ErrAuth = errors.New("the server refused the credentials")
 // route, nothing listening, no answer in time.
 var ErrUnreachable = errors.New("the server cannot be reached")
 
+// ErrLocked is a device that keeps its files until it is unlocked: a
+// phone whose screen is locked, or which was not allowed to share them.
+var ErrLocked = errors.New("the device is locked")
+
 // ErrNotMounted is a location on a server that is not connected.
 var ErrNotMounted = errors.New("the location is not connected")
 
@@ -78,7 +82,12 @@ func (e *CertificateError) Unwrap() error { return e.Err }
 
 // Fingerprint is the certificate's SHA-256 fingerprint, colon-separated
 // hex as browsers show it.
-func (e *CertificateError) Fingerprint() string { return CertFingerprint(e.Cert) }
+func (e *CertificateError) Fingerprint() string {
+	if e.Cert == nil {
+		return ""
+	}
+	return CertFingerprint(e.Cert)
+}
 
 // CertFingerprint is cert's SHA-256 fingerprint, colon-separated hex.
 func CertFingerprint(cert *x509.Certificate) string {

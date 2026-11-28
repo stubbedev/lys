@@ -35,10 +35,12 @@ type FS interface {
 	// Stat states path.
 	Stat(ctx context.Context, path string) (Info, error)
 	// Open opens the file path for reading. A file that can be read at
-	// any offset is an io.ReaderAt and an io.Seeker too.
+	// any offset is an io.ReaderAt. ctx may go on governing the reads
+	// until the file is closed.
 	Open(ctx context.Context, path string) (File, error)
 	// Create makes the file path, which must not exist yet, for writing:
-	// it is whole once Close returns no error.
+	// it is whole once Close returns no error. ctx may go on governing
+	// the writes until the file is closed.
 	Create(ctx context.Context, path string) (io.WriteCloser, error)
 	// Mkdir makes the folder path, which must not exist yet.
 	Mkdir(ctx context.Context, path string) error
