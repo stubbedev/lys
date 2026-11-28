@@ -90,3 +90,5 @@ file-chooser-disconnect-failed = Impossibile disconnettere «{ $server }».
 file-chooser-certificate-untrusted = Il certificato di { $server } non è firmato da un’autorità di cui questo computer si fida. La sua impronta SHA-256 è { $fingerprint }: connettiti solo se è davvero il suo certificato.
 file-chooser-certificate-wrong-host = Il certificato di { $server } è intestato a un altro nome. La sua impronta SHA-256 è { $fingerprint }: connettiti solo se è davvero il suo certificato.
 file-chooser-certificate-expired = Il certificato di { $server } è scaduto o non è ancora valido. La sua impronta SHA-256 è { $fingerprint }: connettiti solo se è davvero il suo certificato.
+file-chooser-device-locked = Sblocca «{ $device }» e consenti l’accesso ai suoi file, poi aprilo di nuovo.
+file-chooser-device-failed = Impossibile aprire «{ $device }».

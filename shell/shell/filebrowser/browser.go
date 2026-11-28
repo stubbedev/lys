@@ -176,6 +176,9 @@ type Deps struct {
 	// Network connects to network locations, from Connect to Server and
 	// an address typed into the location entry; nil offers neither.
 	Network *Network
+	// Devices are the phones and cameras plugged in, which Locations
+	// lists to open; nil lists none.
+	Devices Devices
 }
 
 // Options are one browse: where it starts, what it lists and offers,

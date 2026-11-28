@@ -90,3 +90,5 @@ file-chooser-disconnect-failed = Kan ‘{ $server }’ niet verbreken.
 file-chooser-certificate-untrusted = Het certificaat van { $server } is niet ondertekend door een instantie die deze computer vertrouwt. Zijn SHA-256-vingerafdruk is { $fingerprint }: verbind alleen als dat zijn certificaat is.
 file-chooser-certificate-wrong-host = Het certificaat van { $server } staat op een andere naam. Zijn SHA-256-vingerafdruk is { $fingerprint }: verbind alleen als dat zijn certificaat is.
 file-chooser-certificate-expired = Het certificaat van { $server } is verlopen of nog niet geldig. Zijn SHA-256-vingerafdruk is { $fingerprint }: verbind alleen als dat zijn certificaat is.
+file-chooser-device-locked = Ontgrendel ‘{ $device }’ en sta toegang tot de bestanden toe, open het daarna opnieuw.
+file-chooser-device-failed = Kan ‘{ $device }’ niet openen.

@@ -32,6 +32,7 @@ type locations struct {
 	places  []Place
 	volumes []udisks.Volume
 	mounted []vfs.Mount
+	devices []Device
 }
 
 // drives is the drives' client, nil without one (no system bus yet).
@@ -45,7 +46,8 @@ func (c *Browser) drives() *udisks.Client {
 // readLocations reads the places and the volumes; safe off the loop. A
 // listing UDisks2 refuses lists the places alone.
 func (c *Browser) readLocations() locations {
-	l := locations{places: c.d.Locations(), mounted: c.mounts.List()}
+	l := locations{places: c.d.Locations(), devices: c.readDevices()}
+	l.mounted = c.mounts.List()
 	drives := c.drives()
 	if drives == nil {
 		return l
@@ -72,6 +74,9 @@ func (c *Browser) watchLocations() (stop func()) {
 		stops = append(stops, c.d.WatchLocations(changed))
 	}
 	stops = append(stops, c.mounts.Watch(func() { c.offLoop.Go(changed) }))
+	if c.d.Devices != nil {
+		stops = append(stops, c.d.Devices.Watch(changed))
+	}
 	if drives := c.drives(); drives != nil {
 		stop, err := drives.Watch(changed)
 		if err != nil {
@@ -124,6 +129,9 @@ func (c *Browser) fillLocations(l locations) {
 			at = v.MountPoints[0]
 		}
 		list.Append(c.volumeRow(v, Place{Label: v.Label, Path: at, Icon: volumeIcon(v)}), false)
+	}
+	for _, row := range c.deviceRows(l.devices) {
+		list.Append(row, false)
 	}
 	for _, row := range c.networkRows(l.mounted) {
 		list.Append(row, false)

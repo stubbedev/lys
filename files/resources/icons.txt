@@ -2,6 +2,7 @@ ld-arrow-left-symbolic
 ld-arrow-right-symbolic
 ld-arrow-up-symbolic
 ld-calendar-symbolic
+ld-camera-symbolic
 ld-disc-3-symbolic
 ld-download-symbolic
 ld-eject-symbolic
@@ -40,6 +41,7 @@ ld-plus-symbolic
 ld-presentation-symbolic
 ld-save-symbolic
 ld-server-symbolic
+ld-smartphone-symbolic
 ld-trash-2-symbolic
 ld-usb-symbolic
 ld-video-symbolic

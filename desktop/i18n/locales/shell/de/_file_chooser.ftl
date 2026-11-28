@@ -90,3 +90,5 @@ file-chooser-disconnect-failed = „{ $server }“ kann nicht getrennt werden.
 file-chooser-certificate-untrusted = Das Zertifikat von { $server } ist von keiner Stelle signiert, der dieser Rechner vertraut. Sein SHA-256-Fingerabdruck ist { $fingerprint }: Nur verbinden, wenn das sein Zertifikat ist.
 file-chooser-certificate-wrong-host = Das Zertifikat von { $server } ist auf einen anderen Namen ausgestellt. Sein SHA-256-Fingerabdruck ist { $fingerprint }: Nur verbinden, wenn das sein Zertifikat ist.
 file-chooser-certificate-expired = Das Zertifikat von { $server } ist abgelaufen oder noch nicht gültig. Sein SHA-256-Fingerabdruck ist { $fingerprint }: Nur verbinden, wenn das sein Zertifikat ist.
+file-chooser-device-locked = Entsperren Sie „{ $device }“ und erlauben Sie den Zugriff auf seine Dateien, dann öffnen Sie es erneut.
+file-chooser-device-failed = „{ $device }“ kann nicht geöffnet werden.

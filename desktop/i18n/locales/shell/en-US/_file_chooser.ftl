@@ -90,3 +90,5 @@ file-chooser-disconnect-failed = Cannot disconnect “{ $server }”.
 file-chooser-certificate-untrusted = The certificate of { $server } is not signed by an authority this computer trusts. Its SHA-256 fingerprint is { $fingerprint }: connect only if that is its certificate.
 file-chooser-certificate-wrong-host = The certificate of { $server } is made out to another name. Its SHA-256 fingerprint is { $fingerprint }: connect only if that is its certificate.
 file-chooser-certificate-expired = The certificate of { $server } has expired or is not valid yet. Its SHA-256 fingerprint is { $fingerprint }: connect only if that is its certificate.
+file-chooser-device-locked = Unlock “{ $device }” and allow access to its files, then open it again.
+file-chooser-device-failed = Cannot open “{ $device }”.

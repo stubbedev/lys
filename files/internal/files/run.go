@@ -150,6 +150,7 @@ func Run(paths []string, service bool) error {
 			Documents:     dochelper.Opener(""),
 			Mounts:        mounts,
 			Network:       network,
+			Devices:       usbDevices{},
 		},
 	}
 	defer w.close()

@@ -90,3 +90,5 @@ file-chooser-disconnect-failed = Não é possível desligar «{ $server }».
 file-chooser-certificate-untrusted = O certificado de { $server } não está assinado por nenhuma autoridade em que este computador confie. A sua impressão digital SHA-256 é { $fingerprint }: ligue apenas se for esse o seu certificado.
 file-chooser-certificate-wrong-host = O certificado de { $server } foi emitido para outro nome. A sua impressão digital SHA-256 é { $fingerprint }: ligue apenas se for esse o seu certificado.
 file-chooser-certificate-expired = O certificado de { $server } expirou ou ainda não é válido. A sua impressão digital SHA-256 é { $fingerprint }: ligue apenas se for esse o seu certificado.
+file-chooser-device-locked = Desbloqueie «{ $device }» e permita o acesso aos seus ficheiros; depois, abra-o novamente.
+file-chooser-device-failed = Não é possível abrir «{ $device }».
