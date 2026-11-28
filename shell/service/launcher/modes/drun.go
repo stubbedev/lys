@@ -121,7 +121,7 @@ func (d *Drun) launch(e drunEntry) error {
 	case e.isLink:
 		return d.openLink(e.url)
 	case e.action != "":
-		return e.app.LaunchAction(e.action)
+		return e.app.LaunchAction(e.action, launcher.AppContext(d.cfg.Terminal, ""))
 	}
 	return e.app.Launch(launcher.AppContext(d.cfg.Terminal, ""))
 }

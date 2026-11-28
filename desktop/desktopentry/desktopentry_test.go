@@ -329,7 +329,7 @@ func TestActions(t *testing.T) {
 	if a.ActionName("new") != "New Window" {
 		t.Errorf("action name = %q", a.ActionName("new"))
 	}
-	if err := a.LaunchAction("ghost"); err == nil {
+	if err := a.LaunchAction("ghost", LaunchContext{}); err == nil {
 		t.Error("an unknown action must be an error")
 	}
 }
@@ -398,6 +398,60 @@ func TestLaunchRunsATerminalEntryInTheTerminal(t *testing.T) {
 	if err := a.Launch(LaunchContext{Terminal: func() (string, error) { return "", refused }}); !errors.Is(err, refused) {
 		t.Errorf("a terminal that cannot be found launched with %v, want %v", err, refused)
 	}
+}
+
+// A Terminal=true entry's desktop action runs inside the context's
+// terminal as Launch runs the entry, in its Path and raised by the
+// token; with no terminal it is refused, never run bare. Another entry's
+// action runs bare.
+func TestLaunchActionRunsATerminalEntrysActionInTheTerminal(t *testing.T) {
+	dbustest.Session(t)
+	bin := t.TempDir()
+	work := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "ran")
+	record := []byte("#!/bin/sh\nfor a; do printf '[%s]' \"$a\"; done > \"" + marker + "\"\necho \"|$PWD|$XDG_ACTIVATION_TOKEN\" >> \"" + marker + "\"\n")
+	fdtest.WriteExecutable(t, filepath.Join(bin, "termtool"), record)
+	fdtest.WriteExecutable(t, filepath.Join(bin, "top"), record)
+	t.Setenv("PATH", bin+":/bin:/usr/bin:"+os.Getenv("PATH"))
+	dir := t.TempDir()
+	write(t, dir, "top.desktop", "[Desktop Entry]\nType=Application\nName=Top\nTerminal=true\nPath="+work+"\nExec=top\nActions=tree;\n\n[Desktop Action tree]\nName=Tree\nExec=top --tree %f\n")
+	write(t, dir, "bare.desktop", "[Desktop Entry]\nType=Application\nName=Bare\nPath="+work+"\nExec=top\nActions=tree;\n\n[Desktop Action tree]\nName=Tree\nExec=top --tree\n")
+	ran := func(want, what string) {
+		t.Helper()
+		waittest.Until(t, func() bool {
+			data, err := os.ReadFile(marker)
+			return err == nil && string(data) == want
+		}, what)
+		if err := os.Remove(marker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, ok := FindApp([]string{dir}, "top.desktop")
+	if !ok {
+		t.Fatal("fixture app not found")
+	}
+	ctx := LaunchContext{ActivationToken: "tok", Terminal: func() (string, error) { return "termtool", nil }}
+	if err := a.LaunchAction("tree", ctx); err != nil {
+		t.Fatal(err)
+	}
+	ran("[-e][top][--tree]|"+work+"|tok\n", "the terminal to record the action's command")
+
+	if err := a.LaunchAction("tree", LaunchContext{}); err == nil || !strings.Contains(err.Error(), "none was given to run its action tree in") {
+		t.Errorf("a terminal entry's action ran with no terminal to run in: %v", err)
+	}
+	refused := errors.New("no terminal here")
+	if err := a.LaunchAction("tree", LaunchContext{Terminal: func() (string, error) { return "", refused }}); !errors.Is(err, refused) {
+		t.Errorf("a terminal that cannot be found ran the action with %v, want %v", err, refused)
+	}
+
+	bare, ok := FindApp([]string{dir}, "bare.desktop")
+	if !ok {
+		t.Fatal("fixture app not found")
+	}
+	if err := bare.LaunchAction("tree", ctx); err != nil {
+		t.Fatal(err)
+	}
+	ran("[--tree]|"+work+"|tok\n", "the action to run bare")
 }
 
 // LaunchArgs runs the Exec with its file codes dropped and the caller's

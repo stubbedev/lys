@@ -118,7 +118,7 @@ func (a *Apps) Actions(e Entry) []Action {
 	}}}
 	for _, action := range app.Actions() {
 		out = append(out, Action{Title: app.ActionName(action), Icon: "ld-play-symbolic", Run: func(context.Context) Outcome {
-			if err := app.LaunchAction(action); err != nil {
+			if err := app.LaunchAction(action, launcher.AppContext(a.env.Terminal, "")); err != nil {
 				return failed(app.ActionName(action), err)
 			}
 			return Close{}

@@ -568,29 +568,30 @@ func (a App) runIn(argv []string, ctx LaunchContext, purpose string) error {
 }
 
 // LaunchAction runs a desktop action (g_desktop_app_info_launch_action):
-// ActivateAction over D-Bus for an activatable entry, else the action
-// group's Exec.
-func (a App) LaunchAction(action string) error {
+// ActivateAction over D-Bus for an activatable entry, raised by ctx's
+// activation token; if that fails, or the entry is not activatable, the
+// action group's Exec runs as Launch runs the entry's, inside ctx's
+// terminal for a Terminal=true entry.
+func (a App) LaunchAction(action string, ctx LaunchContext) error {
 	group := "Desktop Action " + action
 	if !a.file.HasGroup(group) {
 		return fmt.Errorf("desktopentry: %s has no action %q", a.ID, action)
 	}
+	execLine, _ := a.file.String(group, "Exec")
 	if a.dbusActivatable() {
-		if err := a.activate("ActivateAction", []any{action, []dbus.Variant{}}, ""); err == nil {
+		err := a.activate("ActivateAction", []any{action, []dbus.Variant{}}, ctx.ActivationToken)
+		if err == nil {
 			return nil
 		}
+		if execLine == "" {
+			return err
+		}
 	}
-	execLine, _ := a.file.String(group, "Exec")
-	return a.spawn(execLine)
-}
-
-// spawn runs an Exec line with no files.
-func (a App) spawn(execLine string) error {
 	argv, err := a.ExpandExec(execLine)
 	if err != nil {
 		return err
 	}
-	return a.run(argv, "")
+	return a.runIn(argv, ctx, "run its action "+action)
 }
 
 // run starts argv detached, in the entry's Path, with gio's
