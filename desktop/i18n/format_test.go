@@ -364,6 +364,29 @@ func TestWeekdayDateNamesEveryWeekdayApartAndKeepsTheTimesDay(t *testing.T) {
 	}
 }
 
+func TestWeekdayIsTheNameWeekdayDateLeadsWith(t *testing.T) {
+	for _, locale := range parseLangs(t, shipped) {
+		l := shellLoader(t, locale.String())
+		seen := map[string]bool{}
+		for day := 1; day <= 7; day++ {
+			at := time.Date(2026, 11, day, 12, 0, 0, 0, time.UTC)
+			name := l.Weekday(at)
+			if name == "" || seen[name] || !strings.HasPrefix(l.WeekdayDate(at), name) {
+				t.Errorf("%s: %s is named %q, want a name of its own leading %q", locale, at.Weekday(), name, l.WeekdayDate(at))
+			}
+			seen[name] = true
+		}
+	}
+	zone := time.FixedZone("UTC+9", 9*60*60)
+	at := time.Date(2026, 11, 6, 20, 0, 0, 0, time.UTC).In(zone)
+	if got := shellLoader(t, "en-US").Weekday(at); got != "Saturday" {
+		t.Errorf("Weekday in UTC+9 = %q, want the zone's own Saturday", got)
+	}
+	if got := shellLoader(t, "de").Weekday(at.In(time.UTC)); got != "Freitag" {
+		t.Errorf("Weekday in UTC = %q, want Freitag", got)
+	}
+}
+
 func TestTimeFollowsTheLocaleHourCycle(t *testing.T) {
 	at := time.Date(2026, 3, 4, 17, 6, 0, 0, time.UTC)
 	for locale, want := range map[string]string{"en-US": "5:06 PM", "de": "17:06", "fr": "17:06"} {

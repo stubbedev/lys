@@ -21,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/xdg"
 )
@@ -55,25 +56,79 @@ func (e Entry) Name() string {
 	return filepath.Base(e.Path)
 }
 
-// ext is a file's extension without its dot, "" for none.
-func (e Entry) ext() string { return strings.TrimPrefix(filepath.Ext(e.Name()), ".") }
+// kindNamer names an entry's type as the Kind column shows it, in the
+// first of langs the shared-mime-info database describes it in.
+type kindNamer struct {
+	db    *mime.Database
+	langs []string
+}
 
-// kindKey is what the Kind column sorts a file by, compared folded:
-// Kind before the extension is upper cased, so its extension, else
-// unnamed, the label of a file without one.
-func (e Entry) kindKey(unnamed string) string { return cmp.Or(e.ext(), unnamed) }
+// newKindNamer names types in the desktop locale's languages.
+func newKindNamer(db *mime.Database) kindNamer {
+	var langs []string
+	for _, l := range i18n.Shell().Languages() {
+		langs = append(langs, l.String())
+	}
+	return kindNamer{db: db, langs: langs}
+}
 
-// Kind is the displayed type: Folder, the uppercased extension (PNG),
-// or File without one.
-func (e Entry) Kind() string {
-	switch ext := e.ext(); {
-	case e.IsDir:
+// kind is Folder, the description of the type a file's name has (PNG
+// image), else its extension upper cased (TAR), else File.
+func (k kindNamer) kind(e Entry) string {
+	if e.IsDir {
 		return i18n.T("file-chooser-kind-folder")
-	case ext != "":
+	}
+	if t := k.db.TypeByName(e.Name()); t != mime.Unknown {
+		if c := k.db.CommentIn(t, k.langs); c != "" {
+			return c
+		}
+	}
+	if ext := strings.TrimPrefix(filepath.Ext(e.Name()), "."); ext != "" {
 		return strings.ToUpper(ext)
 	}
 	return i18n.T("file-chooser-kind-file")
 }
+
+// columns are what the Size and Kind columns read of an entry beyond
+// its stat: its kind, and a folder's item count, false while it is not
+// counted or cannot be.
+type columns struct {
+	kind  func(Entry) string
+	items func(Entry) (int, bool)
+}
+
+// itemsKey is what the Size column sorts a folder by: its item count,
+// -1 for none known.
+func (c columns) itemsKey(e Entry) int {
+	if n, ok := c.items(e); ok {
+		return n
+	}
+	return -1
+}
+
+// CountItems is how many entries the folder dir holds, hidden ones
+// too, read in batches; safe off the loop.
+func CountItems(dir string) (int, error) {
+	f, err := os.Open(dir) //nolint:gosec // a folder the browser lists
+	if err != nil {
+		return 0, fmt.Errorf("count the items of %s: %w", dir, err)
+	}
+	defer func() { _ = f.Close() }()
+	n := 0
+	for {
+		names, err := f.Readdirnames(countBatch)
+		n += len(names)
+		if errors.Is(err, io.EOF) {
+			return n, nil
+		}
+		if err != nil {
+			return 0, fmt.Errorf("count the items of %s: %w", dir, err)
+		}
+	}
+}
+
+// countBatch is how many names CountItems reads at once.
+const countBatch = 256
 
 // hiddenNames are the names dir's .hidden file lists, one a line, which
 // GTK hides with the dot files; none without one.
@@ -188,14 +243,14 @@ const (
 
 var sortNames = [...]string{"name", "size", "modified", "kind"}
 
-// SortEntries orders directories first, then by the column; folders
-// have one kind, so the Kind column orders them by name.
-func SortEntries(entries []Entry, key SortColumn, asc bool) {
+// SortByName orders directories first, then each by name.
+func SortByName(entries []Entry) { sortEntries(entries, SortName, true, columns{}) }
+
+// sortEntries orders directories first, then by the column as cols
+// read it: folders by their item count under Size, and by name under
+// Kind, which is one for them all.
+func sortEntries(entries []Entry, key SortColumn, asc bool, cols columns) {
 	byName := func(a, b Entry) int { return compareFold(a.Name(), b.Name()) }
-	var unnamed string
-	if key == SortKind {
-		unnamed = i18n.T("file-chooser-kind-file")
-	}
 	slices.SortStableFunc(entries, func(a, b Entry) int {
 		if a.IsDir != b.IsDir {
 			if a.IsDir {
@@ -205,12 +260,14 @@ func SortEntries(entries []Entry, key SortColumn, asc bool) {
 		}
 		var c int
 		switch {
+		case key == SortSize && a.IsDir:
+			c = cmp.Or(cmp.Compare(cols.itemsKey(a), cols.itemsKey(b)), byName(a, b))
 		case key == SortSize:
 			c = cmp.Compare(a.Size, b.Size)
 		case key == SortModified:
 			c = a.Modified.Compare(b.Modified)
 		case key == SortKind && !a.IsDir:
-			c = cmp.Or(compareFold(a.kindKey(unnamed), b.kindKey(unnamed)), byName(a, b))
+			c = cmp.Or(compareFold(cols.kind(a), cols.kind(b)), byName(a, b))
 		default:
 			c = byName(a, b)
 		}
@@ -335,6 +392,37 @@ func FormatTime(t time.Time) string {
 		return ""
 	}
 	return i18n.Shell().DateTime(t.Local())
+}
+
+// FormatModified is a modification time as the list reads it, on the
+// calendar of now's location: the time alone on now's day, Yesterday
+// the day before, the weekday on the five before that, else the
+// locale's medium date (a time ahead of now too); "" for none.
+func FormatModified(t, now time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	t = t.In(now.Location())
+	l := i18n.Shell()
+	switch days := daysBetween(t, now); {
+	case days == 0:
+		return l.Time(t)
+	case days == 1:
+		return i18n.T("file-chooser-modified-yesterday")
+	case days > 1 && days < 7:
+		return l.Weekday(t)
+	}
+	return l.Date(t)
+}
+
+// daysBetween is how many calendar days t's day falls before now's, in
+// their own location, whatever daylight saving does between them.
+func daysBetween(t, now time.Time) int {
+	day := func(at time.Time) time.Time {
+		y, m, d := at.Date()
+		return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+	}
+	return int(day(now).Sub(day(t)).Hours() / 24)
 }
 
 // Place is a sidebar shortcut; Bookmark marks one from the GTK

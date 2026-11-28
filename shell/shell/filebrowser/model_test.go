@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -66,43 +67,139 @@ func TestTextFilterIsSubstringThenGlob(t *testing.T) {
 }
 
 func TestSortEntriesKeepsDirsFirst(t *testing.T) {
+	cols := testColumns(t)
 	entries := []Entry{entry("b.txt", false, 10), entry("Adir", true, 0), entry("a.txt", false, 30), entry("Zdir", true, 0)}
-	SortEntries(entries, SortName, true)
+	SortByName(entries)
 	if got := names(entries); !slices.Equal(got, []string{"Adir", "Zdir", "a.txt", "b.txt"}) {
 		t.Errorf("name asc = %v", got)
 	}
-	SortEntries(entries, SortName, false)
+	sortEntries(entries, SortName, false, cols)
 	if got := names(entries); !slices.Equal(got, []string{"Zdir", "Adir", "b.txt", "a.txt"}) {
 		t.Errorf("name desc = %v (folders stay first)", got)
 	}
-	SortEntries(entries, SortSize, true)
+	sortEntries(entries, SortSize, true, cols)
 	if got := names(entries); !entries[0].IsDir || !entries[1].IsDir || !slices.Equal(got[2:], []string{"b.txt", "a.txt"}) {
 		t.Errorf("size asc = %v", got)
 	}
 	kinds := []Entry{entry("b.png", false, 0), entry("a.txt", false, 0), entry("a.png", false, 0)}
-	SortEntries(kinds, SortKind, true)
-	if got := names(kinds); !slices.Equal(got, []string{"a.png", "b.png", "a.txt"}) {
-		t.Errorf("kind asc = %v, want grouped by type then name", got)
+	sortEntries(kinds, SortKind, true, cols)
+	if got := names(kinds); !slices.Equal(got, []string{"a.txt", "a.png", "b.png"}) {
+		t.Errorf("kind asc = %v, want grouped by the type's description (plain text document before PNG image), then name", got)
 	}
 	old, newer := entry("old", false, 0), entry("new", false, 0)
 	old.Modified, newer.Modified = time.Unix(100, 0), time.Unix(200, 0)
 	byTime := []Entry{newer, old}
-	SortEntries(byTime, SortModified, true)
+	sortEntries(byTime, SortModified, true, cols)
 	if got := names(byTime); !slices.Equal(got, []string{"old", "new"}) {
 		t.Errorf("modified asc = %v", got)
 	}
 }
 
-func TestEntryKindLabelsFolderExtensionOrFile(t *testing.T) {
-	for e, want := range map[Entry]string{
-		entry("/x/docs", true, 0):         "Folder",
-		entry("/x/a.png", false, 0):       "PNG",
-		entry("/x/archive.TAR", false, 0): "TAR",
-		entry("/x/Makefile", false, 0):    "File",
+// The Kind column names a folder Folder, a file by its type's
+// description in the first language that has one, else by its
+// extension, else File.
+func TestKindIsTheTypesDescription(t *testing.T) {
+	db := browsertest.MIME(t)
+	for _, c := range []struct {
+		langs []string
+		e     Entry
+		want  string
+	}{
+		{nil, entry("/x/docs", true, 0), "Folder"},
+		{nil, entry("/x/a.png", false, 0), "PNG image"},
+		{[]string{"de-DE"}, entry("/x/a.png", false, 0), "PNG-Bild"},
+		{[]string{"fr", "de"}, entry("/x/a.png", false, 0), "PNG-Bild"},
+		{[]string{"fr"}, entry("/x/a.png", false, 0), "PNG image"},
+		{nil, entry("/x/a.pdf", false, 0), "PDF"},
+		{nil, entry("/x/archive.TAR", false, 0), "TAR"},
+		{nil, entry("/x/Makefile", false, 0), "File"},
 	} {
-		if got := e.Kind(); got != want {
-			t.Errorf("Kind(%s) = %q, want %q", e.Path, got, want)
+		if got := (kindNamer{db: db, langs: c.langs}).kind(c.e); got != c.want {
+			t.Errorf("kind of %s in %v = %q, want %q", c.e.Path, c.langs, got, c.want)
 		}
+	}
+}
+
+// Under Size, folders sort by their item count, an uncounted or
+// unreadable one before an empty one and a tie by name; files by their
+// size.
+func TestSizeSortsFoldersByTheirItems(t *testing.T) {
+	counts := map[string]int{"/x/many": 9, "/x/few": 2, "/x/empty": 0, "/x/also-few": 2}
+	cols := testColumns(t)
+	cols.items = func(e Entry) (int, bool) {
+		n, ok := counts[e.Path]
+		return n, ok
+	}
+	entries := []Entry{
+		entry("/x/many", true, 0), entry("/x/big.txt", false, 50), entry("/x/few", true, 0), entry("/x/unread", true, 0),
+		entry("/x/empty", true, 0), entry("/x/small.txt", false, 5), entry("/x/also-few", true, 0),
+	}
+	sortEntries(entries, SortSize, true, cols)
+	if got, want := names(entries), []string{"unread", "empty", "also-few", "few", "many", "small.txt", "big.txt"}; !slices.Equal(got, want) {
+		t.Errorf("size asc = %v, want %v", got, want)
+	}
+	sortEntries(entries, SortSize, false, cols)
+	if got, want := names(entries), []string{"many", "few", "also-few", "empty", "unread", "big.txt", "small.txt"}; !slices.Equal(got, want) {
+		t.Errorf("size desc = %v, want %v", got, want)
+	}
+}
+
+// CountItems counts every entry of a folder, hidden ones too, past a
+// batch; a folder that cannot be read is an error naming it, not 0.
+func TestCountItemsCountsTheFolder(t *testing.T) {
+	root := t.TempDir()
+	var rel []string
+	for i := range countBatch + 3 {
+		rel = append(rel, filepath.Join("big", "f"+strconv.Itoa(i)))
+	}
+	browsertest.Touch(t, root, append(rel, "small/.hidden", "small/sub/", "empty/")...)
+	for dir, want := range map[string]int{"big": countBatch + 3, "small": 2, "empty": 0} {
+		if n, err := CountItems(filepath.Join(root, dir)); err != nil || n != want {
+			t.Errorf("CountItems(%s) = %d, %v, want %d", dir, n, err, want)
+		}
+	}
+	missing := filepath.Join(root, "gone")
+	if n, err := CountItems(missing); err == nil || n != 0 || !strings.Contains(err.Error(), missing) {
+		t.Errorf("CountItems of a missing folder = %d, %v, want an error naming it", n, err)
+	}
+}
+
+// The Modified column reads the time alone on today's date, Yesterday
+// the day before, the weekday on the five before that, and the medium
+// date before that or ahead of now; days are the calendar's of now's
+// location, across a daylight saving change too.
+func TestFormatModifiedReadsDaysAgainstNow(t *testing.T) {
+	zone, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Skipf("no zone database: %v", err)
+	}
+	l := i18n.Shell()
+	now := time.Date(2026, 11, 3, 9, 0, 0, 0, zone)
+	at := func(month time.Month, day, hour int) time.Time {
+		return time.Date(2026, month, day, hour, 30, 0, 0, zone)
+	}
+	for _, c := range []struct {
+		t    time.Time
+		want string
+	}{
+		{time.Time{}, ""},
+		{at(11, 3, 0), l.Time(at(11, 3, 0))},
+		{at(11, 3, 23), l.Time(at(11, 3, 23))},
+		{at(11, 2, 23), i18n.T("file-chooser-modified-yesterday")},
+		{at(11, 2, 0), i18n.T("file-chooser-modified-yesterday")},
+		{at(11, 1, 12), l.Weekday(at(11, 1, 12))},
+		{at(10, 28, 12), l.Weekday(at(10, 28, 12))},
+		{at(10, 27, 23), l.Date(at(10, 27, 23))},
+		{at(11, 4, 1), l.Date(at(11, 4, 1))},
+		{at(3, 4, 12), l.Date(at(3, 4, 12))},
+	} {
+		if got := FormatModified(c.t, now); got != c.want {
+			t.Errorf("FormatModified(%v) = %q, want %q", c.t, got, c.want)
+		}
+	}
+	utc := at(11, 2, 23).UTC()
+	if got, want := FormatModified(utc, now), i18n.T("file-chooser-modified-yesterday"); got != want {
+		t.Errorf("a UTC time of Berlin's yesterday reads %q, want %q", got, want)
 	}
 }
 
@@ -403,7 +500,7 @@ func TestListRecent(t *testing.T) {
 // file without an extension by the label it shows.
 func TestKindSortOrdersFoldersByNameAndUnnamedFilesByTheirLabel(t *testing.T) {
 	entries := []Entry{entry("z.d", true, 0), entry("a.x", true, 0), entry("b.zip", false, 0), entry("Makefile", false, 0), entry("a.bin", false, 0)}
-	SortEntries(entries, SortKind, true)
+	sortEntries(entries, SortKind, true, testColumns(t))
 	want := []string{"a.x", "z.d", "a.bin", "Makefile", "b.zip"}
 	if got := names(entries); !slices.Equal(got, want) {
 		t.Errorf("kind asc = %v, want %v (a file without an extension sorts as %q)", got, want, i18n.T("file-chooser-kind-file"))

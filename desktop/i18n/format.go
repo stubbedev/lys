@@ -338,6 +338,11 @@ func (l *Loader) Date(t time.Time) string { return l.formats().medium.format(t) 
 // "sábado, 7 de nov de 2026" in es, "samedi 7 nov. 2026" in fr.
 func (l *Loader) WeekdayDate(t time.Time) string { return l.formats().weekdayDate.format(t) }
 
+// Weekday is the full name of t's weekday in t's location, as the
+// locale's WeekdayDate names it: "Saturday" in en-US, "Samstag" in de,
+// "sábado" in es.
+func (l *Loader) Weekday(t time.Time) string { return l.formats().weekdayDate.weekdays[t.Weekday()] }
+
 // DateTime is t's numeric date and its time, in t's location:
 // "3/4/2026, 5:06 AM" in en-US, "4.3.2026, 05:06" in de, "04/03/2026
 // 05:06" in fr.

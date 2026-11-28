@@ -179,15 +179,15 @@ func (hs *harness) do(fn func()) {
 	hs.settle()
 }
 
-// settle waits until no listing is being read and the loop ran what
-// that queued.
+// settle waits until no listing is being read and no folder counted,
+// and the loop ran what that queued.
 func (hs *harness) settle() {
 	hs.t.Helper()
 	waittest.Until(hs.t, func() bool {
 		var busy bool
-		hs.run(func() { busy = hs.c.Busy() })
+		hs.run(func() { busy = hs.c.Busy() || hs.c.counting > 0 })
 		return !busy
-	}, "the listing to arrive")
+	}, "the listing and the folder counts to arrive")
 	hs.flush()
 }
 

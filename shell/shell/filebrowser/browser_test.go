@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -380,6 +381,7 @@ func TestColumnGripResizesAndRelaysRows(t *testing.T) {
 		})
 		return px
 	}
+	paint()
 	before := paint()
 	var r *widget.Router
 	var at widget.Point
@@ -388,20 +390,20 @@ func TestColumnGripResizesAndRelaysRows(t *testing.T) {
 		t.Fatalf("the pointer rests on %T, want the kind column's grip", got)
 	}
 	hs.do(func() { r.Move(widget.Point{X: at.X - 30, Y: at.Y}) })
-	if hs.c.columns[2] != 90 {
-		t.Errorf("kind column = %d after hovering across its grip, want the 90 it had", hs.c.columns[2])
+	if hs.c.columns[2] != defaultColumns[2] {
+		t.Errorf("kind column = %d after hovering across its grip, want the %d it had", hs.c.columns[2], defaultColumns[2])
 	}
 	hs.do(func() {
 		r.Move(at)
 		r.Press(widget.BTNLeft, at, 0)
 		r.Move(widget.Point{X: at.X - 30, Y: at.Y + 9})
 	})
-	if hs.c.columns[2] != 120 {
-		t.Errorf("kind column = %d after dragging its edge 30px left, want 120", hs.c.columns[2])
+	if hs.c.columns[2] != defaultColumns[2]+30 {
+		t.Errorf("kind column = %d after dragging its edge 30px left, want %d", hs.c.columns[2], defaultColumns[2]+30)
 	}
 	paint()
-	if w := hs.c.ui.columns[2].(widget.Boundser).Bounds().W; w != 120 {
-		t.Errorf("kind header = %dpx wide mid-drag, want the column's 120", w)
+	if w := hs.c.ui.columns[2].(widget.Boundser).Bounds().W; w != defaultColumns[2]+30 {
+		t.Errorf("kind header = %dpx wide mid-drag, want the column's %d", w, defaultColumns[2]+30)
 	}
 	hs.do(func() { r.Move(widget.Point{X: at.X - 5000, Y: at.Y}) })
 	if hs.c.columns[2] != maxColumnW {
@@ -1301,4 +1303,116 @@ func TestBrowserTakesLysUiParts(t *testing.T) {
 			t.Errorf("title %vpx, want %vpx", title.SizePx(), want)
 		}
 	})
+}
+
+// rowTexts are the Size, Modified and Kind cells of the list row of
+// the entry name, built and then settled, so a folder's count landed.
+func (hs *harness) rowTexts(t *testing.T, name string) [3]string {
+	t.Helper()
+	var labels []widget.Widget
+	hs.do(func() {
+		i := slices.Index(names(hs.c.s.entries), name)
+		if i < 0 {
+			t.Fatalf("no %s in %v", name, names(hs.c.s.entries))
+		}
+		labels = treetest.WithClass(hs.c.fileRow(hs.c.s.entries[i]), "file-chooser-cell")
+	})
+	var texts [3]string
+	hs.run(func() {
+		for i, l := range labels {
+			texts[i] = l.(*widget.Label).Text()
+		}
+	})
+	return texts
+}
+
+// A folder's Size is its item count, counted off the loop, and one
+// that cannot be read shows none, not 0; Modified reads against today;
+// Kind is the type's description, Folder for a folder.
+func TestListRowsReadCountsDaysAndKinds(t *testing.T) {
+	hs := newHarness(t, "")
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.Local)
+	browsertest.Touch(t, hs.root, "locked/x")
+	locked := filepath.Join(hs.root, "locked")
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+	for rel, at := range map[string]time.Time{"a.png": now.Add(-time.Hour), "b.txt": now.AddDate(0, 0, -1), "pics": now.AddDate(0, -2, 0)} {
+		if err := os.Chtimes(filepath.Join(hs.root, rel), at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hs.c.now = func() time.Time { return now }
+	hs.open(t, openFile)
+	l := i18n.Shell()
+	for name, want := range map[string][3]string{
+		"docs":   {itemsText(0), "", "Folder"},
+		"pics":   {itemsText(1), l.Date(now.AddDate(0, -2, 0)), "Folder"},
+		"locked": {"", "", "Folder"},
+		"a.png":  {HumanSize(0), l.Time(now.Add(-time.Hour)), "PNG image"},
+		"b.txt":  {HumanSize(0), i18n.T("file-chooser-modified-yesterday"), "plain text document"},
+	} {
+		got := hs.rowTexts(t, name)
+		if name == "docs" || name == "locked" {
+			got[1] = ""
+		}
+		if got != want {
+			t.Errorf("%s reads %q, want %q", name, got, want)
+		}
+	}
+	if got, want := itemsText(1), i18n.T("preview-folder-items", i18n.Int("count", 1), i18n.Str("shown", "1")); got != want || strings.Contains(itemsText(0), "--") {
+		t.Errorf("one item reads %q, want %q", got, want)
+	}
+}
+
+// Sorted by Size, the folders order by their item count once counted,
+// every folder listed and not only those shown, an unreadable one
+// first; a folder that comes sorts in once counted, and the selection
+// stays across the sort its count brings.
+func TestSizeSortOrdersFoldersByTheirCounts(t *testing.T) {
+	hs := newHarness(t, "")
+	browsertest.Touch(t, hs.root, "many/1", "many/2", "many/3", "one/1", "locked/x")
+	locked := filepath.Join(hs.root, "locked")
+	if err := os.Chmod(locked, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o700) })
+	hs.open(t, openFiles)
+	hs.do(func() { hs.c.sortBy(SortSize) })
+	if got, want := hs.shown()[:5], []string{"locked", "docs", "one", "pics", "many"}; !slices.Equal(got, want) {
+		t.Errorf("sorted by size the folders read %v, want %v", got, want)
+	}
+	hs.pick(t, "many")
+	staged := t.TempDir()
+	browsertest.Touch(t, staged, "two/1", "two/2")
+	if err := os.Rename(filepath.Join(staged, "two"), filepath.Join(hs.root, "two")); err != nil {
+		t.Fatal(err)
+	}
+	waittest.Until(t, func() bool {
+		return slices.Equal(hs.shown()[:6], []string{"locked", "docs", "one", "pics", "two", "many"})
+	}, "two to sort in by its count")
+	if got := hs.selectedNames(); !slices.Equal(got, []string{"many"}) {
+		t.Errorf("after two sorted in %v is selected, want many", got)
+	}
+	hs.do(func() { hs.c.sortBy(SortSize) })
+	if got, want := hs.shown()[:6], []string{"many", "two", "pics", "one", "docs", "locked"}; !slices.Equal(got, want) {
+		t.Errorf("sorted by size descending the folders read %v, want %v", got, want)
+	}
+	hs.do(func() { hs.c.sortBy(SortName) })
+	if got, want := hs.shown()[:6], []string{"docs", "locked", "many", "one", "pics", "two"}; !slices.Equal(got, want) {
+		t.Errorf("sorted by name the folders read %v, want %v", got, want)
+	}
+}
+
+// Sorted by Kind, the files order by the description they show, not
+// by their extension.
+func TestKindSortFollowsTheDescription(t *testing.T) {
+	hs := newHarness(t, "")
+	browsertest.Touch(t, hs.root, "c.pdf")
+	hs.open(t, openFile)
+	hs.do(func() { hs.c.sortBy(SortKind) })
+	if got, want := hs.shown(), []string{"docs", "pics", "c.pdf", "b.txt", "a.png"}; !slices.Equal(got, want) {
+		t.Errorf("sorted by kind %v, want %v (PDF, plain text document, PNG image)", got, want)
+	}
 }

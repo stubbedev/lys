@@ -61,6 +61,11 @@ const (
 	crumbMaxChars = 16
 )
 
+// defaultColumns are the size, modified and kind columns' widths
+// until the user drags them: the kind names a type in words, the
+// modification time reads as a day or a short date.
+var defaultColumns = [3]int{90, 110, 150}
+
 // The mouse's thumb buttons, which walk the history.
 const (
 	btnBack    = 0x113 // BTN_SIDE
@@ -92,6 +97,33 @@ func newThumbSet() *thumbSet {
 		ctx: ctx, cancel: cancel,
 	}
 }
+
+// itemKey is a folder as counted: its path and when it last changed,
+// so a folder changed since is counted again.
+type itemKey struct {
+	path     string
+	modified int64
+}
+
+func itemKeyOf(e Entry) itemKey { return itemKey{e.Path, e.Modified.UnixNano()} }
+
+// itemSet is one browse's folder counts: found (-1 for a folder that
+// cannot be read), waiting the cells each count in flight fills, and
+// the context the counts run under, cancelled when the browse ends.
+type itemSet struct {
+	found   map[itemKey]int
+	waiting map[itemKey][]func(int)
+	ctx     context.Context
+	cancel  context.CancelFunc
+}
+
+func newItemSet() *itemSet {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &itemSet{found: map[itemKey]int{}, waiting: map[itemKey][]func(int){}, ctx: ctx, cancel: cancel}
+}
+
+// countWorkers bounds the folders counted at once.
+const countWorkers = 4
 
 // Deps are the browser's collaborators, shared by every browse.
 type Deps struct {
@@ -262,15 +294,26 @@ type Browser struct {
 	thumbnailer *thumbnail.Thumbnailer
 	thumbs      *thumbSet
 	thumbWork   handoff.Handoffs
-	offLoop     sync.WaitGroup
+	// kinds names the types the Kind column shows; items are the
+	// browse's folder counts the Size column shows, counted
+	// countWorkers at a time through countSlots.
+	// now is the time the Modified column reads days against.
+	now        func() time.Time
+	kinds      kindNamer
+	items      *itemSet
+	countSlots chan struct{}
+	// counting counts the folder counts out off the loop.
+	counting int
+	offLoop  sync.WaitGroup
 }
 
 // New builds the browser; nothing shows until Begin. setFocus moves
 // the keyboard focus of the surface its host shows it on.
 func New(d Deps, setFocus func(widget.Widget) error) *Browser {
 	c := &Browser{
-		d: d, setFocus: setFocus, view: defaultView, columns: [3]int{90, 150, 90}, thumbnailer: thumbnail.New(thumbnail.Config{}), thumbs: newThumbSet(),
+		d: d, setFocus: setFocus, view: defaultView, columns: defaultColumns, thumbnailer: thumbnail.New(thumbnail.Config{}), thumbs: newThumbSet(),
 		reader: newDirReader(), viewFile: statefile.File{Path: d.ViewFile}, pictures: preview.NewPictures(preview.PictureBudget),
+		now: time.Now, kinds: newKindNamer(d.MIME), items: newItemSet(), countSlots: make(chan struct{}, countWorkers),
 	}
 	c.previewLoader = c.loadPreview
 	if d.ViewFile != "" {
@@ -303,8 +346,8 @@ func OffLoop[T any](c *Browser, check func() T, then func(T)) {
 // thumbnails were let go of (Release).
 func (c *Browser) Begin(o Options) {
 	c.o, c.active = o, true
-	c.thumbs = newThumbSet()
-	c.s = newSession(c.reader, o.Kinds, o.Folder, o.Files, c.d.Home, c.view)
+	c.thumbs, c.items = newThumbSet(), newItemSet()
+	c.s = newSession(c.reader, o.Kinds, o.Folder, o.Files, c.d.Home, c.view, columns{kind: c.kinds.kind, items: c.itemCount})
 	c.s.hidden, c.s.recursive, c.s.recentFile, c.s.trashDirs = c.hidden, c.recursive, c.d.RecentFile, c.d.TrashDirs
 	c.s.request = c.requestListing
 	c.build()
@@ -321,14 +364,15 @@ func (c *Browser) shownDir() {
 	}
 }
 
-// End ends the browse: its search, its thumbnail lookups, its folder
-// watch and its locations watch stop, and it takes no more gestures.
+// End ends the browse: its search, its thumbnail lookups and folder
+// counts, its folder watch and its locations watch stop, and it takes no more gestures.
 // Its tree stays, for the host to hide, until Release; ending twice is
 // ending once.
 func (c *Browser) End() {
 	c.active = false
 	c.cancelWalk()
 	c.thumbs.cancel()
+	c.items.cancel()
 	c.unwatch()
 	if c.stopMounts != nil {
 		c.stopMounts()
@@ -1206,16 +1250,20 @@ func (c *Browser) fileRow(e Entry) widget.Widget {
 		}
 		lead.Append(name, true)
 	}
-	size := "--"
+	var size string
 	if !e.IsDir {
 		size = HumanSize(e.Size)
 	}
+	var labels [3]*widget.Label
 	var cells [3]widget.Widget
-	for i, text := range []string{size, FormatTime(e.Modified), e.Kind()} {
-		cell := c.Label(text, "file-chooser-cell", css.DimLabel)
-		cell.SetEllipsize(widget.EllipsizeEnd)
-		cell.SetAlignment(cellAlignment(intconv.Clamp[SortColumn](i + 1)))
-		cells[i] = cell
+	for i, text := range []string{size, FormatModified(e.Modified, c.now()), c.s.cols.kind(e)} {
+		labels[i] = c.Label(text, "file-chooser-cell", css.DimLabel)
+		labels[i].SetEllipsize(widget.EllipsizeEnd)
+		labels[i].SetAlignment(cellAlignment(intconv.Clamp[SortColumn](i + 1)))
+		cells[i] = labels[i]
+	}
+	if e.IsDir {
+		c.countItems(e, func(n int) { labels[0].SetText(itemsText(n)) })
 	}
 	row := rowBox("file-chooser-row", th.Padding)
 	row.Append(newColumnRow(lead, cells, [3]widget.Widget{}, c.columns, th.Spacing), true)
@@ -1299,6 +1347,94 @@ func (c *Browser) thumb(path, mimeType string, px int, fallback widget.Widget) w
 	}
 	set.waiting[key] = append(set.waiting[key], show)
 	return slot
+}
+
+// itemsText is a folder's item count as the Size column reads it.
+func itemsText(n int) string {
+	return i18n.T("preview-folder-items", i18n.Int("count", int64(n)), i18n.Str("shown", i18n.Shell().Integer(int64(n))))
+}
+
+// itemCount is folder e's item count, false while it is not counted
+// or cannot be.
+func (c *Browser) itemCount(e Entry) (int, bool) {
+	n, ok := c.items.found[itemKeyOf(e)]
+	return n, ok && n >= 0
+}
+
+// countItems counts folder e off the loop, at most countWorkers at
+// once and once per browse however often its row is rebuilt, and
+// hands the count to show (nil for none) once there is one; a folder
+// that cannot be read shows none.
+func (c *Browser) countItems(e Entry, show func(int)) {
+	set, key := c.items, itemKeyOf(e)
+	if n, ok := set.found[key]; ok {
+		if n >= 0 && show != nil {
+			show(n)
+		}
+		return
+	}
+	_, pending := set.waiting[key]
+	if show != nil {
+		set.waiting[key] = append(set.waiting[key], show)
+	} else if !pending {
+		set.waiting[key] = nil
+	}
+	if pending || set.ctx.Err() != nil {
+		return
+	}
+	c.counting++
+	c.offLoop.Go(func() {
+		n := -1
+		select {
+		case c.countSlots <- struct{}{}:
+			var err error
+			if n, err = CountItems(key.path); err != nil {
+				n = -1
+			}
+			<-c.countSlots
+		case <-set.ctx.Done():
+		}
+		c.d.Invoke(func() {
+			c.counting--
+			c.landItems(set, key, n)
+		})
+	})
+}
+
+// landItems fills the cells waiting for key's count, unless set's
+// browse ended; sorted by Size, the rows sort again once the last
+// count in flight landed.
+func (c *Browser) landItems(set *itemSet, key itemKey, n int) {
+	if set.ctx.Err() != nil {
+		return
+	}
+	set.found[key] = n
+	shows := set.waiting[key]
+	delete(set.waiting, key)
+	if n >= 0 {
+		for _, show := range shows {
+			show(n)
+		}
+	}
+	if c.s.view.sort == SortSize && len(set.waiting) == 0 && !c.s.searching() {
+		c.selectNext = c.selectedPaths()
+		c.s.refresh()
+		c.relistKeeping("")
+		c.applySelectNext()
+	}
+}
+
+// countFolders counts every folder listed, which sorting by Size
+// needs, not only those whose rows were built.
+func (c *Browser) countFolders() {
+	if c.s.view.sort != SortSize {
+		return
+	}
+	for _, e := range c.s.entries {
+		if e.IsDir {
+			c.countItems(e, nil)
+		}
+	}
 }
 
 // landThumb fills the slots waiting for key with the thumbnail done,
@@ -1415,6 +1551,7 @@ func (c *Browser) relist() {
 	c.closeQuicklook()
 	c.refreshPreview()
 	c.selectionChanged()
+	c.countFolders()
 }
 
 // fillCrumbs lays the folder shown's breadcrumbs into the trail.
@@ -1457,6 +1594,17 @@ func (c *Browser) relistKeeping(kept string) {
 	view.Select(slices.IndexFunc(c.s.entries, func(e Entry) bool { return e.Path == kept }))
 	c.refreshPreview()
 	c.selectionChanged()
+	c.countFolders()
+}
+
+// selectedPaths are the paths of the entries selected.
+func (c *Browser) selectedPaths() []string {
+	sel := c.Selected()
+	paths := make([]string, len(sel))
+	for i, e := range sel {
+		paths[i] = e.Path
+	}
+	return paths
 }
 
 // selectedPath is the path of the first entry selected, "" for none.

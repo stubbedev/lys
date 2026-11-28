@@ -10,12 +10,20 @@ import (
 	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
+// testColumns read the Size and Kind columns as a browse does, over
+// the fixture's types, with no folder counted.
+func testColumns(t *testing.T) columns {
+	t.Helper()
+	k := kindNamer{db: browsertest.MIME(t)}
+	return columns{kind: k.kind, items: func(Entry) (int, bool) { return 0, false }}
+}
+
 // pngs is the type filter of an app asking for PNG images.
 func pngs(name string) bool { return strings.HasSuffix(name, ".png") }
 
 func open(t *testing.T, kinds Kinds, folder string, files func(string) bool) *session {
 	t.Helper()
-	s := newSession(testReader, kinds, folder, files, "/nonexistent-home", defaultView)
+	s := newSession(testReader, kinds, folder, files, "/nonexistent-home", defaultView, testColumns(t))
 	s.refresh()
 	return s
 }
@@ -28,7 +36,7 @@ func TestSessionStartsInTheRequestedFolderElseHome(t *testing.T) {
 	if s := open(t, FilesAndFolders, UsableFolder(filepath.Join(root, "b.txt")), nil); s.dir != "/nonexistent-home" {
 		t.Errorf("a file as the folder = %s, want home", s.dir)
 	}
-	if s := newSession(testReader, FilesAndFolders, "", nil, "", defaultView); s.dir != "/" {
+	if s := newSession(testReader, FilesAndFolders, "", nil, "", defaultView, testColumns(t)); s.dir != "/" {
 		t.Errorf("no folder and no home = %s, want /", s.dir)
 	}
 }
@@ -195,7 +203,7 @@ func TestSessionHiddenRules(t *testing.T) {
 // a reload keeps showing the old listing until the new one lands.
 func TestSessionListingArrivesLate(t *testing.T) {
 	root := browsertest.Tree(t)
-	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView)
+	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView, testColumns(t))
 	var asked []string
 	s.request = func(dir string) { asked = append(asked, dir) }
 	s.refresh()

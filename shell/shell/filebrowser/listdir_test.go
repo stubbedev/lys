@@ -82,7 +82,7 @@ func TestListingABigFolderIsCounted(t *testing.T) {
 		t.Errorf("a folder pick listed %d, want the %d folders", len(folders), bigDirEntries/10)
 	}
 
-	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView)
+	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView, testColumns(t))
 	s.refresh()
 	queries := []string{"f", "fi", "fil", "file-0", "file-00", "file-000", "FILE-0001"}
 	i := 0

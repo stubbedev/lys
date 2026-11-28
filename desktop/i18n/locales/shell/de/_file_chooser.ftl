@@ -43,6 +43,7 @@ file-chooser-column-name = Name
 file-chooser-column-size = Größe
 file-chooser-column-modified = Geändert
 file-chooser-column-kind = Art
+file-chooser-modified-yesterday = Gestern
 file-chooser-empty-folder = Keine Einträge
 file-chooser-loading = Wird geladen…
 file-chooser-unreadable = Dieser Ordner kann nicht gelesen werden.

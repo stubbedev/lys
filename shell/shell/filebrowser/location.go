@@ -71,7 +71,7 @@ func (c *Browser) completeLocation(text string) {
 			if err != nil {
 				return nil
 			}
-			SortEntries(entries, SortName, true)
+			SortByName(entries)
 			return entries
 		}, func(entries []Entry) {
 			if pc.loading != dir {

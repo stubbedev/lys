@@ -43,6 +43,7 @@ file-chooser-column-name = Naam
 file-chooser-column-size = Grootte
 file-chooser-column-modified = Gewijzigd
 file-chooser-column-kind = Soort
+file-chooser-modified-yesterday = Gisteren
 file-chooser-empty-folder = Geen items
 file-chooser-loading = Laden…
 file-chooser-unreadable = Deze map kan niet worden gelezen.

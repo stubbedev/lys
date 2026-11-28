@@ -98,7 +98,7 @@ func listFolder(o opens, dir, opened string) (Collection, error) {
 	if opened != "" && !slices.ContainsFunc(files, func(e filebrowser.Entry) bool { return e.Path == opened }) {
 		return Files(opened), errors.New("list the files beside " + opened + ": it is not in its folder")
 	}
-	filebrowser.SortEntries(files, filebrowser.SortName, true)
+	filebrowser.SortByName(files)
 	c := Collection{paths: make([]string, len(files))}
 	for i, e := range files {
 		c.paths[i] = e.Path

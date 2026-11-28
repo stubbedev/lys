@@ -40,7 +40,7 @@ func TestListTrash(t *testing.T) {
 		t.Errorf("trash lists %q, want %q", got, want)
 	}
 	i := slices.IndexFunc(entries, func(e Entry) bool { return e.Path == report })
-	if i < 0 || entries[i].Kind() != "PDF" {
+	if i < 0 || (kindNamer{db: browsertest.MIME(t)}).kind(entries[i]) != "PDF" {
 		t.Errorf("the report is %+v, want the trashed file typed by its original name", entries)
 	}
 

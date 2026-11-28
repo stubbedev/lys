@@ -11,7 +11,8 @@ import (
 	"github.com/stubbedev/lys/desktop/mime"
 )
 
-// MIME is a shared-mime-info fixture with the types the tests guess.
+// MIME is a shared-mime-info fixture with the types the tests guess,
+// PNG images and plain text described, PNG images in German too.
 func MIME(t *testing.T) *mime.Database {
 	t.Helper()
 	dir := t.TempDir()
@@ -22,9 +23,17 @@ func MIME(t *testing.T) *mime.Database {
 		"globs2": "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/webp:*.webp\n50:image/gif:*.gif\n" +
 			"50:text/plain:*.txt\n50:text/x-go:*.go\n50:text/markdown:*.md\n50:image/svg+xml:*.svg\n50:application/pdf:*.pdf\n50:application/epub+zip:*.epub\n",
 		"subclasses": "image/svg+xml application/xml\napplication/xml text/plain\n",
+		"image/png.xml": `<?xml version="1.0"?><mime-type xmlns="http://www.freedesktop.org/standards/shared-mime-info" type="image/png">` +
+			`<comment>PNG image</comment><comment xml:lang="de">PNG-Bild</comment></mime-type>`,
+		"text/plain.xml": `<?xml version="1.0"?><mime-type xmlns="http://www.freedesktop.org/standards/shared-mime-info" type="text/plain">` +
+			`<comment>plain text document</comment></mime-type>`,
 	}
 	for name, body := range files {
-		if err := os.WriteFile(filepath.Join(dir, "mime", name), []byte(body), 0o600); err != nil {
+		path := filepath.Join(dir, "mime", name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

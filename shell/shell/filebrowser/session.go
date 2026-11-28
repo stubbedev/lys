@@ -46,6 +46,11 @@ type session struct {
 	found []Entry
 
 	view view
+	// cols read the Size and Kind columns the view sorts by, a file's
+	// kind once per name through kindCache: a name's kind is its type's,
+	// and a sort asks it of each name many times.
+	cols      columns
+	kindCache map[string]string
 	// entries is what the view shows, in order.
 	entries []Entry
 
@@ -55,8 +60,9 @@ type session struct {
 // newSession starts at folder, else home, else /. Nothing is listed
 // until the first refresh; listings are read at once until request is
 // replaced.
-func newSession(reader *dirReader, kinds Kinds, folder string, files func(string) bool, home string, v view) *session {
-	s := &session{reader: reader, kinds: kinds, files: files, view: v}
+func newSession(reader *dirReader, kinds Kinds, folder string, files func(string) bool, home string, v view, cols columns) *session {
+	s := &session{reader: reader, kinds: kinds, files: files, view: v, kindCache: map[string]string{}}
+	s.cols = columns{kind: func(e Entry) string { return s.kindOf(e, cols.kind) }, items: cols.items}
 	s.request = func(dir string) { s.setListing(dir, s.read(dir)) }
 	s.dir = startDir(folder, home)
 	return s
@@ -84,6 +90,17 @@ func startDir(folder, home string) string {
 	return "/"
 }
 
+// kindOf is e's kind as kind names it, named once per name.
+func (s *session) kindOf(e Entry, kind func(Entry) string) string {
+	name := e.Name()
+	k, ok := s.kindCache[name]
+	if !ok {
+		k = kind(e)
+		s.kindCache[name] = k
+	}
+	return k
+}
+
 // searching reports a recursive search in progress: the rows are its
 // matches, labelled relative to dir.
 func (s *session) searching() bool { return s.recursive && s.search != "" }
@@ -96,6 +113,7 @@ func (s *session) searching() bool { return s.recursive && s.search != "" }
 func (s *session) refresh() {
 	if !s.searching() && s.listed != s.dir {
 		s.listed, s.all, s.hiddenNames, s.listErr, s.loading, s.pending = s.dir, nil, nil, nil, true, nil
+		clear(s.kindCache)
 		s.entries = s.entries[:0]
 		s.request(s.dir)
 		return
@@ -233,7 +251,7 @@ func (s *session) partition() {
 	if s.searching() {
 		SortSearch(s.entries, s.dir, s.search)
 	} else {
-		SortEntries(s.entries, s.view.sort, s.view.asc)
+		sortEntries(s.entries, s.view.sort, s.view.asc, s.cols)
 	}
 }
 
