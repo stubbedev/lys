@@ -10,10 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/lib/intconv"
+
+	"github.com/stubbedev/lys/power/internal/sysfs"
 )
 
 const (
@@ -61,7 +62,7 @@ func (s Supply) Battery() (*Battery, error) {
 // unreadable type file just means "not a battery".
 func (s Supply) batteryNamed(name string) (*Battery, bool) {
 	dir := filepath.Join(s.Dir, name)
-	typ, err := readTrim(filepath.Join(dir, "type"))
+	typ, err := sysfs.ReadTrim(filepath.Join(dir, "type"))
 	if err != nil || typ != "Battery" {
 		return nil, false
 	}
@@ -124,8 +125,8 @@ func (b Battery) SetThresholds(want Thresholds) (bool, error) {
 			value = want.End
 		}
 		path := filepath.Join(b.Path, attr)
-		if err := os.WriteFile(path, []byte(strconv.Itoa(value)), 0o600); err != nil {
-			return false, fmt.Errorf("writing %s: %w", path, err)
+		if err := sysfs.Write(path, strconv.Itoa(value)); err != nil {
+			return false, err
 		}
 	}
 	return true, nil
@@ -141,7 +142,7 @@ func Order(curEnd, end int) [2]string {
 }
 
 func (b Battery) DischargeMicrowatts() (uint64, bool, error) {
-	status, err := readTrim(filepath.Join(b.Path, "status"))
+	status, err := sysfs.ReadTrim(filepath.Join(b.Path, "status"))
 	if err != nil {
 		return 0, false, fmt.Errorf("reading %s status: %w", b.Name, err)
 	}
@@ -263,9 +264,9 @@ func (b Battery) optionalCounter(attr string) (uint64, bool, error) {
 
 func (b Battery) counter(attr string) (uint64, error) {
 	path := filepath.Join(b.Path, attr)
-	raw, err := readTrim(path)
+	raw, err := sysfs.ReadTrim(path)
 	if err != nil {
-		return 0, fmt.Errorf("reading %s: %w", path, err)
+		return 0, err
 	}
 	value, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
@@ -278,21 +279,13 @@ func (b Battery) counter(attr string) (uint64, error) {
 }
 
 func (b Battery) threshold(attr string) (int, error) {
-	raw, err := readTrim(filepath.Join(b.Path, attr))
+	raw, err := sysfs.ReadTrim(filepath.Join(b.Path, attr))
 	if err != nil {
-		return 0, fmt.Errorf("reading %s: %w", attr, err)
+		return 0, err
 	}
 	value, err := strconv.Atoi(raw)
 	if err != nil {
 		return 0, fmt.Errorf("parsing %s %q: %w", attr, raw, err)
 	}
 	return value, nil
-}
-
-func readTrim(path string) (string, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(raw)), nil
 }

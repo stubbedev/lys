@@ -290,16 +290,3 @@ func TestAWiFiFailureNamesTheInterface(t *testing.T) {
 		t.Errorf("a refused power save: %v, want EOPNOTSUPP naming wlan0", err)
 	}
 }
-
-func TestAKernelRefusalIsToldApartFromAFailure(t *testing.T) {
-	err := classify("/sys/module/pcie_aspm/parameters/policy", ASPMPowersave, syscall.EPERM)
-	if !errors.Is(err, ErrRefused) || !strings.Contains(err.Error(), "/sys/module/pcie_aspm/parameters/policy") {
-		t.Errorf("EPERM: %v, want ErrRefused naming the path", err)
-	}
-	if err := classify("/x", ControlOn, syscall.EIO); errors.Is(err, ErrRefused) || !errors.Is(err, syscall.EIO) {
-		t.Errorf("EIO: %v, want a plain failure", err)
-	}
-	if err := classify("/x", ControlOn, nil); err != nil {
-		t.Errorf("success: %v", err)
-	}
-}
