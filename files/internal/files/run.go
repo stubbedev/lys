@@ -16,7 +16,6 @@ import (
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
-	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/spawn"
@@ -78,23 +77,12 @@ func Run(paths []string, service bool) error {
 		return fmt.Errorf("files: load the desktop config: %w", err)
 	}
 	defer svc.Close()
-	app.SetLogger(logging.Library())
-	sess, err := app.Connect()
+	started, err := apptheme.Start("lys-files", svc.Config(), fontPx)
 	if err != nil {
-		return fmt.Errorf("files: connect: %w", err)
+		return fmt.Errorf("files: %w", err)
 	}
-	defer sess.Close()
-
-	application := app.NewApplication(sess)
-	shipIcons()
-	defer apptheme.Setup(application)()
-	cfg := svc.Config()
-	theme := apptheme.New(cfg)
-	theme.WatchUserStyles(application)
-	typeface, err := app.Font(cfg.General.FontSans, fontPx)
-	if err != nil {
-		return fmt.Errorf("files: font %q: %w", cfg.General.FontSans, err)
-	}
+	defer started.Close()
+	application, theme, typeface := started.App, started.Theme, started.Face
 	stop := svc.Subscribe(func(_, next *config.Config) {
 		application.Invoke(func() { theme.SetConfig(next) })
 	})
@@ -346,16 +334,6 @@ func viewFile() string {
 		return ""
 	}
 	return filepath.Join(dir, "view")
-}
-
-func shipIcons() {
-	exe, err := os.Executable()
-	if err != nil {
-		log.Printf("files: icons: find this program: %v", err)
-		return
-	}
-	dir := filepath.Join(filepath.Dir(exe), "..", "share", "lys-files", "icons")
-	widget.SetIconSearchPaths(append(widget.IconSearchPaths(), dir))
 }
 
 // host is the file manager's Host over the application and its window.
