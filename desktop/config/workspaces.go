@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -40,44 +41,57 @@ type WorkspaceClickAction struct {
 	Arg string
 }
 
-// ParseWorkspaceClickAction parses the schema string. It never fails:
-// anything unrecognized is a shell command.
+// workspaceFocusSpellings are the focus kinds' schema strings.
+var workspaceFocusSpellings = map[WorkspaceClickKind]string{
+	WorkspaceClickFocusThis:     "focus:this",
+	WorkspaceClickFocusNext:     "focus:next",
+	WorkspaceClickFocusPrevious: "focus:previous",
+	WorkspaceClickFocusLast:     "focus:last",
+}
+
+// ParseWorkspaceClickAction parses a built-in default's action. It
+// panics on a string that does not parse, which only a mistaken default
+// can be: configuration goes through UnmarshalConfig, which reports it.
 func ParseWorkspaceClickAction(s string) WorkspaceClickAction {
-	switch s {
-	case "":
-		return WorkspaceClickAction{}
-	case "focus:this":
-		return WorkspaceClickAction{Kind: WorkspaceClickFocusThis}
-	case "focus:next":
-		return WorkspaceClickAction{Kind: WorkspaceClickFocusNext}
-	case "focus:previous":
-		return WorkspaceClickAction{Kind: WorkspaceClickFocusPrevious}
-	case "focus:last":
-		return WorkspaceClickAction{Kind: WorkspaceClickFocusLast}
+	a, err := parseWorkspaceClickAction(s)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
+func parseWorkspaceClickAction(s string) (WorkspaceClickAction, error) {
+	if s == "" {
+		return WorkspaceClickAction{}, nil
+	}
+	if strings.HasPrefix(s, "focus:") {
+		expected := make([]string, 0, len(workspaceFocusSpellings))
+		for kind := WorkspaceClickFocusThis; kind <= WorkspaceClickFocusLast; kind++ {
+			if workspaceFocusSpellings[kind] == s {
+				return WorkspaceClickAction{Kind: kind}, nil
+			}
+			expected = append(expected, "`"+workspaceFocusSpellings[kind]+"`")
+		}
+		return WorkspaceClickAction{}, fmt.Errorf("invalid value: %q, expected one of %s", s, strings.Join(expected, ", "))
 	}
 	if name, ok := strings.CutPrefix(s, "dropdown:"); ok {
-		return WorkspaceClickAction{Kind: WorkspaceClickDropdown, Arg: name}
+		if name == "" {
+			return WorkspaceClickAction{}, fmt.Errorf("invalid value: %q, expected dropdown:<name>", s)
+		}
+		return WorkspaceClickAction{Kind: WorkspaceClickDropdown, Arg: name}, nil
 	}
-	return WorkspaceClickAction{Kind: WorkspaceClickShell, Arg: s}
+	return WorkspaceClickAction{Kind: WorkspaceClickShell, Arg: s}, nil
 }
 
 // String serializes back to the schema form.
 func (a WorkspaceClickAction) String() string {
 	switch a.Kind {
-	case WorkspaceClickFocusThis:
-		return "focus:this"
-	case WorkspaceClickFocusNext:
-		return "focus:next"
-	case WorkspaceClickFocusPrevious:
-		return "focus:previous"
-	case WorkspaceClickFocusLast:
-		return "focus:last"
 	case WorkspaceClickDropdown:
 		return "dropdown:" + a.Arg
 	case WorkspaceClickShell:
 		return a.Arg
 	}
-	return ""
+	return workspaceFocusSpellings[a.Kind]
 }
 
 // UnmarshalConfig implements Unmarshaler.
@@ -86,7 +100,11 @@ func (a *WorkspaceClickAction) UnmarshalConfig(v any) error {
 	if !ok {
 		return invalidType(v, "a string")
 	}
-	*a = ParseWorkspaceClickAction(s)
+	parsed, err := parseWorkspaceClickAction(s)
+	if err != nil {
+		return err
+	}
+	*a = parsed
 	return nil
 }
 
