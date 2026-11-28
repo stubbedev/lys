@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/lib/xdg"
 	"github.com/stubbedev/lys/ui/gtksettings"
 
 	"github.com/stubbedev/lys/login/internal/cursorrecord"
@@ -35,23 +36,7 @@ import (
 // around does not exist here.
 
 // Cursor is what one source found; either side may be missing.
-type Cursor struct {
-	Theme string // "" when unknown
-	Size  uint32 // 0 when unknown
-}
-
-// or fills the missing sides from other.
-func (c Cursor) or(other Cursor) Cursor {
-	if c.Theme == "" {
-		c.Theme = other.Theme
-	}
-	if c.Size == 0 {
-		c.Size = other.Size
-	}
-	return c
-}
-
-func (c Cursor) complete() bool { return c.Theme != "" && c.Size != 0 }
+type Cursor = cursorrecord.Cursor
 
 // DetectCursor is the cursor u's session shows: the record under
 // records, then the dotfiles in u's home; session is the remembered
@@ -64,7 +49,7 @@ func DetectCursor(records string, u User, session string) Cursor {
 		return string(data)
 	}
 	found := recordedCursor(records, u.UID)
-	if found.complete() {
+	if found.Complete() {
 		return found
 	}
 	niri := func() Cursor { return parseNiri(read(".config/niri/config.kdl")) }
@@ -89,10 +74,10 @@ func DetectCursor(records string, u User, session string) Cursor {
 		func() Cursor { return parseIndexTheme(read(".icons/default/index.theme")) },
 	)
 	for _, source := range sources {
-		if found.complete() {
+		if found.Complete() {
 			break
 		}
-		found = found.or(source())
+		found = found.Or(source())
 	}
 	return found
 }
@@ -141,13 +126,13 @@ func KioskCursor(g config.LoginGreeterConfig, records string, users []User, last
 // stay "".
 func ResolveCursor(g config.LoginGreeterConfig, detected Cursor) Cursor {
 	configured := Cursor{Theme: g.CursorTheme, Size: g.CursorSize}
-	env := Cursor{Theme: os.Getenv("XCURSOR_THEME")}
-	if n, err := strconv.ParseUint(strings.TrimSpace(os.Getenv("XCURSOR_SIZE")), 10, 32); err == nil {
-		env.Size = uint32(n)
+	env, _, err := cursorrecord.FromEnv(xdg.OS)
+	if err != nil {
+		log.Printf("greeter: the environment's cursor: %v", err)
 	}
-	resolved := configured.or(env)
+	resolved := configured.Or(env)
 	if g.MatchCursor {
-		resolved = detected.or(env).or(configured)
+		resolved = detected.Or(env).Or(configured)
 	}
 	resolved.Size = max(resolved.Size, 1)
 	return resolved
@@ -172,15 +157,7 @@ func recordedCursor(records string, uid uint32) Cursor {
 		}
 		return Cursor{}
 	}
-	return Cursor(c)
-}
-
-func parseSize(s string) uint32 {
-	n, err := strconv.ParseUint(strings.TrimSpace(s), 10, 32)
-	if err != nil {
-		return 0
-	}
-	return uint32(n)
+	return c
 }
 
 const environmentDDir = ".config/environment.d"
@@ -207,7 +184,7 @@ func environmentDCursor(dir string) (Cursor, error) {
 		if err != nil {
 			return Cursor{}, fmt.Errorf("read the cursor from %s: %w", path, err)
 		}
-		c = file.or(c)
+		c = file.Or(c)
 	}
 	return c, nil
 }
@@ -262,7 +239,7 @@ func parseNiri(text string) Cursor {
 				c.Theme = v
 			}
 		} else if rest, ok := strings.CutPrefix(line, "xcursor-size"); ok && c.Size == 0 {
-			c.Size = parseSize(rest)
+			c.Size = cursorrecord.ParseSize(rest)
 		}
 	}
 	return c
@@ -281,7 +258,7 @@ func parseSway(text string) Cursor {
 			c.Theme = strings.Trim(tok[3], `"`)
 		}
 		if c.Size == 0 && len(tok) > 4 {
-			c.Size = parseSize(tok[4])
+			c.Size = cursorrecord.ParseSize(tok[4])
 		}
 	}
 	return c

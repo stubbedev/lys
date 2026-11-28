@@ -319,22 +319,22 @@ func TestTheUserListIsTheAccountsInRangeWithALoginShell(t *testing.T) {
 
 func TestCursorParsers(t *testing.T) {
 	c, err := parseEnvironmentD("# my cursor\nPATH=$PATH:/opt/bin\nXCURSOR_THEME=\"Bibata-Modern-Ice\"\n\n XCURSOR_SIZE = 20\n")
-	if err != nil || c != (Cursor{"Bibata-Modern-Ice", 20}) {
+	if err != nil || c != (Cursor{Theme: "Bibata-Modern-Ice", Size: 20}) {
 		t.Errorf("environment.d: %+v %v", c, err)
 	}
-	if c := parseNiri("cursor {\n    xcursor-theme \"Bibata\" // comment\n    xcursor-size 28\n}\n"); c != (Cursor{"Bibata", 28}) {
+	if c := parseNiri("cursor {\n    xcursor-theme \"Bibata\" // comment\n    xcursor-size 28\n}\n"); c != (Cursor{Theme: "Bibata", Size: 28}) {
 		t.Errorf("niri: %+v", c)
 	}
-	if c := parseSway("seat * xcursor_theme \"Adwaita\" 48\n"); c != (Cursor{"Adwaita", 48}) {
+	if c := parseSway("seat * xcursor_theme \"Adwaita\" 48\n"); c != (Cursor{Theme: "Adwaita", Size: 48}) {
 		t.Errorf("sway: %+v", c)
 	}
-	if c := parseGTKSettings("[Settings]\ngtk-cursor-theme-name = Vimix\ngtk-cursor-theme-size=22\n"); c != (Cursor{"Vimix", 22}) {
+	if c := parseGTKSettings("[Settings]\ngtk-cursor-theme-name = Vimix\ngtk-cursor-theme-size=22\n"); c != (Cursor{Theme: "Vimix", Size: 22}) {
 		t.Errorf("gtk: %+v", c)
 	}
 	if c := parseIndexTheme("[Icon Theme]\nInherits=phinger-cursors-light, other\n"); c != (Cursor{Theme: "phinger-cursors-light"}) {
 		t.Errorf("index.theme: %+v", c)
 	}
-	if got := (Cursor{Theme: "A"}).or(Cursor{"B", 24}); got != (Cursor{"A", 24}) {
+	if got := (Cursor{Theme: "A"}).Or(Cursor{Theme: "B", Size: 24}); got != (Cursor{Theme: "A", Size: 24}) {
 		t.Errorf("or: %+v", got)
 	}
 }
@@ -354,22 +354,22 @@ func TestDetectCursorOrder(t *testing.T) {
 	}
 	write(".config/environment.d/10-cursor.conf", "XCURSOR_THEME=HyprTheme\nXCURSOR_SIZE=30\n")
 	write(".config/niri/config.kdl", "xcursor-theme \"NiriTheme\"\nxcursor-size 40\n")
-	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{"HyprTheme", 30}) {
+	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{Theme: "HyprTheme", Size: 30}) {
 		t.Errorf("hyprland session: %+v", got)
 	}
-	if got := DetectCursor(records, ada, "niri"); got != (Cursor{"NiriTheme", 40}) {
+	if got := DetectCursor(records, ada, "niri"); got != (Cursor{Theme: "NiriTheme", Size: 40}) {
 		t.Errorf("niri session: %+v", got)
 	}
 	if _, err := cursorrecord.Write(records, 1001, cursorrecord.Cursor{Theme: "Someone else's", Size: 64}); err != nil {
 		t.Fatal(err)
 	}
-	if got := DetectCursor(records, ada, "niri"); got != (Cursor{"NiriTheme", 40}) {
+	if got := DetectCursor(records, ada, "niri"); got != (Cursor{Theme: "NiriTheme", Size: 40}) {
 		t.Errorf("another uid's record must not count: %+v", got)
 	}
 	if _, err := cursorrecord.Write(records, ada.UID, cursorrecord.Cursor{Theme: "Recorded", Size: 36}); err != nil {
 		t.Fatal(err)
 	}
-	if got := DetectCursor(records, ada, "niri"); got != (Cursor{"Recorded", 36}) {
+	if got := DetectCursor(records, ada, "niri"); got != (Cursor{Theme: "Recorded", Size: 36}) {
 		t.Errorf("the record the session handed over must win: %+v", got)
 	}
 	if got := DetectCursor(records, User{Name: "bob", UID: 1002, Home: filepath.Join(home, "absent")}, ""); got != (Cursor{}) {
@@ -413,7 +413,7 @@ func TestDetectCursorFromEnvironmentD(t *testing.T) {
 	write("10-cursor.conf", "XCURSOR_THEME=Early\nXCURSOR_SIZE=24\n")
 	write("20-cursor.conf", "XCURSOR_THEME=Bibata\n")
 	write("ignored.txt", "not an assignment\n")
-	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{"Bibata", 24}) {
+	if got := DetectCursor(records, ada, "hyprland"); got != (Cursor{Theme: "Bibata", Size: 24}) {
 		t.Errorf("hyprland session: %+v, want the later file's theme over the earlier's size", got)
 	}
 
@@ -451,7 +451,7 @@ func TestDetectCursorThroughAClosedHome(t *testing.T) {
 	if _, err := cursorrecord.Write(records, ada.UID, cursorrecord.Cursor{Theme: "Bibata", Size: 48}); err != nil {
 		t.Fatal(err)
 	}
-	if got := DetectCursor(records, ada, ""); got != (Cursor{"Bibata", 48}) {
+	if got := DetectCursor(records, ada, ""); got != (Cursor{Theme: "Bibata", Size: 48}) {
 		t.Errorf("through a closed home: %+v, want the record's Bibata at 48", got)
 	}
 }
@@ -486,7 +486,7 @@ func TestKioskCursor(t *testing.T) {
 	t.Setenv("XCURSOR_THEME", "")
 	t.Setenv("XCURSOR_SIZE", "")
 	defaults := config.DefaultsLogin().Greeter
-	if got := KioskCursor(defaults, records, []User{ada, bob}, "ada"); got != (Cursor{"Bibata", 48}) {
+	if got := KioskCursor(defaults, records, []User{ada, bob}, "ada"); got != (Cursor{Theme: "Bibata", Size: 48}) {
 		t.Errorf("ada's record: %+v", got)
 	}
 	if got := KioskCursor(defaults, records, []User{ada, bob}, "bob"); got != (Cursor{Size: 24}) {
@@ -494,11 +494,11 @@ func TestKioskCursor(t *testing.T) {
 	}
 	g := defaults
 	g.CursorTheme = "Configured"
-	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{"Bibata", 48}) {
+	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{Theme: "Bibata", Size: 48}) {
 		t.Errorf("matching the session, the record over the config's theme: %+v", got)
 	}
 	g.MatchCursor = false
-	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{"Configured", 24}) {
+	if got := KioskCursor(g, records, []User{ada, bob}, "ada"); got != (Cursor{Theme: "Configured", Size: 24}) {
 		t.Errorf("not matching the session, the config over the record: %+v", got)
 	}
 }
@@ -507,26 +507,35 @@ func TestResolveCursor(t *testing.T) {
 	t.Setenv("XCURSOR_THEME", "EnvTheme")
 	t.Setenv("XCURSOR_SIZE", "18")
 	g := config.DefaultsLogin().Greeter
-	if got := ResolveCursor(g, Cursor{Theme: "Detected"}); got != (Cursor{"Detected", 18}) {
+	if got := ResolveCursor(g, Cursor{Theme: "Detected"}); got != (Cursor{Theme: "Detected", Size: 18}) {
 		t.Errorf("matching the session, detection then the environment: %+v", got)
 	}
 	g.CursorTheme, g.CursorSize = "Configured", 48
-	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"Detected", 30}) {
+	if got := ResolveCursor(g, Cursor{Theme: "Detected", Size: 30}); got != (Cursor{Theme: "Detected", Size: 30}) {
 		t.Errorf("matching the session, the session over the config: %+v", got)
 	}
-	if got := ResolveCursor(g, Cursor{}); got != (Cursor{"EnvTheme", 18}) {
+	if got := ResolveCursor(g, Cursor{}); got != (Cursor{Theme: "EnvTheme", Size: 18}) {
 		t.Errorf("matching a session that named nothing, the environment over the config: %+v", got)
 	}
 	g.MatchCursor = false
-	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"Configured", 48}) {
+	if got := ResolveCursor(g, Cursor{Theme: "Detected", Size: 30}); got != (Cursor{Theme: "Configured", Size: 48}) {
 		t.Errorf("not matching the session, the config wins: %+v", got)
 	}
 	g.CursorTheme = ""
-	if got := ResolveCursor(g, Cursor{"Detected", 30}); got != (Cursor{"EnvTheme", 48}) {
+	if got := ResolveCursor(g, Cursor{Theme: "Detected", Size: 30}); got != (Cursor{Theme: "EnvTheme", Size: 48}) {
 		t.Errorf("not matching, an empty theme is the system's: %+v", got)
 	}
-	t.Setenv("XCURSOR_THEME", "")
 	t.Setenv("XCURSOR_SIZE", "")
+	t.Setenv("HYPRCURSOR_SIZE", "36")
+	if got := ResolveCursor(config.DefaultsLogin().Greeter, Cursor{}); got != (Cursor{Theme: "EnvTheme", Size: 36}) {
+		t.Errorf("without XCURSOR_SIZE, the environment's HYPRCURSOR_SIZE: %+v", got)
+	}
+	t.Setenv("XCURSOR_THEME", "../etc")
+	if got := ResolveCursor(config.DefaultsLogin().Greeter, Cursor{}); got != (Cursor{Size: 24}) {
+		t.Errorf("an environment theme that is no directory name: %+v, want it ignored", got)
+	}
+	t.Setenv("XCURSOR_THEME", "")
+	t.Setenv("HYPRCURSOR_SIZE", "")
 	if got := ResolveCursor(config.DefaultsLogin().Greeter, Cursor{}); got != (Cursor{Size: 24}) {
 		t.Errorf("nothing anywhere: %+v, want the 24px size default", got)
 	}

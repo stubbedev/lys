@@ -36,6 +36,20 @@ type Cursor struct {
 	Size uint32 `json:"size,omitempty"`
 }
 
+// Or fills the missing sides of c from other.
+func (c Cursor) Or(other Cursor) Cursor {
+	if c.Theme == "" {
+		c.Theme = other.Theme
+	}
+	if c.Size == 0 {
+		c.Size = other.Size
+	}
+	return c
+}
+
+// Complete reports whether c names both a theme and a size.
+func (c Cursor) Complete() bool { return c.Theme != "" && c.Size != 0 }
+
 // check reports why c cannot be recorded: it names nothing, or a theme
 // that is not a single directory name.
 func (c Cursor) check() error {
@@ -76,7 +90,7 @@ func FromEnv(env xdg.Env) (Cursor, bool, error) {
 	if size == "" {
 		size = env("HYPRCURSOR_SIZE")
 	}
-	c := Cursor{Theme: env("XCURSOR_THEME"), Size: parseSize(size)}
+	c := Cursor{Theme: env("XCURSOR_THEME"), Size: ParseSize(size)}
 	if c == (Cursor{}) {
 		return Cursor{}, false, nil
 	}
@@ -86,8 +100,8 @@ func FromEnv(env xdg.Env) (Cursor, bool, error) {
 	return c, true, nil
 }
 
-// parseSize is a positive size in pixels, 0 for anything else.
-func parseSize(s string) uint32 {
+// ParseSize is a positive size in pixels, 0 for anything else.
+func ParseSize(s string) uint32 {
 	n, err := strconv.ParseUint(strings.TrimSpace(s), 10, 32)
 	if err != nil {
 		return 0
