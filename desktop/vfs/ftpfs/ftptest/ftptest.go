@@ -225,10 +225,14 @@ func (ss *session) data() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ss.protect {
-		return tls.Server(c, ss.s.tls), nil
+	if !ss.protect {
+		return c, nil
 	}
-	return c, nil
+	tc := tls.Server(c, ss.s.tls)
+	if err := tc.Handshake(); err != nil {
+		return nil, errors.Join(err, c.Close())
+	}
+	return tc, nil
 }
 
 func (ss *session) mlsd(arg string) {
