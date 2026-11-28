@@ -5,22 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+
+	"github.com/stubbedev/lys/login/fprintd"
 )
 
 const (
-	BusName       = "net.reactivated.Fprint"
-	ManagerPath   = dbus.ObjectPath("/net/reactivated/Fprint/Manager")
-	ManagerIface  = BusName + ".Manager"
-	DeviceIface   = BusName + ".Device"
-	errNoDevice   = BusName + ".Error.NoSuchDevice"
-	errNoPrints   = BusName + ".Error.NoEnrolledPrints"
-	errNoService  = "org.freedesktop.DBus.Error.ServiceUnknown"
-	errNoName     = "org.freedesktop.DBus.Error.NameHasNoOwner"
 	anyFinger     = "any"
 	callTimeout   = 10 * time.Second
 	settleTimeout = 5 * time.Second
@@ -60,7 +53,7 @@ type verifyStatus struct {
 	Done   bool   `dbus:"done"`
 }
 
-var verifyStatusSignal = dbusx.NewSignal[verifyStatus](DeviceIface, "VerifyStatus")
+var verifyStatusSignal = dbusx.NewSignal[verifyStatus](fprintd.DeviceIface, "VerifyStatus")
 
 var ErrUnavailable = errors.New("fprint: no fingerprint reader or no enrolled finger")
 
@@ -69,7 +62,7 @@ func Verify(ctx context.Context, conn *dbus.Conn, user string, onResult func(Res
 	if err != nil {
 		return err
 	}
-	d := conn.Object(BusName, dev)
+	d := conn.Object(fprintd.BusName, dev)
 	if err := enrolled(ctx, d, user); err != nil {
 		return err
 	}
@@ -79,7 +72,7 @@ func Verify(ctx context.Context, conn *dbus.Conn, user string, onResult func(Res
 	defer settle(ctx, d, "Release")
 	statuses := make(chan verifyStatus)
 	watching, stopWatching := context.WithCancel(context.WithoutCancel(ctx))
-	w, err := dbusx.WatchSignals(watching, conn, dbusx.FromOwner(BusName),
+	w, err := dbusx.WatchSignals(watching, conn, dbusx.FromOwner(fprintd.BusName),
 		func(err error) { log.Printf("fprint: a status of %s: %v", dev, err) },
 		dbusx.On(verifyStatusSignal, dev, func(s verifyStatus, _ dbus.Sequence) error {
 			select {
@@ -156,23 +149,19 @@ func deliver(result string, onResult func(Result)) (again bool, err error) {
 func defaultDevice(ctx context.Context, conn *dbus.Conn) (dbus.ObjectPath, error) {
 	callCtx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
-	var dev dbus.ObjectPath
-	err := conn.Object(BusName, ManagerPath).CallWithContext(callCtx, ManagerIface+".GetDefaultDevice", 0).Store(&dev)
-	if isNamed(err, errNoDevice, errNoService, errNoName) {
+	dev, err := fprintd.DefaultDevice(callCtx, conn)
+	if errors.Is(err, fprintd.ErrNoReader) {
 		return "", fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
-	if err != nil {
-		return "", fmt.Errorf("fprint: GetDefaultDevice: %w", err)
-	}
-	return dev, nil
+	return dev, err
 }
 
 func enrolled(ctx context.Context, d dbus.BusObject, user string) error {
 	callCtx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
 	var fingers []string
-	err := d.CallWithContext(callCtx, DeviceIface+".ListEnrolledFingers", 0, user).Store(&fingers)
-	if isNamed(err, errNoPrints) || (err == nil && len(fingers) == 0) {
+	err := d.CallWithContext(callCtx, fprintd.DeviceIface+".ListEnrolledFingers", 0, user).Store(&fingers)
+	if fprintd.IsError(err, fprintd.ErrorNoEnrolledPrints) || (err == nil && len(fingers) == 0) {
 		return fmt.Errorf("%w: %s has no finger enrolled on %s", ErrUnavailable, user, d.Path())
 	}
 	if err != nil {
@@ -184,7 +173,7 @@ func enrolled(ctx context.Context, d dbus.BusObject, user string) error {
 func call(ctx context.Context, d dbus.BusObject, method string, args ...any) error {
 	callCtx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
-	if err := d.CallWithContext(callCtx, DeviceIface+"."+method, 0, args...).Err; err != nil {
+	if err := d.CallWithContext(callCtx, fprintd.DeviceIface+"."+method, 0, args...).Err; err != nil {
 		return fmt.Errorf("fprint: %s on %s: %w", method, d.Path(), err)
 	}
 	return nil
@@ -193,15 +182,7 @@ func call(ctx context.Context, d dbus.BusObject, method string, args ...any) err
 func settle(ctx context.Context, d dbus.BusObject, method string) {
 	settleCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), settleTimeout)
 	defer cancel()
-	if err := d.CallWithContext(settleCtx, DeviceIface+"."+method, 0).Err; err != nil {
+	if err := d.CallWithContext(settleCtx, fprintd.DeviceIface+"."+method, 0).Err; err != nil {
 		log.Printf("fprint: %s on %s: %v", method, d.Path(), err)
 	}
-}
-
-func isNamed(err error, names ...string) bool {
-	de, ok := errors.AsType[dbus.Error](err)
-	if !ok {
-		return false
-	}
-	return slices.Contains(names, de.Name)
 }

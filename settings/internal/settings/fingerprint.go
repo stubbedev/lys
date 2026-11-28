@@ -12,20 +12,13 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
+	"github.com/stubbedev/lys/login/fprintd"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
 )
 
 const (
-	fprintName      = "net.reactivated.Fprint"
-	fprintManager   = fprintName + ".Manager"
-	fprintDevice    = fprintName + ".Device"
-	fprintPath      = dbus.ObjectPath("/net/reactivated/Fprint/Manager")
-	errNoEnrolled   = fprintName + ".Error.NoEnrolledPrints"
-	errPermission   = fprintName + ".Error.PermissionDenied"
-	errNoSuchDevice = fprintName + ".Error.NoSuchDevice"
-	errNoService    = "org.freedesktop.DBus.Error.ServiceUnknown"
 	statusStage     = "enroll-stage-passed"
 	statusCompleted = "enroll-completed"
 	statusDuplicate = "enroll-duplicate"
@@ -50,27 +43,18 @@ type fprint struct {
 	user   string
 }
 
-// errNoReader is a machine without a fingerprint reader, or without
-// fprintd to drive one.
-var errNoReader = errors.New("no fingerprint reader")
-
 func openFprint(ctx context.Context, conn *dbus.Conn, user string) (*fprint, error) {
-	var path dbus.ObjectPath
-	if err := conn.Object(fprintName, fprintPath).CallWithContext(ctx, fprintManager+".GetDefaultDevice", 0).Store(&path); err != nil {
-		var derr dbus.Error
-		if errors.As(err, &derr) && (derr.Name == errNoSuchDevice || derr.Name == errNoService) {
-			return nil, fmt.Errorf("find a fingerprint reader: %w: %w", errNoReader, err)
-		}
-		return nil, fmt.Errorf("find a fingerprint reader: %w", err)
+	path, err := fprintd.DefaultDevice(ctx, conn)
+	if err != nil {
+		return nil, err
 	}
-	return &fprint{conn: conn, device: sysService{conn: conn, name: fprintName, iface: fprintDevice, path: path}, user: user}, nil
+	return &fprint{conn: conn, device: sysService{conn: conn, name: fprintd.BusName, iface: fprintd.DeviceIface, path: path}, user: user}, nil
 }
 
 func (f *fprint) enrolled(ctx context.Context) ([]string, error) {
 	var out []string
 	err := f.device.store(ctx, "ListEnrolledFingers", &out, f.user)
-	var derr dbus.Error
-	if errors.As(err, &derr) && derr.Name == errNoEnrolled {
+	if fprintd.IsError(err, fprintd.ErrorNoEnrolledPrints) {
 		return nil, nil
 	}
 	return out, err
@@ -93,10 +77,10 @@ type enrolment struct {
 	Done   bool   `dbus:"done"`
 }
 
-var enrollStatus = dbusx.NewSignal[enrolment](fprintDevice, "EnrollStatus")
+var enrollStatus = dbusx.NewSignal[enrolment](fprintd.DeviceIface, "EnrollStatus")
 
 func (f *fprint) watch(status func(result string, done bool), failed func(error)) (*dbusx.Watch, error) {
-	w, err := dbusx.WatchSignals(context.Background(), f.conn, dbusx.FromOwner(fprintName), failed,
+	w, err := dbusx.WatchSignals(context.Background(), f.conn, dbusx.FromOwner(fprintd.BusName), failed,
 		dbusx.On(enrollStatus, f.device.path, func(e enrolment, _ dbus.Sequence) error {
 			status(e.Result, e.Done)
 			return nil
@@ -174,7 +158,7 @@ func (p *usersPanel) loadFingerprint() {
 // failed in reaching it. It draws no hands, which would offer nothing.
 func (p *usersPanel) noFingerprint(err error) {
 	why := p.k.cardState()
-	if errors.Is(err, errNoReader) {
+	if errors.Is(err, fprintd.ErrNoReader) {
 		why.Unavailable("ld-fingerprint-symbolic", locale.T().Get("settings-fingerprint-no-reader"), nil)
 	} else {
 		why.Unavailable("ld-fingerprint-symbolic", locale.T().Get("settings-fingerprint-unavailable"), err)
@@ -273,7 +257,7 @@ func (s *fingerprintSection) call(fn func(context.Context) error) {
 // fingerprintProblem is the sentence saying why the reader failed, err
 // itself being the detail under it.
 func fingerprintProblem(err error) string {
-	if derr, ok := errors.AsType[dbus.Error](err); ok && derr.Name == errPermission {
+	if fprintd.IsError(err, fprintd.ErrorPermissionDenied) {
 		return locale.T().Get("settings-fingerprint-denied")
 	}
 	return locale.T().Get("settings-fingerprint-reader-failed")
@@ -440,7 +424,7 @@ func (s *fingerprintSection) deleteFinger(finger string) {
 }
 
 // fingersEnrolled is how many fingers this user has enrolled on the
-// default reader, errNoReader without one (a seam for tests).
+// default reader, fprintd.ErrNoReader without one (a seam for tests).
 var fingersEnrolled = func(k *kit) (int, error) {
 	conn, err := k.systemBus()
 	if err != nil {
@@ -514,7 +498,7 @@ func (c *fingerprintSwitch) fit() {
 		return
 	}
 	switch {
-	case errors.Is(r.err, errNoReader):
+	case errors.Is(r.err, fprintd.ErrNoReader):
 		c.status.Unavailable("", t.Get("settings-fingerprint-no-reader"), nil)
 	case r.err != nil:
 		c.status.Error(t.Get("settings-fingerprint-unavailable"), r.err, nil)
@@ -523,7 +507,7 @@ func (c *fingerprintSwitch) fit() {
 	default:
 		c.status.Clear()
 	}
-	c.SetEnabled(c.ready() || c.On() || (r.err != nil && !errors.Is(r.err, errNoReader)))
+	c.SetEnabled(c.ready() || c.On() || (r.err != nil && !errors.Is(r.err, fprintd.ErrNoReader)))
 }
 
 func (c *fingerprintSwitch) refresh() {

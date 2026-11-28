@@ -10,6 +10,8 @@ import (
 	"github.com/stubbedev/lys/lib/dbustest"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
+
+	"github.com/stubbedev/lys/login/fprintd"
 )
 
 const devicePath = dbus.ObjectPath("/net/reactivated/Fprint/Device/0")
@@ -18,7 +20,7 @@ type fakeManager struct{ noDevice bool }
 
 func (m *fakeManager) GetDefaultDevice() (dbus.ObjectPath, *dbus.Error) {
 	if m.noDevice {
-		return "", dbus.NewError(errNoDevice, []any{"No devices available"})
+		return "", dbus.NewError(fprintd.ErrorNoSuchDevice, []any{"No devices available"})
 	}
 	return devicePath, nil
 }
@@ -46,7 +48,7 @@ func (d *fakeDevice) recorded() []string {
 func (d *fakeDevice) ListEnrolledFingers(user string) ([]string, *dbus.Error) {
 	d.record("list " + user)
 	if len(d.fingers) == 0 {
-		return nil, dbus.NewError(errNoPrints, []any{"No enrolled prints"})
+		return nil, dbus.NewError(fprintd.ErrorNoEnrolledPrints, []any{"No enrolled prints"})
 	}
 	return d.fingers, nil
 }
@@ -86,14 +88,14 @@ func newRigOn(t *testing.T, bus *dbustest.Bus, fingers []string, noDevice bool) 
 	t.Helper()
 	server := bus.Conn(t)
 	dev := &fakeDevice{conn: server, fingers: fingers, started: make(chan struct{}, 8)}
-	if err := server.Export(&fakeManager{noDevice: noDevice}, ManagerPath, ManagerIface); err != nil {
+	if err := server.Export(&fakeManager{noDevice: noDevice}, fprintd.ManagerPath, fprintd.ManagerIface); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.Export(dev, devicePath, DeviceIface); err != nil {
+	if err := server.Export(dev, devicePath, fprintd.DeviceIface); err != nil {
 		t.Fatal(err)
 	}
-	if reply, err := server.RequestName(BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-		t.Fatalf("own %s: %v %v", BusName, reply, err)
+	if reply, err := server.RequestName(fprintd.BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+		t.Fatalf("own %s: %v %v", fprintd.BusName, reply, err)
 	}
 	t.Cleanup(func() {
 		if t.Failed() {

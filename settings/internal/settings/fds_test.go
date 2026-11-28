@@ -7,6 +7,7 @@ import (
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
+	"github.com/stubbedev/lys/login/fprintd"
 )
 
 func flushed(t *testing.T, conn *dbus.Conn) {
@@ -61,11 +62,11 @@ func TestAPropertiesWatchClosesTheDescriptorsOfEverySignalItGets(t *testing.T) {
 func TestAnEnrolmentWatchClosesTheDescriptorsOfEverySignalItGets(t *testing.T) {
 	bus := dbustest.Start(t)
 	owner := bus.Conn(t)
-	if _, err := dbusx.Own(owner, fprintName); err != nil {
+	if _, err := dbusx.Own(owner, fprintd.BusName); err != nil {
 		t.Fatal(err)
 	}
 	statuses := make(chan string, 1)
-	f := &fprint{conn: bus.Conn(t), device: sysService{name: fprintName, iface: fprintDevice, path: fakeReader}}
+	f := &fprint{conn: bus.Conn(t), device: sysService{name: fprintd.BusName, iface: fprintd.DeviceIface, path: fakeReader}}
 	w, err := f.watch(func(result string, _ bool) { statuses <- result }, func(err error) { t.Errorf("the watch failed: %v", err) })
 	if err != nil {
 		t.Fatal(err)

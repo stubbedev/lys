@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/lib/render"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/userdb/userdbtest"
+	"github.com/stubbedev/lys/login/fprintd"
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/settings/internal/locale"
@@ -29,7 +30,7 @@ type fakeFprintManager struct {
 func (f fakeFprintManager) GetDefaultDevice() (dbus.ObjectPath, *dbus.Error) {
 	f.record("GetDefaultDevice")
 	if !f.device {
-		return "/", dbus.NewError(fprintName+".Error.NoSuchDevice", []any{"No devices available"})
+		return "/", dbus.NewError(fprintd.ErrorNoSuchDevice, []any{"No devices available"})
 	}
 	return fakeReader, nil
 }
@@ -66,7 +67,7 @@ func (f fakeFprintDevice) ListEnrolledFingers(string) ([]string, *dbus.Error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if len(*f.enrolled) == 0 {
-		return nil, dbus.NewError(errNoEnrolled, []any{"No fingers enrolled"})
+		return nil, dbus.NewError(fprintd.ErrorNoEnrolledPrints, []any{"No fingers enrolled"})
 	}
 	return slices.Clone(*f.enrolled), nil
 }
@@ -98,14 +99,14 @@ func serveFprint(t *testing.T, bus *dbustest.Bus, withDevice bool, enrolled *[]s
 	t.Helper()
 	conn := bus.Conn(t)
 	manager = &fakeSys{props: map[string]any{}}
-	device = &fakeSys{props: map[string]any{"num-enroll-stages": int32(5), "name": "Fake reader", "scan-type": "press"}, conn: conn, path: fakeReader, iface: fprintDevice}
-	if _, err := dbusx.Export(conn, fprintPath, dbusx.Interface{Name: fprintManager, Methods: fakeFprintManager{manager, withDevice}}); err != nil {
+	device = &fakeSys{props: map[string]any{"num-enroll-stages": int32(5), "name": "Fake reader", "scan-type": "press"}, conn: conn, path: fakeReader, iface: fprintd.DeviceIface}
+	if _, err := dbusx.Export(conn, fprintd.ManagerPath, dbusx.Interface{Name: fprintd.ManagerIface, Methods: fakeFprintManager{manager, withDevice}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dbusx.Export(conn, fakeReader, dbusx.Interface{Name: fprintDevice, Methods: fakeFprintDevice{device, enrolled, unknownDeleteOne}, Properties: device.getters()}); err != nil {
+	if _, err := dbusx.Export(conn, fakeReader, dbusx.Interface{Name: fprintd.DeviceIface, Methods: fakeFprintDevice{device, enrolled, unknownDeleteOne}, Properties: device.getters()}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := dbusx.Own(conn, fprintName); err != nil {
+	if _, err := dbusx.Own(conn, fprintd.BusName); err != nil {
 		t.Fatal(err)
 	}
 	return manager, device
@@ -437,7 +438,7 @@ func TestTheFingersEnrolledAreCountedOnTheDefaultReader(t *testing.T) {
 		k := testKit(t, "")
 		k.systemBus = func() (*dbus.Conn, error) { return dbus.Connect(bus.Address) }
 		n, err := fingersEnrolled(k)
-		if n != tc.want || errors.Is(err, errNoReader) != tc.noReader || (err != nil && !tc.noReader) {
+		if n != tc.want || errors.Is(err, fprintd.ErrNoReader) != tc.noReader || (err != nil && !tc.noReader) {
 			t.Errorf("device %v, enrolled %q: %d fingers, error %v", tc.device, tc.enrolled, n, err)
 		}
 	}
@@ -455,8 +456,8 @@ func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
 	}{
 		{"a finger enrolled", fingerprintReading{fingers: 1}, false, "", false, true},
 		{"none enrolled", fingerprintReading{}, false, tr.Get("settings-fingerprint-none"), true, false},
-		{"no reader", fingerprintReading{err: errNoReader}, false, tr.Get("settings-fingerprint-no-reader"), false, false},
-		{"no reader, but on", fingerprintReading{err: errNoReader}, true, tr.Get("settings-fingerprint-no-reader"), false, true},
+		{"no reader", fingerprintReading{err: fprintd.ErrNoReader}, false, tr.Get("settings-fingerprint-no-reader"), false, false},
+		{"no reader, but on", fingerprintReading{err: fprintd.ErrNoReader}, true, tr.Get("settings-fingerprint-no-reader"), false, true},
 		{"fprintd unreachable", fingerprintReading{err: errors.New("the system bus is gone")}, false, tr.Get("settings-fingerprint-unavailable"), false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -482,7 +483,7 @@ func TestAFingerprintSwitchIsHeldBackUntilAFingerCanUnlock(t *testing.T) {
 			if status != tc.status {
 				t.Errorf("the status reads %q, want %q", status, tc.status)
 			}
-			if want := errText(tc.reading.err); !errors.Is(tc.reading.err, errNoReader) && (c.status.detail.Text() != want || c.status.detail.Visible() || c.status.reveal.button.Visible() != (want != "")) {
+			if want := errText(tc.reading.err); !errors.Is(tc.reading.err, fprintd.ErrNoReader) && (c.status.detail.Text() != want || c.status.detail.Visible() || c.status.reveal.button.Visible() != (want != "")) {
 				t.Errorf("the status explains %q, shown %v, behind a disclosure %v, want %q", c.status.detail.Text(), c.status.detail.Visible(), c.status.reveal.button.Visible(), want)
 			}
 			if c.status.TooltipText() != "" {
@@ -531,7 +532,7 @@ func TestAnUnreachableReaderReadsAsAFailureOnItsRow(t *testing.T) {
 		kind cardStateKind
 	}{
 		{"fprintd unreachable", errors.New("the system bus is gone"), stateError},
-		{"no reader", errNoReader, stateUnavailable},
+		{"no reader", fprintd.ErrNoReader, stateUnavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			k := testKit(t, "")
