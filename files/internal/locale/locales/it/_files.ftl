@@ -90,3 +90,16 @@ files-prop-contents = { $size }, { $count ->
 }
 files-prop-modified = Modificato
 files-prop-permissions = Permessi
+files-status-items = { $count ->
+    [0] Nessun elemento
+    [one] Un elemento
+   *[other] { $count } elementi
+}
+files-status-selected = { $total ->
+    [one] Un elemento selezionato
+   *[other] { $count ->
+        [one] Uno di { $total } elementi selezionato
+       *[other] { $count } di { $total } elementi selezionati
+    }
+}
+files-status-size = { $selection } ({ $size })

@@ -4,18 +4,26 @@ import (
 	"errors"
 	"os"
 
+	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/shell/widgets"
+	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/stubbedev/lys/ui/widget/css"
+
+	"github.com/stubbedev/lys/files/internal/locale"
 )
 
 // errHidden is a focus asked for by a tab that is not showing.
 var errHidden = errors.New("the tab is not showing")
 
-// tab is one browse: its page, its browser, its name prompt.
+// tab is one browse: its page, its browser, its name prompt, its
+// status line.
 type tab struct {
 	page   *widget.TabPage
 	b      *filebrowser.Browser
 	prompt *prompt
+	status *widget.Label
 	home   string
 }
 
@@ -50,17 +58,24 @@ func (f *Files) insertTab(at int, dir string) *tab {
 		return f.cfg.Host.Focus(w)
 	})
 	t.prompt = newPrompt(f, t)
+	t.status = widget.NewLabel(f.cfg.Browser.Font, widgets.TextPx(styling.Caption, 1), "", 0)
+	t.status.AddClass("files-status-label", css.Caption, css.DimLabel)
+	t.status.SetEllipsize(widget.EllipsizeEnd)
+	statusRow := filebrowser.Section(widget.Row, "files-status")
+	statusRow.AppendAligned(t.status, true, widget.AlignCenter)
 	t.b.Begin(filebrowser.Options{
 		Folder:         dir,
 		Kinds:          filebrowser.FilesAndFolders,
 		Selection:      widget.SelectionMultiple,
 		Gathered:       true,
 		Above:          []widget.Widget{t.prompt.row},
+		Below:          []widget.Widget{statusRow},
 		OnFile:         func(e filebrowser.Entry) { f.cfg.Host.OpenFile(e.Path) },
 		ContextMenu:    func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
 		OnDrop:         f.drop,
 		DragActions:    dragActions,
 		OnDir:          func(string) { f.dirShown(t) },
+		OnSelection:    func(sel []filebrowser.Entry) { t.showStatus(sel) },
 		OnOpenInNewTab: func(e filebrowser.Entry) { f.openBehind(e.Path) },
 	})
 	content := widget.NewBox(widget.Column, 0, 0)
@@ -69,6 +84,37 @@ func (f *Files) insertTab(at int, dir string) *tab {
 	t.page = f.view.Insert(at, content, t.title())
 	f.tabs[t.page] = t
 	return t
+}
+
+// showStatus says in the status line how many items the folder holds,
+// or how many of them sel selects and the size of its files; nothing
+// while the folder is being read.
+func (t *tab) showStatus(sel []filebrowser.Entry) {
+	t.status.SetText(status(sel, len(t.b.Entries()), t.b.Busy()))
+}
+
+// status is the status line's text for sel of total items.
+func status(sel []filebrowser.Entry, total int, loading bool) string {
+	tr := locale.T()
+	switch {
+	case loading:
+		return ""
+	case len(sel) == 0:
+		return tr.Get("files-status-items", i18n.Int("count", int64(total)))
+	}
+	var size int64
+	hasFile := false
+	for _, e := range sel {
+		if !e.IsDir {
+			size += e.Size
+			hasFile = true
+		}
+	}
+	selection := tr.Get("files-status-selected", i18n.Int("count", int64(len(sel))), i18n.Int("total", int64(total)))
+	if !hasFile {
+		return selection
+	}
+	return tr.Get("files-status-size", i18n.Str("selection", selection), i18n.Str("size", filebrowser.HumanSize(size)))
 }
 
 // dirShown titles the tab, and the window when it shows, by the
