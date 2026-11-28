@@ -24,6 +24,7 @@ ld-file-user-symbolic
 ld-folder-plus-symbolic
 ld-folder-search-symbolic
 ld-folder-symbolic
+ld-globe-symbolic
 ld-hard-drive-symbolic
 ld-history-symbolic
 ld-house-symbolic
@@ -38,6 +39,7 @@ ld-panel-right-symbolic
 ld-plus-symbolic
 ld-presentation-symbolic
 ld-save-symbolic
+ld-server-symbolic
 ld-trash-2-symbolic
 ld-usb-symbolic
 ld-video-symbolic

@@ -21,9 +21,12 @@ import (
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/spawn"
+	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/netfs"
 	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
+	"github.com/stubbedev/lys/secrets/client"
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/udisks"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
@@ -104,11 +107,25 @@ func Run(paths []string, service bool) error {
 	if system != nil {
 		defer func() { _ = system.Close() }()
 	}
+	session, err := dbusx.DialSession(context.Background(), busTimeout)
+	if err != nil {
+		log.Printf("files: no session bus, so no keyring for network passwords: %v", err)
+	} else {
+		defer func() { _ = session.Close() }()
+	}
+	mounts := vfs.NewMounts()
+	defer func() {
+		if err := mounts.Close(); err != nil {
+			log.Printf("files: %v", err)
+		}
+	}()
+	network := newNetwork(home, session)
+	defer network.Close()
 	h := &host{app: application, db: mime.System(), svc: svc}
 	defer h.work.Wait()
 	w := &window{app: application, theme: theme, host: h}
 	w.cfg = Config{
-		Host: h, Bin: bin, KeySym: application.KeySym, Sheet: theme.Sheet,
+		Host: h, Bin: bin, KeySym: application.KeySym, Sheet: theme.Sheet, FetchDir: fetchDir(),
 		Browser: filebrowser.Deps{
 			Invoke:         application.Invoke,
 			Font:           app.FontFallback(typeface),
@@ -131,6 +148,8 @@ func Run(paths []string, service bool) error {
 			OpenFile:      h.OpenFile,
 			Animations:    func() config.AnimationsConfig { return h.svc.Config().Animations },
 			Documents:     dochelper.Opener(""),
+			Mounts:        mounts,
+			Network:       network,
 		},
 	}
 	defer w.close()
@@ -268,6 +287,37 @@ func userPlaces(home string) []filebrowser.Place {
 		log.Printf("files: places: %v", err)
 	}
 	return places
+}
+
+// newNetwork connects to network locations trusting the hosts in
+// ~/.ssh/known_hosts, trying the SSH agent first, keeping passwords in
+// the keyring over session (none without a bus) and the servers
+// connected to in the state directory.
+func newNetwork(home string, session *dbus.Conn) *filebrowser.Network {
+	agent := os.Getenv("SSH_AUTH_SOCK")
+	dial := func(ctx context.Context, loc vfs.Location, cred vfs.Credentials, trust *vfs.Trust) (vfs.Conn, error) {
+		return netfs.Connect(ctx, loc, cred, trust, netfs.Options{AgentSocket: agent})
+	}
+	var keyring filebrowser.Keyring
+	if session != nil {
+		keyring = client.NewKeychain(session)
+	}
+	servers := ""
+	if dir, ok := xdg.OS.StateDir("lys-files"); ok {
+		servers = filepath.Join(dir, "servers")
+	}
+	return filebrowser.NewNetwork(dial, &vfs.Trust{KnownHosts: filepath.Join(home, ".ssh", "known_hosts")}, keyring, servers)
+}
+
+// fetchDir is where files on network locations are copied to be opened,
+// "" without a cache directory.
+func fetchDir() string {
+	dir, ok := xdg.OS.CacheDir("lys-files")
+	if !ok {
+		log.Print("files: no cache directory; files on network locations do not open in apps")
+		return ""
+	}
+	return filepath.Join(dir, "network")
 }
 
 // viewFile keeps the sort and layout across runs, "" without a state

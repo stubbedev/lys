@@ -1,7 +1,10 @@
 package files
 
 import (
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -98,5 +101,34 @@ func TestANetworkLocationsMenuNeedsNoLocalFolder(t *testing.T) {
 	}
 	if !slices.Contains(items, msg("files-paste")) {
 		t.Errorf("the menu offers no paste: %v", items)
+	}
+}
+
+// A file on a network location opens as a copy fetched into a folder of
+// its own; without a fetch folder it says it cannot open.
+func TestAFileOnANetworkLocationOpensAsAFetchedCopy(t *testing.T) {
+	hs := newHarness(t)
+	hs.connect(t)
+	fetch := t.TempDir()
+	hs.f.cfg.FetchDir = fetch
+	hs.open(hs.root)
+	hs.goTo("sftp://bob@nas/share")
+	hs.pick(t, "remote.txt")
+	hs.menu(t, msg("files-open"))
+	waittest.Until(t, func() bool {
+		var n int
+		hs.run(func() { n = len(hs.opened) })
+		return n == 1
+	}, "the fetched copy to open")
+	var opened string
+	hs.run(func() { opened = hs.opened[0] })
+	if data, err := os.ReadFile(opened); err != nil || string(data) != "remote" || !strings.HasPrefix(opened, fetch+"/") || filepath.Base(opened) != "remote.txt" {
+		t.Errorf("opened %q holding %q, %v", opened, data, err)
+	}
+	hs.f.cfg.FetchDir = ""
+	hs.pick(t, "remote.txt")
+	hs.menu(t, msg("files-open"))
+	if !slices.Contains(hs.toasts, locale.T().Get("files-open-failed", i18n.Str("name", "remote.txt"))) {
+		t.Errorf("opening without a fetch folder said %v", hs.toasts)
 	}
 }

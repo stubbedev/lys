@@ -87,6 +87,12 @@ type harness struct {
 
 func newHarness(t *testing.T, viewFile string) *harness {
 	t.Helper()
+	return newHarnessWith(t, viewFile, nil)
+}
+
+// newHarnessWith is newHarness with the deps tweak changes.
+func newHarnessWith(t *testing.T, viewFile string, tweak func(*Deps)) *harness {
+	t.Helper()
 	conf := config.Defaults()
 	conf.Animations.Enabled = false
 	hs := &harness{t: t, root: browsertest.Tree(t), theme: apptheme.New(conf), mounts: vfs.NewMounts()}
@@ -102,7 +108,7 @@ func newHarness(t *testing.T, viewFile string) *harness {
 	// the next test touches the widget package's loop state, and the
 	// browser closes.
 	t.Cleanup(hs.end)
-	hs.s = NewStandalone(Deps{
+	d := Deps{
 		Invoke:     hs.invoke,
 		Font:       treetest.Font(t),
 		MIME:       browsertest.MIME(t),
@@ -115,7 +121,11 @@ func newHarness(t *testing.T, viewFile string) *harness {
 		ForgetImage: func(id render.ImageID) {
 			hs.forgotten = append(hs.forgotten, id)
 		},
-	}, WindowDeps{
+	}
+	if tweak != nil {
+		tweak(&d)
+	}
+	hs.s = NewStandalone(d, WindowDeps{
 		Open: func(s WindowSpec) (Window, error) {
 			hs.mu.Lock()
 			defer hs.mu.Unlock()

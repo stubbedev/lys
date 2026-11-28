@@ -79,13 +79,16 @@ type Question struct {
 	Answer          func(response string)
 }
 
-// Config is what the file manager is built from.
+// Config is what the file manager is built from. FetchDir is where a
+// file on a network location is copied to be opened in an app, ""
+// opening none.
 type Config struct {
-	Host    Host
-	Browser filebrowser.Deps
-	Bin     fileops.Bin
-	KeySym  keys.Translator
-	Sheet   *widget.Stylesheet
+	Host     Host
+	Browser  filebrowser.Deps
+	Bin      fileops.Bin
+	KeySym   keys.Translator
+	Sheet    *widget.Stylesheet
+	FetchDir string
 }
 
 // Files is the file manager's window: its tabs, the operations

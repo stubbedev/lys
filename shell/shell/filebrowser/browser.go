@@ -8,6 +8,7 @@ package filebrowser
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"slices"
@@ -172,6 +173,9 @@ type Deps struct {
 	// Mounts are the filesystems the browser lists: the local disk and
 	// the locations connected; nil lists the local disk alone.
 	Mounts *vfs.Mounts
+	// Network connects to network locations, from Connect to Server and
+	// an address typed into the location entry; nil offers neither.
+	Network *Network
 }
 
 // Options are one browse: where it starts, what it lists and offers,
@@ -334,6 +338,12 @@ func New(d Deps, setFocus func(widget.Widget) error) *Browser {
 // found to then, unless the browse it started in ended: for what a
 // dead mount could hang.
 func OffLoop[T any](c *Browser, check func() T, then func(T)) {
+	offLoopOr(c, check, then, func(T) {})
+}
+
+// offLoopOr is OffLoop handing what check found to dropped instead of
+// then once the browse it started in ended: for what must be let go.
+func offLoopOr[T any](c *Browser, check func() T, then, dropped func(T)) {
 	u := c.ui
 	c.checking++
 	c.offLoop.Go(func() {
@@ -342,7 +352,9 @@ func OffLoop[T any](c *Browser, check func() T, then func(T)) {
 			c.checking--
 			if c.ui == u && c.active {
 				then(v)
+				return
 			}
+			dropped(v)
 		})
 	})
 }
@@ -645,10 +657,16 @@ func (c *Browser) build() {
 	u.newFolder.Append(newFolderRow, false)
 	u.newFolder.Append(widget.NewSeparator(widget.Horizontal), false)
 	u.newFolder.SetVisible(false)
+	if c.d.Network != nil {
+		u.connect = c.newConnectPanel()
+	}
 
 	main := &dropZone{Box: widget.NewBox(widget.Column, 0, 0), onDrop: c.droppedOnMain, over: c.dragOverMain, left: c.dragLeftMain}
 	main.Append(widget.NewSeparator(widget.Horizontal), false)
 	main.Append(u.newFolder, false)
+	if u.connect != nil {
+		main.Append(u.connect.box, false)
+	}
 	main.Append(body, true)
 	main.Append(widget.NewSeparator(widget.Horizontal), false)
 	for _, row := range o.Above {
@@ -760,6 +778,12 @@ func (c *Browser) goToLocation(text string) {
 		if st.err == nil && st.info.IsDir {
 			c.HideLocation()
 			c.goTo(path)
+			return
+		}
+		if c.d.Network != nil && (errors.Is(st.err, vfs.ErrNotMounted) || errors.Is(st.err, vfs.ErrScheme)) {
+			c.HideLocation()
+			c.ShowConnect(path)
+			c.connectTyped(path)
 			return
 		}
 		if c.o.OnTypedPath == nil || !c.o.OnTypedPath(path, st.err == nil) {
@@ -933,6 +957,9 @@ type ui struct {
 	// newFolder is the row naming a folder to create.
 	newFolder     *widget.Box
 	newFolderName *widget.Entry
+	// connect is the band connecting to a server, nil without a
+	// network.
+	connect *connectPanel
 	// favorites is the sidebar's Favorites list.
 	favorites *widget.Box
 	// locations is the sidebar's Locations list, unlock the passphrase

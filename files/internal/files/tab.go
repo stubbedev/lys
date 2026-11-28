@@ -70,7 +70,7 @@ func (f *Files) insertTab(at int, dir string) *tab {
 		Gathered:       true,
 		Above:          []widget.Widget{t.prompt.row},
 		Below:          []widget.Widget{statusRow},
-		OnFile:         func(e filebrowser.Entry) { f.cfg.Host.OpenFile(e.Path) },
+		OnFile:         func(e filebrowser.Entry) { f.open(t, []filebrowser.Entry{e}) },
 		ContextMenu:    func(sel []filebrowser.Entry) []widget.MenuItem { return f.menu(t, sel) },
 		OnDrop:         f.drop,
 		DragActions:    dragActions,

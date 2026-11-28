@@ -26,8 +26,10 @@ type Server struct {
 	ln   net.Listener
 	wg   sync.WaitGroup
 	mu   sync.Mutex
-	// logins counts the logins that passed.
+	// logins counts the logins that passed; conns are the connections
+	// open, closed when the test ends.
 	logins int
+	conns  map[net.Conn]bool
 }
 
 // Start serves SFTP to user with password on 127.0.0.1 until the test
@@ -42,7 +44,7 @@ func Start(t testing.TB, user, password string) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s := &Server{Key: signer.PublicKey()}
+	s := &Server{Key: signer.PublicKey(), conns: map[net.Conn]bool{}}
 	config := &ssh.ServerConfig{
 		PasswordCallback: func(meta ssh.ConnMetadata, pw []byte) (*ssh.Permissions, error) {
 			if meta.User() == user && string(pw) == password {
@@ -66,11 +68,24 @@ func Start(t testing.TB, user, password string) *Server {
 			if err != nil {
 				return
 			}
-			s.wg.Go(func() { serve(c, config) })
+			s.mu.Lock()
+			s.conns[c] = true
+			s.mu.Unlock()
+			s.wg.Go(func() {
+				serve(c, config)
+				s.mu.Lock()
+				delete(s.conns, c)
+				s.mu.Unlock()
+			})
 		}
 	})
 	t.Cleanup(func() {
 		_ = s.ln.Close()
+		s.mu.Lock()
+		for c := range s.conns {
+			_ = c.Close()
+		}
+		s.mu.Unlock()
 		s.wg.Wait()
 	})
 	return s

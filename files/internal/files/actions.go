@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -98,6 +100,8 @@ func (f *Files) open(t *tab, sel []filebrowser.Entry) {
 	navigated := false
 	for _, e := range sel {
 		switch {
+		case !e.IsDir && vfs.IsRemote(e.Path):
+			f.openRemote(e.Path)
 		case !e.IsDir:
 			f.cfg.Host.OpenFile(e.Path)
 		case !navigated:
@@ -107,6 +111,32 @@ func (f *Files) open(t *tab, sel []filebrowser.Entry) {
 			f.newTab(e.Path, nil)
 		}
 	}
+}
+
+// openRemote copies the file at the network location loc into a folder
+// of its own under the fetch folder, as a copy that shows its progress,
+// and opens the copy in its default app; changes to the copy stay on
+// the local disk.
+func (f *Files) openRemote(loc string) {
+	if f.cfg.FetchDir == "" {
+		f.cfg.Host.Toast(locale.T().Get("files-open-failed", i18n.Str("name", vfs.Base(loc))), nil)
+		return
+	}
+	if err := os.MkdirAll(f.cfg.FetchDir, 0o700); err != nil {
+		log.Printf("files: open %s: %v", loc, err)
+		f.cfg.Host.Toast(locale.T().Get("files-open-failed", i18n.Str("name", vfs.Base(loc))), nil)
+		return
+	}
+	dir, err := os.MkdirTemp(f.cfg.FetchDir, "open-")
+	if err != nil {
+		log.Printf("files: open %s: %v", loc, err)
+		f.cfg.Host.Toast(locale.T().Get("files-open-failed", i18n.Str("name", vfs.Base(loc))), nil)
+		return
+	}
+	local := filepath.Join(dir, vfs.Base(loc))
+	f.jobs.start(copying, fileops.Copy{Sources: []string{loc}, Dest: dir, Mounts: f.mounts()}, func(*fileops.Undo) {
+		f.cfg.Host.OpenFile(local)
+	})
 }
 
 // openWith is the Open With submenu: the apps that open the type of
