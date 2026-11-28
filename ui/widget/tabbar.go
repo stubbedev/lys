@@ -16,20 +16,27 @@ import (
 const TabMime = "application/x-lys-ui-tab"
 
 // TabBar is libadwaita's AdwTabBar: the tabs of a TabView in a row.
-// Clicking a tab selects it, its close button closes it (pinned tabs
-// have none), and dragging a tab drops it at a position in this bar or
-// in another window's, which moves the page there. Tabs show an icon
-// (or a spinner while loading), the title, an attention mark, and the
-// page's indicator. It styles as `tabbar` with `tab` children.
+// Clicking a tab selects it, its close button or a middle click closes
+// it (pinned tabs have none and keep it), and dragging a tab drops it
+// at a position in this bar or in another window's, which moves the
+// page there. Tabs show an icon (or a spinner while loading), the
+// title, an attention mark, and the page's indicator. The unpinned tabs
+// share one width, at most tabMaxEm of the text size, packed from the
+// start. It styles as `tabbar` with `tab` children.
 type TabBar struct {
 	composite
 	view   *TabView
 	face   render.Font
 	sizePx float64
 	row    *Box
+	// strip holds the unpinned tabs after the pinned ones in row.
+	strip  *Box
 	tabs   []*tabWidget
 	cancel func()
 }
+
+// tabMaxEm is the widest an unpinned tab gets, in text sizes.
+const tabMaxEm = 16
 
 type tabWidget struct {
 	Button
@@ -39,6 +46,16 @@ type tabWidget struct {
 	// controls are the buttons inside the tab, its indicator and close
 	// button, which take their own clicks.
 	controls []*Button
+}
+
+// Measure asks an unpinned tab's widest width as its natural one, so
+// the tabs share the bar up to it whatever their titles.
+func (t *tabWidget) Measure(axis Axis, forSize int) Sizes {
+	s := t.Button.Measure(axis, forSize)
+	if axis == Row && !t.page.pinned {
+		s.Nat = max(s.Min, int(t.bar.sizePx*tabMaxEm))
+	}
+	return s
 }
 
 // HitTest resolves to the control under p, else the tab.
@@ -70,7 +87,8 @@ func (t *tabWidget) DragContent() *DragContent {
 
 // NewTabBar returns a bar presenting view's tabs.
 func NewTabBar(face render.Font, sizePx float64, view *TabView) *TabBar {
-	b := &TabBar{view: view, face: requireFace("widget.NewTabBar", face), sizePx: sizePx, row: NewBox(Row, 2, 0)}
+	b := &TabBar{view: view, face: requireFace("widget.NewTabBar", face), sizePx: sizePx, row: NewBox(Row, 2, 0), strip: NewBox(Row, 2, 0)}
+	b.strip.SetHomogeneous(true)
 	b.initComposite(b, b.row)
 	b.SetHExpand(true)
 	b.boxed = true
@@ -115,9 +133,15 @@ func (b *TabBar) rebuild() {
 		return
 	}
 	b.row.Clear()
+	b.strip.Clear()
 	for _, t := range b.tabs {
-		b.row.Append(t, !t.page.pinned)
+		if t.page.pinned {
+			b.row.Append(t, false)
+		} else {
+			b.strip.Append(t, false)
+		}
 	}
+	b.row.Append(b.strip, false)
 	b.InvalidateLayout()
 }
 
@@ -165,6 +189,15 @@ func (b *TabBar) newTab(p *TabPage) *tabWidget {
 	t := &tabWidget{Button: *NewButton(content, 6, 6), bar: b, page: p, look: lookOf(p), controls: controls}
 	t.SetElement("tab")
 	t.OnClick = func() { b.view.Select(p) }
+	if !p.pinned {
+		t.SetOnPointer(func(e PointerEvent) bool {
+			if e.Button != BTNMiddle {
+				return false
+			}
+			b.view.ClosePage(p)
+			return true
+		})
+	}
 	if p.tooltip != "" {
 		t.SetTooltip(p.tooltip)
 	}

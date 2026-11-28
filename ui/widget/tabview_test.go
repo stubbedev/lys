@@ -136,6 +136,68 @@ func TestTabBarCloseButtonTakesItsClick(t *testing.T) {
 	}
 }
 
+// A middle click on a tab closes its page, and on a pinned tab, which
+// has no close button, closes nothing; the other buttons only select.
+func TestTabBarMiddleClickClosesATab(t *testing.T) {
+	face := testFace(t)
+	v := NewTabView()
+	pinned := v.Append(NewSpacer(10, 10), "pinned")
+	a := v.Append(NewSpacer(10, 10), "a")
+	v.Append(NewSpacer(10, 10), "b")
+	v.SetPinned(pinned, true)
+	bar := NewTabBar(face, 12, v)
+	r := Router{Root: bar}
+	SizeWithin(bar, Size{W: 600, H: 40})
+	bar.Arrange(render.Rect{W: 600, H: 40})
+	press := func(button uint32, tab int) {
+		at := bar.Tabs()[tab].(*tabWidget).Bounds()
+		p := Point{X: at.X + 8, Y: at.Y + at.H/2}
+		r.Press(button, p, 0)
+		r.Release(button, p)
+	}
+	press(BTNRight, 1)
+	press(BTNMiddle, 0)
+	if !slices.Equal(titles(v), []string{"pinned", "a", "b"}) {
+		t.Fatalf("a right click and a middle click on the pinned tab left %v", titles(v))
+	}
+	press(BTNMiddle, 1)
+	if a.View() != nil || !slices.Equal(titles(v), []string{"pinned", "b"}) {
+		t.Errorf("a middle click on a left %v", titles(v))
+	}
+}
+
+// The unpinned tabs share one width, held to tabMaxEm text sizes in a
+// wide bar, packed from its start, and narrowing alike in a crowded one.
+func TestTabBarTabsShareAWidthUpToTheirMaximum(t *testing.T) {
+	face := testFace(t)
+	v := NewTabView()
+	v.Append(NewSpacer(10, 10), "a")
+	v.Append(NewSpacer(10, 10), "a much longer title than the other")
+	bar := NewTabBar(face, 12, v)
+	widths := func(w int) []int {
+		SizeWithin(bar, Size{W: w, H: 40})
+		bar.Arrange(render.Rect{W: w, H: 40})
+		var out []int
+		for _, tab := range bar.Tabs() {
+			out = append(out, tab.(*tabWidget).Bounds().W)
+		}
+		return out
+	}
+	limit := 12 * tabMaxEm
+	wide := widths(1200)
+	if wide[0] != limit || wide[1] != limit {
+		t.Errorf("in a 1200px bar the tabs are %v wide, want %d each", wide, limit)
+	}
+	first, second := bar.Tabs()[0].(*tabWidget).Bounds(), bar.Tabs()[1].(*tabWidget).Bounds()
+	if in := bar.insets(); first.X > in.margin.Left+in.border.Left+in.padding.Left || second.X-(first.X+first.W) > bar.row.spacing {
+		t.Errorf("the tabs at %v and %v are not packed from the bar's start", first, second)
+	}
+	narrow := widths(200)
+	if narrow[0] != narrow[1] || narrow[0] >= limit || narrow[0]*2 > 200 {
+		t.Errorf("in a 200px bar the tabs are %v wide", narrow)
+	}
+}
+
 func tabCloseButton(t *testing.T, tab *tabWidget) *Button {
 	t.Helper()
 	for _, w := range tab.Children()[0].(*Box).Children() {
