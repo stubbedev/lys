@@ -968,6 +968,14 @@ func (b *Backend) Resume() error {
 }
 
 func (b *Backend) Unplug() error {
+	return b.shutdown(false)
+}
+
+func (b *Backend) Close() error {
+	return b.shutdown(true)
+}
+
+func (b *Backend) shutdown(leave bool) error {
 	if b.closed {
 		return nil
 	}
@@ -980,28 +988,15 @@ func (b *Backend) Unplug() error {
 		if b.handler != nil {
 			errs = append(errs, b.handler.OutputRemoved(o))
 		}
+		if leave {
+			errs = append(errs, o.leaveOnScreen())
+		}
 		errs = append(errs, o.release())
 	}
-	if b.src != nil {
-		errs = append(errs, b.src.Remove())
-	}
-	return errors.Join(append(errs, b.alloc.close())...)
-}
-
-func (b *Backend) Close() error {
-	if b.closed {
-		return nil
-	}
-	b.closed = true
-	b.probes.Wait()
-	var errs []error
-	for len(b.outputs) > 0 {
-		o := b.outputs[0]
-		b.outputs = b.outputs[1:]
-		errs = append(errs, b.handler.OutputRemoved(o), o.leaveOnScreen(), o.release())
-	}
-	for key := range b.clientFBs {
-		b.forget(key)
+	if leave {
+		for key := range b.clientFBs {
+			b.forget(key)
+		}
 	}
 	if b.src != nil {
 		errs = append(errs, b.src.Remove())
