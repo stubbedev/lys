@@ -179,6 +179,46 @@ func TestTheLockPreviewLetsGoOfABackdropTheDraftNoLongerNames(t *testing.T) {
 	}
 }
 
+func TestTheLockPreviewClockIsGlassOnlyWhereTheLocksIs(t *testing.T) {
+	glass := func(t *testing.T, p *settingsPage) bool {
+		t.Helper()
+		preview, _ := previewedLock(t, p)
+		return widget.HasClass(lockClock(t, preview), "lock-glass-ink")
+	}
+	newPage := func(t *testing.T) (*kit, *settingsPage) {
+		t.Helper()
+		k := testKit(t, "")
+		p := buildPage(k, lockPage(nil))
+		set(t, k, p, "login.background-image", writePNG(t, "lock.png"))
+		set(t, k, p, "login.background-mode", string(config.BackgroundImage))
+		return k, p
+	}
+	for _, mode := range lockPreviewModes {
+		t.Run(mode.label, func(t *testing.T) {
+			k, p := newPage(t)
+			lockPreviewMode(t, p, mode.mode)
+			if !glass(t, p) {
+				t.Error("the clock over an image previews in ink")
+			}
+			for _, key := range []string{"styling.reduce-transparency", "styling.high-contrast"} {
+				set(t, k, p, key, true)
+				if glass(t, p) {
+					t.Errorf("%s previews a glass clock", key)
+				}
+				set(t, k, p, key, false)
+				if !glass(t, p) {
+					t.Errorf("%s turned off again previews the clock in ink", key)
+				}
+			}
+		})
+	}
+	k := testKit(t, "")
+	p := buildPage(k, lockPage(nil))
+	if glass(t, p) {
+		t.Error("the clock over the colour fill previews as glass")
+	}
+}
+
 func lockPreviewMode(t *testing.T, p *settingsPage, mode lockview.Mode) {
 	t.Helper()
 	found := treetest.WithClass(p, "settings-lock-preview-mode")

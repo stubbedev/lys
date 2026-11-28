@@ -72,7 +72,7 @@ func (l *lockPreviewPanel) configChanged() { l.preview.configChanged() }
 
 func drawLockOnScreen(k *kit, cfg *config.Config, font render.Font, bg *lockBackdrop, mode lockview.Mode) widget.Widget {
 	shown := bg.show(lockBackdropKey{path: cfg.Login.Background.ImagePath(cfg.Wallpaper.Wallpaper), sigma: cfg.Login.Blur.Sigma()})
-	spec := lockview.Spec{Mode: mode, Config: cfg.Login, Font: font, Backdrop: shown.backdrop}
+	spec := lockview.Spec{Mode: mode, Config: cfg.Login, Font: font, Backdrop: shown.backdrop, Opaque: !cfg.Styling.Translucent()}
 	fingerprint := lockPreviewSpec(&spec, cfg, font)
 	surface := lockview.Build(spec)
 	if mode == lockview.Greeter {
