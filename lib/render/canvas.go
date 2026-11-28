@@ -781,6 +781,11 @@ func (c *Canvas) Overlay(paint func(*Canvas)) {
 	c.overlays = append(c.overlays, overlay{paint, c.alpha, c.bright})
 }
 
+// Overlays is how many top-layer paints the armed frame deferred so
+// far: a container comparing it around its children's paint learns
+// whether any of them hangs content past its clip.
+func (c *Canvas) Overlays() int { return len(c.overlays) }
+
 // FlushOverlays runs the deferred top-layer paints in queue order (one
 // queued while flushing runs too) and disarms the frame.
 func (c *Canvas) FlushOverlays() {

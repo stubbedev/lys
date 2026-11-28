@@ -245,17 +245,10 @@ func TestListStepAllocatesNothingAcrossRowsItHolds(t *testing.T) {
 	}
 }
 
-func TestAnOverlappedScrollDoesNotMove(t *testing.T) {
-	loadCSS(t, `.over { position: absolute; left: 10px; top: 10px; background-color: #ff0000; }
-		.round { border-radius: 12px; background-color: #222222; }
+func TestAScrollOverAShapedBackdropDoesNotMove(t *testing.T) {
+	loadCSS(t, `.round { border-radius: 12px; background-color: #222222; }
 		.grad { background-image: linear-gradient(red, blue); }`)
 	for name, build := range map[string]func(sc *Scroll) Widget{
-		"an overlapping sibling": func(sc *Scroll) Widget {
-			over := NewBox(Column, 0, 0)
-			over.AddClass("over")
-			over.SetSizeRequest(50, 50)
-			return NewBox(Column, 0, 0).Append(sc, true).Append(over, false)
-		},
 		"rounded corners behind": func(sc *Scroll) Widget {
 			b := NewBox(Column, 0, 0).Append(sc, true)
 			b.AddClass("round")
@@ -345,20 +338,40 @@ func TestAScrollOfBaseRowsThatDeclareTheirInkMovesAndArrangesWhatShows(t *testin
 	}
 }
 
-func TestAScrollOfBaseRowsThatDeclareNothingRepaintsItsView(t *testing.T) {
-	sc, _ := baseRowScroll(false)
+func TestAScrollOfBaseRowsThatDeclareNothingMovesAndArrangesThemAll(t *testing.T) {
+	sc, arranges := baseRowScroll(false)
 	r := render.Rect{W: 400, H: 300}
 	SizeWithin(sc, Size{W: 400, H: 300})
 	sc.Arrange(r)
 	var damage DamageCollector
 	damage.CollectFrame(sc)
 	sc.SetOffset(0, 10)
+	before := *arranges
 	sc.Arrange(r)
-	rects, moves, _ := damage.CollectFrame(sc)
-	if len(moves) != 0 {
-		t.Errorf("rows that may paint anywhere were copied: %+v", moves)
+	if got := *arranges - before; got != 2000 {
+		t.Errorf("arranged %d of 2000 rows, want them all: rows that may paint anywhere are never culled", got)
 	}
-	if got := render.UnionAll(rects); got.Intersect(sc.Bounds()) != sc.Bounds() {
-		t.Errorf("owed %+v, want the whole view %+v", got, sc.Bounds())
+	rects, moves, _ := damage.CollectFrame(sc)
+	if len(moves) != 1 || moves[0].DY != -10 {
+		t.Fatalf("moves %+v, want the view copied up by 10: the scroll clips what its rows paint", moves)
+	}
+	if got, want := DamageArea(rects), 400*10; got > want {
+		t.Errorf("owed %d px, want the 10 px strip %d", got, want)
+	}
+}
+
+func TestAnOverlappingSiblingIsOwedWhereItStandsAndWhereTheMoveCarriedIt(t *testing.T) {
+	loadCSS(t, `.over { position: absolute; left: 10px; top: 10px; background-color: #ff0000; }`)
+	sc, _ := longScroll(t, 100)
+	over := NewBox(Column, 0, 0)
+	over.AddClass("over")
+	over.SetSizeRequest(50, 50)
+	root := NewBox(Column, 0, 0).Append(sc, true).Append(over, false)
+	moves, painted := movedFrame(t, root, 300, 200, 120, func() { sc.SetOffset(0, 40) })
+	if len(moves) != 1 || moves[0].DY != -40 {
+		t.Fatalf("moves %+v, want the view moved up by 40", moves)
+	}
+	if limit := 300*40 + 2*50*50; painted > limit {
+		t.Errorf("repainted %d px, want the strip and the sibling twice, at most %d", painted, limit)
 	}
 }

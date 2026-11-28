@@ -76,8 +76,12 @@ func (n *node) settleCulled() {
 	t.endShift(st)
 }
 
+// settleShiftable records whether a move can follow the arrangement:
+// every shown child placed in flow at a slot that moves with the box. An
+// empty box lays its in-flow children at the origin, wherever it stands,
+// so a move leaves them where they are.
 func (b *Box) settleShiftable(inner render.Rect) {
-	b.shiftable = !inner.Empty() && len(b.departing) == 0
+	b.shiftable = len(b.departing) == 0
 	for _, c := range b.child {
 		n := nodeOf(c.w)
 		switch {
@@ -85,15 +89,41 @@ func (b *Box) settleShiftable(inner render.Rect) {
 			b.shiftable = false
 		case !ownVisible(c.w):
 			n.slotSet = false
-		case flowOf(c.w) == flowOut || !n.slotSet:
+		case flowOf(c.w) == flowOut:
+			b.shiftable = false
+		case inner.Empty():
+			n.slotSet = false
+		case !n.slotSet:
 			b.shiftable = false
 		}
 	}
 }
 
+// noteEscapes records, after a clipping view painted its content under
+// the clip prev was the device clip before, whether the content deferred
+// top-layer paints past deferred, which its clip does not hold: a view
+// whose content paints only inside its clip may move its pixels. A paint
+// clipped short of the view may have skipped such content, so it keeps
+// an escape it saw before.
+func (n *node) noteEscapes(cv *render.Canvas, view, prev render.Rect, deferred int) {
+	dev := cv.MapRect(view)
+	n.escapes = cv.Overlays() > deferred || n.escapes && dev.Intersect(prev) != dev
+}
+
+// shifter is a scrolled child that can follow its viewport's offset by
+// moving what it laid out, rather than laying it out again.
+type shifter interface{ canShift() bool }
+
+// canShift lets a clamp pass the move to its root: its own layout reads
+// only the width it is given, which a move keeps.
+func (c *Clamp) canShift() bool {
+	s, ok := c.root.(shifter)
+	return ok && s.canShift()
+}
+
 func (b *Box) canShift() bool {
 	s := b.arranged
-	return !b.arrangeStale && b.shiftable && !s.volatile && s.style == styleGen.Load() && s.theme == themeGen.Load()
+	return !b.relayout && b.shiftable && !s.volatile && s.style == styleGen.Load() && s.theme == themeGen.Load()
 }
 
 func (b *Box) shiftTo(t *treeState, r render.Rect) {
@@ -167,21 +197,21 @@ func (n *node) drainShift(c *DamageCollector, sh *viewShift, view, area render.R
 	}
 }
 
-// takeShift drains a view's shift as drainShift does, and owes the plate
-// corners a copied view carried over.
+// takeShift drains a view's shift as drainShift does, and owes the
+// rects a copied view carried over.
 func (n *node) takeShift(c *DamageCollector, sh *viewShift, view, area render.Rect, blit bool) {
 	moved := *sh
 	n.drainShift(c, sh, view, area, blit)
 	if !blit || !moved.moved() {
 		return
 	}
-	for _, corner := range c.plateCorners {
-		n.extras = append(n.extras, corner)
-		if to := shifted(corner, moved.dx, moved.dy).Intersect(area); !to.Empty() {
+	for _, cover := range c.carriedRects {
+		n.extras = append(n.extras, cover)
+		if to := shifted(cover, moved.dx, moved.dy).Intersect(area); !to.Empty() {
 			n.extras = append(n.extras, to)
 		}
 	}
-	c.plateCorners = c.plateCorners[:0]
+	c.carriedRects = c.carriedRects[:0]
 }
 
 func flatBehind(n *node, w Widget, area render.Rect) bool {
@@ -205,48 +235,109 @@ func flatBehind(n *node, w Widget, area render.Rect) bool {
 	return area.Intersect(inner) == area
 }
 
-// clearOfSiblings reports whether no sibling of self under p paints
-// over area. Past a Morph's rounded plate it collects the plate corners
-// under area into c: flat everywhere else, so a move still copies, and
-// owes them where they are and where it carried their pixels.
+// shiftHost is a container a scrolled view inside it can move its
+// pixels through: clearOver reports whether, besides child, it paints
+// nothing over area but what bounds itself, and appends what does to the
+// collector's carried rects, owed where it stands and where a copy
+// carries it.
+type shiftHost interface {
+	clearOver(c *DamageCollector, child Widget, area render.Rect) bool
+}
+
+// clearOfSiblings reports whether nothing p paints besides self covers
+// area but what the collector's carried rects then hold. A container that is no
+// shiftHost may paint anything, so it refuses.
 func clearOfSiblings(c *DamageCollector, p Widget, self Widget, area render.Rect) bool {
-	var b *Box
-	switch v := p.(type) {
-	case *Box:
-		b = v
-	case *Scroll:
-		return true
-	case *Morph:
-		if v.reveal < 1 {
-			return false
-		}
-		var ok bool
-		c.plateCorners, ok = v.plateCorners(area, c.plateCorners)
-		return ok
-	default:
-		return false
-	}
-	for _, c := range b.child {
-		if c.w == self || !ownVisible(c.w) {
-			continue
-		}
-		n := nodeOf(c.w)
-		if n == nil || !n.inkClosed {
-			return false
-		}
-		box := n.solidBox
-		if n.focusWithin > 0 {
-			box = n.inkBox
-		}
-		if !box.Intersect(area).Empty() {
+	h, ok := p.(shiftHost)
+	return ok && h.clearOver(c, self, area)
+}
+
+// coverSiblings is clearOver for children painted in one plane: each
+// shown child but self whose paint meets area is a cover.
+func coverSiblings(c *DamageCollector, kids []Widget, self Widget, area render.Rect) bool {
+	at := nodeOf(self)
+	for _, k := range kids {
+		if nodeOf(k) != at && !coverSibling(c, k, area) {
 			return false
 		}
 	}
 	return true
 }
 
+func coverSibling(c *DamageCollector, k Widget, area render.Rect) bool {
+	if !ownVisible(k) {
+		return true
+	}
+	n := nodeOf(k)
+	if n == nil {
+		return false
+	}
+	box := n.coverBox()
+	if cover := box.Intersect(area); !cover.Empty() {
+		c.carriedRects = append(c.carriedRects, cover)
+	}
+	return true
+}
+
+// coverBox is what a widget paints, as far as a move beside it knows:
+// its audited ink, or else what it repaints when it changes, its bounds
+// grown by its CSS ink, and its focus ring while it holds the focus.
+func (n *node) coverBox() render.Rect {
+	switch {
+	case n.inkClosed && n.focusWithin > 0:
+		return n.inkBox
+	case n.inkClosed:
+		return n.solidBox
+	case n.focusWithin > 0:
+		return focusInk.Grow(n.ink.Grow(n.bounds))
+	}
+	return n.ink.Grow(n.bounds)
+}
+
+func (b *Box) clearOver(c *DamageCollector, self Widget, area render.Rect) bool {
+	at := nodeOf(self)
+	for _, k := range b.child {
+		if nodeOf(k.w) != at && !coverSibling(c, k.w, area) {
+			return false
+		}
+	}
+	return true
+}
+
+func (o *Overlay) clearOver(c *DamageCollector, self Widget, area render.Rect) bool {
+	return coverSiblings(c, o.kids, self, area)
+}
+
+func (*Scroll) clearOver(*DamageCollector, Widget, render.Rect) bool { return true }
+
+// clearOver lets a stack at rest pass a move: it paints only its visible
+// page, while a switch paints both through layers.
+func (s *Stack) clearOver(*DamageCollector, Widget, render.Rect) bool { return s.prev == "" }
+
+func (*Clamp) clearOver(*DamageCollector, Widget, render.Rect) bool { return true }
+
+func (*Sidebar) clearOver(*DamageCollector, Widget, render.Rect) bool { return true }
+
+// clearOver lets a closed sheet pass a move from its content: an open one
+// shades it and paints its panel over it.
+func (s *Sheet) clearOver(_ *DamageCollector, self Widget, _ render.Rect) bool {
+	return !s.showing() && nodeOf(self) == nodeOf(s.root)
+}
+
+func (m *Morph) clearOver(c *DamageCollector, _ Widget, area render.Rect) bool {
+	if m.reveal < 1 {
+		return false
+	}
+	var ok bool
+	c.carriedRects, ok = m.plateCorners(area, c.carriedRects)
+	return ok
+}
+
+// blittable reports whether a clipping view's pixels in area may move:
+// its content paints only inside its clip, its backdrop is one flat
+// colour under area, and every container above it passes the move.
 func (n *node) blittable(c *DamageCollector, self Widget, area render.Rect) bool {
-	if !n.inkClosed || !flatBehind(n, self, area) {
+	if n.escapes || !flatBehind(n, self, area) {
 		return false
 	}
 	at := self
@@ -268,7 +359,7 @@ func (s *Scroll) arrangeContent(to render.Rect) {
 	offsetMoved := s.offX != s.arrOffX || s.offY != s.arrOffY
 	same := s.viewAt == s.view && to.W == s.childAt.W && to.H == s.childAt.H && (dx != 0 || dy != 0)
 	s.viewAt, s.childAt = s.view, to
-	if b, ok := s.child.(*Box); ok && same && offsetMoved && b.canShift() {
+	if sh, ok := s.child.(shifter); ok && same && offsetMoved && sh.canShift() {
 		t := s.scratch()
 		st := t.beginShift(s.view, true)
 		arrangeChild(s.child, to)
@@ -292,7 +383,7 @@ func (s *Scroll) drainScroll(c *DamageCollector) {
 	}
 	_, both := s.gutterStable()
 	area := s.contentArea()
-	c.plateCorners = c.plateCorners[:0]
+	c.carriedRects = c.carriedRects[:0]
 	blit := s.shift.moved() && !both && s.overshoot == [2]float64{} && s.blittable(c, s, area)
 	s.takeShift(c, &s.shift, s.view, area, blit)
 }
@@ -309,7 +400,7 @@ func (b *Box) damageClip() (render.Rect, bool) {
 }
 
 func (l *List) drainScroll(c *DamageCollector) {
-	c.plateCorners = c.plateCorners[:0]
+	c.carriedRects = c.carriedRects[:0]
 	blit := l.shift.moved() && l.blittable(c, l, l.view)
 	l.takeShift(c, &l.shift, l.view, l.view, blit)
 }

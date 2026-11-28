@@ -163,6 +163,9 @@ type node struct {
 	// A widget that keeps its layout across arranges clears it when it
 	// lays out again.
 	relayout bool
+	// escapes is set while a clipping view's content hangs paint past
+	// its clip, on the frame's top layer (noteEscapes).
+	escapes bool
 
 	// themeSeen stamps the theme generation this widget last joined a
 	// frame with; SetTheme bumps themeGen so every widget repaints once.

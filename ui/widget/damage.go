@@ -93,7 +93,7 @@ type DamageCollector struct {
 	moves        []ScrollMove
 	kids         kidStack
 	backdrop     []render.Rect
-	plateCorners []render.Rect
+	carriedRects []render.Rect
 	icons        uint64
 	takesMoves   bool
 	clip         render.Rect

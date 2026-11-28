@@ -661,7 +661,7 @@ func (l *List) Paint(cv *render.Canvas) {
 	v := l.style(l)
 	paintBoxBehind(cv, v, l.bounds, radiusOr(v, 0), borderOf(v), pickc(0, v, style.PropBackgroundColor, th.Surface))
 	prev := cv.PushClip(l.view)
-
+	deferred := cv.Overlays()
 	for _, r := range l.realized() {
 		PaintChild(cv, r)
 		if l.cursorRinged(r.idx) {
@@ -671,6 +671,7 @@ func (l *List) Paint(cv *render.Canvas) {
 			r.ring(cv, dropRingW)
 		}
 	}
+	l.noteEscapes(cv, l.view, prev, deferred)
 	cv.PopClip(prev)
 }
 

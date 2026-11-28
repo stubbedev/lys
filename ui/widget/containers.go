@@ -936,7 +936,9 @@ func (s *Scroll) Paint(cv *render.Canvas) {
 	defer paintOutline(cv, v, s.bounds, radii)
 	prev := cv.PushClip(s.view)
 	if s.child != nil {
+		deferred := cv.Overlays()
 		PaintChild(cv, s.child)
+		s.noteEscapes(cv, s.view, prev, deferred)
 	}
 	s.paintGlow(cv)
 	if s.ShowBars && s.alpha > 0 {

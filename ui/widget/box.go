@@ -602,7 +602,7 @@ func (b *Box) Arrange(r render.Rect) {
 		defer func() { t.shift.shifted = true }()
 	}
 	volatility, stickiness := t.volatility, t.stickiness
-	b.arrangeStale = false
+	b.arrangeStale, b.relayout = false, false
 	b.arranged = stamp
 	defer func() {
 		b.arranged.volatile = t.volatility != volatility
