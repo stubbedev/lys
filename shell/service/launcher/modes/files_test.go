@@ -105,7 +105,9 @@ func TestFilesKeepTheirListWhenANewerQueryEndsTheSearch(t *testing.T) {
 
 func TestEnterOpensAFileInItsDefaultAppAndAltShowsItInTheFileManager(t *testing.T) {
 	home, idx := fileFixture(t)
-	viewer := openertest.New(t).Handler(t, "viewer", "application/vnd.oasis.opendocument.spreadsheet")
+	desktop := openertest.New(t)
+	desktop.Write(t, "data/mime/globs2", "50:application/vnd.oasis.opendocument.spreadsheet:*.ods\n")
+	viewer := desktop.Handler(t, "viewer", "application/vnd.oasis.opendocument.spreadsheet")
 	var shown []string
 	m := newFilesMode(home, idx, func(_ context.Context, path string) error {
 		shown = append(shown, path)
