@@ -317,9 +317,9 @@ func (s *Service) handleEvent(sess *session, ev native.SubscribeEvent) {
 	case native.FacilitySource:
 		changed, err = foldObject(s, sess, ev, s.inputs, sess.conn.Source, fromSource)
 	case native.FacilitySinkInput:
-		changed, err = s.foldStream(ctx, sess, ev, StreamPlayback, sess.conn.SinkInput)
+		changed, err = foldStream(ctx, s, sess, ev, StreamPlayback, sess.conn.SinkInput)
 	case native.FacilitySourceOutput:
-		changed, err = s.foldStream(ctx, sess, ev, StreamRecord, sess.conn.SourceOutput)
+		changed, err = foldStream(ctx, s, sess, ev, StreamRecord, sess.conn.SourceOutput)
 	case native.FacilityCard:
 		changed, err = foldObject(s, sess, ev, s.cards, sess.conn.Card, func(c native.CardInfo) native.CardInfo { return c })
 	case native.FacilityServer:
@@ -339,8 +339,8 @@ func (s *Service) handleEvent(sess *session, ev native.SubscribeEvent) {
 	}
 }
 
-func foldObject[I, T any](s *Service, sess *session, ev native.SubscribeEvent, m map[uint32]T,
-	query func(context.Context, uint32) (I, error), convert func(I) T,
+func foldObject[X ~uint32, I, T any](s *Service, sess *session, ev native.SubscribeEvent, m map[uint32]T,
+	query func(context.Context, X) (I, error), convert func(I) T,
 ) (bool, error) {
 	if ev.Operation == native.OpRemove {
 		s.mu.Lock()
@@ -352,7 +352,7 @@ func foldObject[I, T any](s *Service, sess *session, ev native.SubscribeEvent, m
 		delete(m, ev.Index)
 		return had, nil
 	}
-	info, err := query(context.Background(), ev.Index)
+	info, err := query(context.Background(), X(ev.Index))
 	if err != nil {
 		return false, err
 	}
@@ -365,8 +365,8 @@ func foldObject[I, T any](s *Service, sess *session, ev native.SubscribeEvent, m
 	return true, nil
 }
 
-func (s *Service) foldStream(ctx context.Context, sess *session, ev native.SubscribeEvent, t StreamType,
-	query func(context.Context, uint32) (native.StreamInfo, error),
+func foldStream[X ~uint32](ctx context.Context, s *Service, sess *session, ev native.SubscribeEvent, t StreamType,
+	query func(context.Context, X) (native.StreamInfo, error),
 ) (bool, error) {
 	key := StreamKey{Index: ev.Index, Type: t}
 	if ev.Operation == native.OpRemove {
@@ -379,7 +379,7 @@ func (s *Service) foldStream(ctx context.Context, sess *session, ev native.Subsc
 		delete(s.streams, key)
 		return had, nil
 	}
-	info, err := query(ctx, ev.Index)
+	info, err := query(ctx, X(ev.Index))
 	if err != nil {
 		return false, err
 	}
@@ -639,9 +639,9 @@ func (s *Service) SetDeviceVolume(ctx context.Context, key DeviceKey, v Volume) 
 		return err
 	}
 	if key.Type == DeviceOutput {
-		return conn.SetSinkVolume(ctx, key.Index, v.toPulse())
+		return conn.SetSinkVolume(ctx, native.SinkIndex(key.Index), v.toPulse())
 	}
-	return conn.SetSourceVolume(ctx, key.Index, v.toPulse())
+	return conn.SetSourceVolume(ctx, native.SourceIndex(key.Index), v.toPulse())
 }
 
 // SetDeviceMute mutes or unmutes a device.
@@ -651,9 +651,9 @@ func (s *Service) SetDeviceMute(ctx context.Context, key DeviceKey, muted bool) 
 		return err
 	}
 	if key.Type == DeviceOutput {
-		return conn.SetSinkMute(ctx, key.Index, muted)
+		return conn.SetSinkMute(ctx, native.SinkIndex(key.Index), muted)
 	}
-	return conn.SetSourceMute(ctx, key.Index, muted)
+	return conn.SetSourceMute(ctx, native.SourceIndex(key.Index), muted)
 }
 
 // SetDevicePort switches a device's active port (headphones vs
@@ -664,9 +664,9 @@ func (s *Service) SetDevicePort(ctx context.Context, key DeviceKey, port string)
 		return err
 	}
 	if key.Type == DeviceOutput {
-		return conn.SetSinkPort(ctx, key.Index, port)
+		return conn.SetSinkPort(ctx, native.SinkIndex(key.Index), port)
 	}
-	return conn.SetSourcePort(ctx, key.Index, port)
+	return conn.SetSourcePort(ctx, native.SourceIndex(key.Index), port)
 }
 
 // SetDefault makes a device the default of its kind.
@@ -691,9 +691,9 @@ func (s *Service) SetStreamVolume(ctx context.Context, key StreamKey, v Volume) 
 		return err
 	}
 	if key.Type == StreamPlayback {
-		return conn.SetSinkInputVolume(ctx, key.Index, v.toPulse())
+		return conn.SetSinkInputVolume(ctx, native.SinkInputIndex(key.Index), v.toPulse())
 	}
-	return conn.SetSourceOutputVolume(ctx, key.Index, v.toPulse())
+	return conn.SetSourceOutputVolume(ctx, native.SourceOutputIndex(key.Index), v.toPulse())
 }
 
 // SetStreamMute mutes or unmutes a stream.
@@ -703,9 +703,9 @@ func (s *Service) SetStreamMute(ctx context.Context, key StreamKey, muted bool) 
 		return err
 	}
 	if key.Type == StreamPlayback {
-		return conn.SetSinkInputMute(ctx, key.Index, muted)
+		return conn.SetSinkInputMute(ctx, native.SinkInputIndex(key.Index), muted)
 	}
-	return conn.SetSourceOutputMute(ctx, key.Index, muted)
+	return conn.SetSourceOutputMute(ctx, native.SourceOutputIndex(key.Index), muted)
 }
 
 // MoveStream routes a stream to another device: a playback stream to
@@ -722,9 +722,9 @@ func (s *Service) MoveStream(ctx context.Context, key StreamKey, device DeviceKe
 		return err
 	}
 	if key.Type == StreamPlayback {
-		return conn.MoveSinkInput(ctx, key.Index, device.Index)
+		return conn.MoveSinkInput(ctx, native.SinkInputIndex(key.Index), native.SinkIndex(device.Index))
 	}
-	return conn.MoveSourceOutput(ctx, key.Index, device.Index)
+	return conn.MoveSourceOutput(ctx, native.SourceOutputIndex(key.Index), native.SourceIndex(device.Index))
 }
 
 // Card is one sound card: its profiles and the active one.
@@ -751,5 +751,5 @@ func (s *Service) SetCardProfile(ctx context.Context, index uint32, profile stri
 	if err != nil {
 		return err
 	}
-	return conn.SetCardProfile(ctx, index, profile)
+	return conn.SetCardProfile(ctx, native.CardIndex(index), profile)
 }

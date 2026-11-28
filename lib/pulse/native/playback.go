@@ -28,14 +28,14 @@ type PlaybackParams struct {
 // PlaybackInfo is what the server granted for a playback stream.
 // Latency is the sink's, in microseconds.
 type PlaybackInfo struct {
-	SinkInput    uint32
+	SinkInput    SinkInputIndex
 	MaxLength    uint32
 	TargetLength uint32
 	PreBuffer    uint32
 	MinRequest   uint32
 	SampleSpec   SampleSpec
 	ChannelMap   ChannelMap
-	SinkIndex    uint32
+	SinkIndex    SinkIndex
 	SinkName     string
 	Suspended    bool
 	Latency      uint64
@@ -58,7 +58,7 @@ type PlaybackStream struct {
 
 func decodePlaybackReply(r *Reader) (channel, missing uint32, info PlaybackInfo) {
 	channel = r.U32()
-	info.SinkInput = r.U32()
+	info.SinkInput = SinkInputIndex(r.U32())
 	missing = r.U32()
 	info.MaxLength = r.U32()
 	info.TargetLength = r.U32()
@@ -66,7 +66,7 @@ func decodePlaybackReply(r *Reader) (channel, missing uint32, info PlaybackInfo)
 	info.MinRequest = r.U32()
 	info.SampleSpec = r.SampleSpec()
 	info.ChannelMap = r.ChannelMap()
-	info.SinkIndex = r.U32()
+	info.SinkIndex = SinkIndex(r.U32())
 	info.SinkName = r.Str()
 	info.Suspended = r.Bool()
 	info.Latency = r.Usec()

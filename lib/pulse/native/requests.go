@@ -31,22 +31,22 @@ func (c *Conn) SourceOutputs(ctx context.Context) ([]StreamInfo, error) {
 }
 
 // Sink queries one sink by index.
-func (c *Conn) Sink(ctx context.Context, index uint32) (DeviceInfo, error) {
+func (c *Conn) Sink(ctx context.Context, index SinkIndex) (DeviceInfo, error) {
 	return one(ctx, c, CmdGetSinkInfo, byIndexAndName(index), decodeDevice)
 }
 
 // Source queries one source by index.
-func (c *Conn) Source(ctx context.Context, index uint32) (DeviceInfo, error) {
+func (c *Conn) Source(ctx context.Context, index SourceIndex) (DeviceInfo, error) {
 	return one(ctx, c, CmdGetSourceInfo, byIndexAndName(index), decodeDevice)
 }
 
 // SinkInput queries one playback stream by index.
-func (c *Conn) SinkInput(ctx context.Context, index uint32) (StreamInfo, error) {
+func (c *Conn) SinkInput(ctx context.Context, index SinkInputIndex) (StreamInfo, error) {
 	return one(ctx, c, CmdGetSinkInputInfo, byIndex(index), decodeSinkInput)
 }
 
 // SourceOutput queries one recording stream by index.
-func (c *Conn) SourceOutput(ctx context.Context, index uint32) (StreamInfo, error) {
+func (c *Conn) SourceOutput(ctx context.Context, index SourceOutputIndex) (StreamInfo, error) {
 	return one(ctx, c, CmdGetSourceOutputInfo, byIndex(index), decodeSourceOutput)
 }
 
@@ -59,56 +59,56 @@ func (c *Conn) Subscribe(ctx context.Context, mask SubscriptionMask) error {
 }
 
 // SetSinkVolume sets a sink's per-channel volume by index.
-func (c *Conn) SetSinkVolume(ctx context.Context, index uint32, v CVolume) error {
+func (c *Conn) SetSinkVolume(ctx context.Context, index SinkIndex, v CVolume) error {
 	w := byIndexAndName(index)
 	w.CVolume(v)
 	return c.exec(ctx, CmdSetSinkVolume, w)
 }
 
 // SetSourceVolume sets a source's per-channel volume by index.
-func (c *Conn) SetSourceVolume(ctx context.Context, index uint32, v CVolume) error {
+func (c *Conn) SetSourceVolume(ctx context.Context, index SourceIndex, v CVolume) error {
 	w := byIndexAndName(index)
 	w.CVolume(v)
 	return c.exec(ctx, CmdSetSourceVolume, w)
 }
 
 // SetSinkInputVolume sets a playback stream's volume.
-func (c *Conn) SetSinkInputVolume(ctx context.Context, index uint32, v CVolume) error {
+func (c *Conn) SetSinkInputVolume(ctx context.Context, index SinkInputIndex, v CVolume) error {
 	w := byIndex(index)
 	w.CVolume(v)
 	return c.exec(ctx, CmdSetSinkInputVolume, w)
 }
 
 // SetSourceOutputVolume sets a recording stream's volume.
-func (c *Conn) SetSourceOutputVolume(ctx context.Context, index uint32, v CVolume) error {
+func (c *Conn) SetSourceOutputVolume(ctx context.Context, index SourceOutputIndex, v CVolume) error {
 	w := byIndex(index)
 	w.CVolume(v)
 	return c.exec(ctx, CmdSetSourceOutputVolume, w)
 }
 
 // SetSinkMute mutes or unmutes a sink by index.
-func (c *Conn) SetSinkMute(ctx context.Context, index uint32, mute bool) error {
+func (c *Conn) SetSinkMute(ctx context.Context, index SinkIndex, mute bool) error {
 	w := byIndexAndName(index)
 	w.Bool(mute)
 	return c.exec(ctx, CmdSetSinkMute, w)
 }
 
 // SetSourceMute mutes or unmutes a source by index.
-func (c *Conn) SetSourceMute(ctx context.Context, index uint32, mute bool) error {
+func (c *Conn) SetSourceMute(ctx context.Context, index SourceIndex, mute bool) error {
 	w := byIndexAndName(index)
 	w.Bool(mute)
 	return c.exec(ctx, CmdSetSourceMute, w)
 }
 
 // SetSinkInputMute mutes or unmutes a playback stream.
-func (c *Conn) SetSinkInputMute(ctx context.Context, index uint32, mute bool) error {
+func (c *Conn) SetSinkInputMute(ctx context.Context, index SinkInputIndex, mute bool) error {
 	w := byIndex(index)
 	w.Bool(mute)
 	return c.exec(ctx, CmdSetSinkInputMute, w)
 }
 
 // SetSourceOutputMute mutes or unmutes a recording stream.
-func (c *Conn) SetSourceOutputMute(ctx context.Context, index uint32, mute bool) error {
+func (c *Conn) SetSourceOutputMute(ctx context.Context, index SourceOutputIndex, mute bool) error {
 	w := byIndex(index)
 	w.Bool(mute)
 	return c.exec(ctx, CmdSetSourceOutputMute, w)
@@ -125,22 +125,22 @@ func (c *Conn) SetDefaultSource(ctx context.Context, name string) error {
 }
 
 // MoveSinkInput routes a playback stream to another sink.
-func (c *Conn) MoveSinkInput(ctx context.Context, index, sink uint32) error {
+func (c *Conn) MoveSinkInput(ctx context.Context, index SinkInputIndex, sink SinkIndex) error {
 	return c.exec(ctx, CmdMoveSinkInput, moveArgs(index, sink))
 }
 
 // MoveSourceOutput routes a recording stream to another source.
-func (c *Conn) MoveSourceOutput(ctx context.Context, index, source uint32) error {
+func (c *Conn) MoveSourceOutput(ctx context.Context, index SourceOutputIndex, source SourceIndex) error {
 	return c.exec(ctx, CmdMoveSourceOutput, moveArgs(index, source))
 }
 
 // SetSinkPort switches a sink's active port.
-func (c *Conn) SetSinkPort(ctx context.Context, index uint32, port string) error {
+func (c *Conn) SetSinkPort(ctx context.Context, index SinkIndex, port string) error {
 	return c.exec(ctx, CmdSetSinkPort, portArgs(index, port))
 }
 
 // SetSourcePort switches a source's active port.
-func (c *Conn) SetSourcePort(ctx context.Context, index uint32, port string) error {
+func (c *Conn) SetSourcePort(ctx context.Context, index SourceIndex, port string) error {
 	return c.exec(ctx, CmdSetSourcePort, portArgs(index, port))
 }
 
@@ -180,15 +180,15 @@ func replyError(cmd uint32, err error) error {
 	return fmt.Errorf("pulse: %s reply: %w", CommandName(cmd), err)
 }
 
-func byIndex(index uint32) *Writer {
+func byIndex[I objectIndex](index I) *Writer {
 	var w Writer
-	w.U32(index)
+	w.U32(uint32(index))
 	return &w
 }
 
 // byIndexAndName addresses a device by index with a null name (the
 // "index xor name" arguments).
-func byIndexAndName(index uint32) *Writer {
+func byIndexAndName[I objectIndex](index I) *Writer {
 	w := byIndex(index)
 	w.NullString()
 	return w
@@ -200,14 +200,14 @@ func byName(name string) *Writer {
 	return &w
 }
 
-func moveArgs(index, device uint32) *Writer {
+func moveArgs[S, D objectIndex](index S, device D) *Writer {
 	w := byIndex(index)
-	w.U32(device)
+	w.U32(uint32(device))
 	w.NullString()
 	return w
 }
 
-func portArgs(index uint32, port string) *Writer {
+func portArgs[I objectIndex](index I, port string) *Writer {
 	w := byIndexAndName(index)
 	w.String(port)
 	return w

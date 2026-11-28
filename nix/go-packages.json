@@ -14646,6 +14646,7 @@
   "wm/cmd/lys-wmctl": {
     "imports": [
       "lib/wmipc",
+      "wm/internal/backend",
       "wm/internal/ipc",
       "wm/internal/wm"
     ],

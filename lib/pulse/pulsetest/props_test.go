@@ -21,7 +21,7 @@ func TestARecordStreamReportsItsClientsPropertiesUnderItsOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, ok := srv.SourceOutput(record.Info().SourceOutput)
+	st, ok := srv.SourceOutput(uint32(record.Info().SourceOutput))
 	if !ok {
 		t.Fatal("the record stream is not a source output")
 	}

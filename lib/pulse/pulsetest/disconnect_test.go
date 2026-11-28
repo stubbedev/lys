@@ -82,12 +82,12 @@ func TestADisconnectedClientsStreamsLeaveTheListings(t *testing.T) {
 	if err := closed.Close(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	sinkInput, sourceOutput := playback.Info().SinkInput, record.Info().SourceOutput
+	sinkInput, sourceOutput := uint32(playback.Info().SinkInput), uint32(record.Info().SourceOutput)
 	for _, want := range []native.SubscribeEvent{
 		{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: sinkInput},
 		{Facility: native.FacilitySourceOutput, Operation: native.OpNew, Index: sourceOutput},
-		{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: closed.Info().SinkInput},
-		{Facility: native.FacilitySinkInput, Operation: native.OpRemove, Index: closed.Info().SinkInput},
+		{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: uint32(closed.Info().SinkInput)},
+		{Facility: native.FacilitySinkInput, Operation: native.OpRemove, Index: uint32(closed.Info().SinkInput)},
 	} {
 		if got := waittest.For(t, events, "an event for the client's streams"); got != want {
 			t.Fatalf("event %+v, want %+v", got, want)
@@ -120,7 +120,7 @@ func TestADisconnectedClientsStreamsLeaveTheListings(t *testing.T) {
 	if got := indexes(outputs); !slices.Equal(got, []uint32{51}) {
 		t.Errorf("source outputs after the disconnect %v, want the scripted 51 alone", got)
 	}
-	if _, err := watcher.SinkInput(t.Context(), sinkInput); err == nil {
+	if _, err := watcher.SinkInput(t.Context(), native.SinkInputIndex(sinkInput)); err == nil {
 		t.Errorf("sink input %d of the disconnected client is still served", sinkInput)
 	}
 	if _, ok := srv.SourceOutput(sourceOutput); ok {

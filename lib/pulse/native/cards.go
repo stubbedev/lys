@@ -38,7 +38,7 @@ type CardPort struct {
 type CardInfo struct {
 	Index         uint32
 	Name          string
-	OwnerModule   uint32
+	OwnerModule   ModuleIndex
 	Driver        string
 	Profiles      []CardProfile
 	ActiveProfile string
@@ -53,7 +53,7 @@ const (
 
 func decodeCard(version uint32) func(r *Reader) CardInfo {
 	return func(r *Reader) CardInfo {
-		c := CardInfo{Index: r.U32(), Name: r.Str(), OwnerModule: r.U32(), Driver: r.Str()}
+		c := CardInfo{Index: r.U32(), Name: r.Str(), OwnerModule: ModuleIndex(r.U32()), Driver: r.Str()}
 		n := r.U32()
 		for i := uint32(0); i < n && r.Err() == nil; i++ {
 			p := CardProfile{Name: r.Str(), Description: r.Str(), Sinks: r.U32(), Sources: r.U32(), Priority: r.U32(), Available: true}
@@ -86,7 +86,7 @@ func decodeCard(version uint32) func(r *Reader) CardInfo {
 func EncodeCard(w *Writer, c CardInfo, version uint32) {
 	w.U32(c.Index)
 	w.String(c.Name)
-	w.U32(c.OwnerModule)
+	w.U32(uint32(c.OwnerModule))
 	w.String(c.Driver)
 	w.Count(len(c.Profiles), "card profiles")
 	for _, p := range c.Profiles {
@@ -129,12 +129,12 @@ func (c *Conn) Cards(ctx context.Context) ([]CardInfo, error) {
 }
 
 // Card queries one card by index.
-func (c *Conn) Card(ctx context.Context, index uint32) (CardInfo, error) {
+func (c *Conn) Card(ctx context.Context, index CardIndex) (CardInfo, error) {
 	return one(ctx, c, CmdGetCardInfo, byIndexAndName(index), decodeCard(c.version))
 }
 
 // SetCardProfile makes profile the card's active one.
-func (c *Conn) SetCardProfile(ctx context.Context, index uint32, profile string) error {
+func (c *Conn) SetCardProfile(ctx context.Context, index CardIndex, profile string) error {
 	w := byIndexAndName(index)
 	w.String(profile)
 	return c.exec(ctx, CmdSetCardProfile, w)

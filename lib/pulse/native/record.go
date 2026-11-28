@@ -33,12 +33,12 @@ type RecordStream struct {
 
 // RecordInfo is what the server granted for a record stream.
 type RecordInfo struct {
-	SourceOutput uint32
+	SourceOutput SourceOutputIndex
 	MaxLength    uint32
 	FragSize     uint32
 	SampleSpec   SampleSpec
 	ChannelMap   ChannelMap
-	SourceIndex  uint32
+	SourceIndex  SourceIndex
 	SourceName   string
 	Suspended    bool
 	Latency      uint64
@@ -48,12 +48,12 @@ type RecordInfo struct {
 func decodeRecordReply(r *Reader) (uint32, RecordInfo) {
 	channel := r.U32()
 	info := RecordInfo{
-		SourceOutput: r.U32(),
+		SourceOutput: SourceOutputIndex(r.U32()),
 		MaxLength:    r.U32(),
 		FragSize:     r.U32(),
 		SampleSpec:   r.SampleSpec(),
 		ChannelMap:   r.ChannelMap(),
-		SourceIndex:  r.U32(),
+		SourceIndex:  SourceIndex(r.U32()),
 		SourceName:   r.Str(),
 		Suspended:    r.Bool(),
 		Latency:      r.Usec(),

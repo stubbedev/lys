@@ -91,8 +91,8 @@ type OptIndex struct {
 	ok    bool
 }
 
-func optIndex(raw uint32) OptIndex {
-	return OptIndex{index: raw, ok: raw != native.InvalidIndex}
+func optIndex[I ~uint32](raw I) OptIndex {
+	return OptIndex{index: uint32(raw), ok: raw != native.InvalidIndex}
 }
 
 // IndexOf is a set index.

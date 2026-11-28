@@ -207,7 +207,7 @@ type DeviceInfo struct {
 	Description       string
 	SampleSpec        SampleSpec
 	ChannelMap        ChannelMap
-	OwnerModule       uint32
+	OwnerModule       ModuleIndex
 	Volume            CVolume
 	Mute              bool
 	Monitor           uint32
@@ -220,7 +220,7 @@ type DeviceInfo struct {
 	BaseVolume        Volume
 	State             uint32
 	VolumeSteps       uint32
-	Card              uint32
+	Card              CardIndex
 	Ports             []Port
 	ActivePort        string
 	Formats           []FormatInfo
@@ -241,7 +241,7 @@ func decodeDevice(r *Reader) DeviceInfo {
 		Description: r.Str(),
 		SampleSpec:  r.SampleSpec(),
 		ChannelMap:  r.ChannelMap(),
-		OwnerModule: r.U32(),
+		OwnerModule: ModuleIndex(r.U32()),
 		Volume:      r.CVolume(),
 		Mute:        r.Bool(),
 		Monitor:     r.U32(),
@@ -255,7 +255,7 @@ func decodeDevice(r *Reader) DeviceInfo {
 	d.BaseVolume = r.Volume()
 	d.State = r.U32()
 	d.VolumeSteps = r.U32()
-	d.Card = r.U32()
+	d.Card = CardIndex(r.U32())
 	nPorts := r.U32()
 	for i := uint32(0); i < nPorts && r.Err() == nil; i++ {
 		d.Ports = append(d.Ports, Port{
@@ -278,8 +278,8 @@ func decodeDevice(r *Reader) DeviceInfo {
 type StreamInfo struct {
 	Index          uint32
 	Name           string
-	OwnerModule    uint32
-	Client         uint32
+	OwnerModule    ModuleIndex
+	Client         ClientIndex
 	Device         uint32
 	SampleSpec     SampleSpec
 	ChannelMap     ChannelMap
@@ -301,8 +301,8 @@ func decodeSinkInput(r *Reader) StreamInfo {
 	s := StreamInfo{
 		Index:       r.U32(),
 		Name:        r.Str(),
-		OwnerModule: r.U32(),
-		Client:      r.U32(),
+		OwnerModule: ModuleIndex(r.U32()),
+		Client:      ClientIndex(r.U32()),
 		Device:      r.U32(),
 		SampleSpec:  r.SampleSpec(),
 		ChannelMap:  r.ChannelMap(),
@@ -327,8 +327,8 @@ func decodeSourceOutput(r *Reader) StreamInfo {
 	s := StreamInfo{
 		Index:       r.U32(),
 		Name:        r.Str(),
-		OwnerModule: r.U32(),
-		Client:      r.U32(),
+		OwnerModule: ModuleIndex(r.U32()),
+		Client:      ClientIndex(r.U32()),
 		Device:      r.U32(),
 		SampleSpec:  r.SampleSpec(),
 		ChannelMap:  r.ChannelMap(),

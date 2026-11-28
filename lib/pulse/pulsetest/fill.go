@@ -16,7 +16,7 @@ func fillDevice(w *native.Writer, v uint32, d native.DeviceInfo, isSink bool) {
 	w.OptString(d.Description)
 	w.SampleSpec(d.SampleSpec)
 	w.ChannelMap(d.ChannelMap)
-	w.U32(d.OwnerModule)
+	w.U32(uint32(d.OwnerModule))
 	w.CVolume(d.Volume)
 	w.Bool(d.Mute)
 	w.U32(d.Monitor)
@@ -32,7 +32,7 @@ func fillDevice(w *native.Writer, v uint32, d native.DeviceInfo, isSink bool) {
 		w.Volume(d.BaseVolume)
 		w.U32(d.State)
 		w.U32(d.VolumeSteps)
-		w.U32(d.Card)
+		w.U32(uint32(d.Card))
 	}
 	if v >= 16 {
 		w.U32(intconv.Clamp[uint32](len(d.Ports)))
@@ -65,8 +65,8 @@ func fillDevice(w *native.Writer, v uint32, d native.DeviceInfo, isSink bool) {
 func fillSinkInput(w *native.Writer, v uint32, s native.StreamInfo) {
 	w.U32(s.Index)
 	w.OptString(s.Name)
-	w.U32(s.OwnerModule)
-	w.U32(s.Client)
+	w.U32(uint32(s.OwnerModule))
+	w.U32(uint32(s.Client))
 	w.U32(s.Device)
 	w.SampleSpec(s.SampleSpec)
 	w.ChannelMap(s.ChannelMap)
@@ -96,8 +96,8 @@ func fillSinkInput(w *native.Writer, v uint32, s native.StreamInfo) {
 func fillSourceOutput(w *native.Writer, v uint32, s native.StreamInfo) {
 	w.U32(s.Index)
 	w.OptString(s.Name)
-	w.U32(s.OwnerModule)
-	w.U32(s.Client)
+	w.U32(uint32(s.OwnerModule))
+	w.U32(uint32(s.Client))
 	w.U32(s.Device)
 	w.SampleSpec(s.SampleSpec)
 	w.ChannelMap(s.ChannelMap)
