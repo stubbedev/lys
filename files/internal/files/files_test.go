@@ -647,6 +647,25 @@ func TestATabsCloseButtonClosesIt(t *testing.T) {
 	}
 }
 
+// A tab's tooltip is the folder it shows from the moment it opens, and
+// follows it to the next.
+func TestATabsTooltipIsItsFolder(t *testing.T) {
+	hs := newHarness(t)
+	hs.open(hs.path("docs"))
+	tooltip := func() string {
+		var tip string
+		hs.run(func() { tip = hs.f.active().page.Tooltip() })
+		return tip
+	}
+	if got := tooltip(); got != hs.path("docs") {
+		t.Errorf("a new tab's tooltip is %q, want %q", got, hs.path("docs"))
+	}
+	hs.do(func() { hs.f.active().b.GoTo(hs.path("pics")) })
+	if got := tooltip(); got != hs.path("pics") {
+		t.Errorf("after moving the tooltip is %q, want %q", got, hs.path("pics"))
+	}
+}
+
 // The tab row sits inside the window's padding, and the New Tab button
 // keeps a gap from the tabs and the window's edge.
 func TestTheTabRowKeepsItsMargins(t *testing.T) {

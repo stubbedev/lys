@@ -36,6 +36,9 @@ func (p *TabPage) Title() string { return p.title }
 // SetTitle sets the tab title.
 func (p *TabPage) SetTitle(s string) { p.set(&p.title, s) }
 
+// Tooltip returns the tab's tooltip.
+func (p *TabPage) Tooltip() string { return p.tooltip }
+
 // SetTooltip sets the tab's tooltip.
 func (p *TabPage) SetTooltip(s string) { p.set(&p.tooltip, s) }
 

@@ -82,6 +82,7 @@ func (f *Files) insertTab(at int, dir string) *tab {
 	content.Append(t.b.Header(), false)
 	content.Append(t.b.Main(), true)
 	t.page = f.view.Insert(at, content, t.title())
+	t.page.SetTooltip(t.b.Dir())
 	f.tabs[t.page] = t
 	return t
 }
