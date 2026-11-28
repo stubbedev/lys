@@ -11041,6 +11041,7 @@
       "desktop/config",
       "desktop/feed",
       "desktop/fswatch",
+      "desktop/imagedecode",
       "desktop/service/wallpaper/extract",
       "desktop/styling/material",
       "lib/dbusx",
@@ -12860,6 +12861,7 @@
   },
   "ui/cmd/lys-ui-capture": {
     "imports": [
+      "lib/atomicfile",
       "lib/capture"
     ],
     "external": [
@@ -12867,11 +12869,15 @@
       "flag",
       "fmt",
       "image/png",
+      "io",
       "log",
       "os",
       "path/filepath",
       "strings",
       "time"
+    ],
+    "testExternal": [
+      "testing"
     ]
   },
   "ui/cmd/lys-ui-columns": {
@@ -12936,6 +12942,7 @@
   },
   "ui/cmd/lys-ui-gallery": {
     "imports": [
+      "lib/atomicfile",
       "lib/capture",
       "lib/render",
       "lib/vinput",
@@ -13165,6 +13172,7 @@
   },
   "ui/cmd/lys-ui-panel": {
     "imports": [
+      "lib/atomicfile",
       "lib/render",
       "ui/app",
       "ui/component",
@@ -13172,13 +13180,12 @@
       "ui/widget"
     ],
     "external": [
-      "bytes",
       "errors",
       "flag",
       "fmt",
       "image/png",
+      "io",
       "log",
-      "os",
       "slices"
     ]
   },

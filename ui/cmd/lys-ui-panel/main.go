@@ -5,15 +5,15 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"flag"
 	"fmt"
 	"image/png"
+	"io"
 	"log"
-	"os"
 	"slices"
 
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/render"
 
 	"github.com/stubbedev/lys/ui/app"
@@ -144,9 +144,8 @@ func dumpFrame(path string) error {
 
 func writePNG(data []byte, w, h int, path string) error {
 	img := render.NRGBA(data, render.Stride(w), w, h)
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return err
+	if err := atomicfile.Write(path, 0o600, func(w io.Writer) error { return png.Encode(w, img) }); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
 	}
-	return os.WriteFile(path, buf.Bytes(), 0o600)
+	return nil
 }

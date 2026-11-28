@@ -11,12 +11,14 @@ import (
 	"flag"
 	"fmt"
 	"image/png"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/capture"
 )
 
@@ -166,11 +168,9 @@ func writePNG(frame *capture.Frame, path string) error {
 			return err
 		}
 	}
-	f, err := os.Create(path) //nolint:gosec // path is the user's -out argument
-	if err != nil {
-		return err
+	if err := atomicfile.Write(path, 0o644, func(w io.Writer) error { return png.Encode(w, img) }); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
 	}
-	defer f.Close()
 	log.Printf("lys-ui-capture: %s %dx%d", path, frame.Width, frame.Height)
-	return png.Encode(f, img)
+	return nil
 }

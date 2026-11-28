@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/stubbedev/lys/lib/atomicfile"
 	"github.com/stubbedev/lys/lib/capture"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/vinput"
@@ -206,7 +207,7 @@ func (s *shooter) all() error {
 			*p.size(&index[i]) = size
 		}
 	}
-	return writeAtomic(filepath.Join(s.dir, "index.json"), func(w io.Writer) error {
+	return writeShot(filepath.Join(s.dir, "index.json"), func(w io.Writer) error {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		return enc.Encode(index)
@@ -280,7 +281,7 @@ func (s *shooter) one(i int, theme func() *widget.Theme, suffix string) (size sh
 	}
 	shot := frame(img, content, stage, sc)
 	size = shotSize{Width: shot.Bounds().Dx() / sc, Height: shot.Bounds().Dy() / sc}
-	return size, writeAtomic(filepath.Join(s.dir, slug(d.title)+suffix+".png"), func(w io.Writer) error { return png.Encode(w, shot) })
+	return size, writeShot(filepath.Join(s.dir, slug(d.title)+suffix+".png"), func(w io.Writer) error { return png.Encode(w, shot) })
 }
 
 // open gives the demo's trigger the gesture that opens its overlay.
@@ -445,23 +446,11 @@ func frame(img *image.RGBA, content image.Rectangle, stage color.RGBA, scale int
 	return out
 }
 
-// writeAtomic writes path through write, atomically: a temporary file
-// renamed into place.
-func writeAtomic(path string, write func(io.Writer) error) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".shot-*")
-	if err != nil {
-		return fmt.Errorf("shots: %w", err)
-	}
-	defer func() { _ = os.Remove(tmp.Name()) }()
-	if err := write(tmp); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("shots: encode %s: %w", path, err)
-	}
-	if err := tmp.Close(); err != nil {
+// writeShot replaces path with what write produces, through
+// [atomicfile.Write].
+func writeShot(path string, write func(io.Writer) error) error {
+	if err := atomicfile.Write(path, 0o644, write); err != nil {
 		return fmt.Errorf("shots: write %s: %w", path, err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("shots: %w", err)
 	}
 	return nil
 }
