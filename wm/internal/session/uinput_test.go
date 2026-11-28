@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 	"unsafe"
 
 	"github.com/stubbedev/lys/lib/waittest"
@@ -105,6 +104,7 @@ func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDe
 	}
 	t.Cleanup(func() { _ = f.Close() })
 	fd := f.Fd()
+	l, added := watchInputAdds(t)
 	for _, b := range bits {
 		if err := ioctl(fd, b.req, b.v); err != nil {
 			t.Fatalf("uinput bit %#x %d: %v", b.req, b.v, err)
@@ -123,30 +123,50 @@ func newVirtualDevice(t testing.TB, devName string, bits []uinputBit) *virtualDe
 	if err := ioctl(fd, uiGetSysname, uintptr(unsafe.Pointer(&name))); err != nil {
 		t.Fatalf("uinput sysname: %v", err)
 	}
-	sys := filepath.Join("/sys/devices/virtual/input", strings.TrimRight(string(name[:]), "\x00"))
-	deadline := time.Now().Add(testenv.HangLimit)
-	var denied error
-	for {
-		events, _ := filepath.Glob(filepath.Join(sys, "event*"))
-		if len(events) == 1 {
-			node := filepath.Join("/dev/input", filepath.Base(events[0]))
-			r, err := os.Open(node)
-			if err == nil {
-				_ = r.Close()
-				return &virtualDevice{f: f, node: node}
-			}
-			if errors.Is(err, os.ErrPermission) {
-				denied = err
+	sys := filepath.Join(SystemRoots.Sys, "devices/virtual/input", strings.TrimRight(string(name[:]), "\x00"))
+	var node string
+	looptest.RunUntil(t, l, "udevd's add of the event node under "+sys, func() bool {
+		for syspath, devnode := range added {
+			if filepath.Dir(syspath) == sys && strings.HasPrefix(filepath.Base(syspath), "event") {
+				node = devnode
+				return true
 			}
 		}
-		if time.Now().After(deadline) {
-			if denied != nil {
-				t.Skipf("udev never let this user read the event node: %v", denied)
-			}
-			t.Fatalf("no readable event node under %s", sys)
-		}
-		time.Sleep(10 * time.Millisecond)
+		return false
+	})
+	r, err := os.Open(node)
+	if errors.Is(err, os.ErrPermission) {
+		t.Skipf("udev never let this user read the event node: %v", err)
 	}
+	if err != nil {
+		t.Fatalf("open the event node udevd added: %v", err)
+	}
+	_ = r.Close()
+	return &virtualDevice{f: f, node: node}
+}
+
+func watchInputAdds(t testing.TB) (*loop.Loop, map[string]string) {
+	t.Helper()
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	added := map[string]string{}
+	m, err := Watch(l, DefaultSeat, []Subsystem{Input}, func(ev UdevEvent) error {
+		switch ev.Action {
+		case Overflow:
+			return errors.New("udev events overflowed while waiting for a virtual device's event node")
+		case Add:
+			added[ev.Syspath] = ev.Devnode
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("watch udev for the virtual device: %v", err)
+	}
+	t.Cleanup(func() { _ = m.Close() })
+	return l, added
 }
 
 func (v *virtualDevice) awaitLED(t *testing.T, code uint16, value int32) {
