@@ -31,7 +31,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 | `just build-shells <component>...` | The CI job the Go, further and package jobs wait for: the components' dev shells on this machine. |
 | `just packages <name>...` | Build flake packages: `just packages lys-wm`. |
 | `just affected [base]` | The components and CI jobs a change since `base` (default `origin/main`) touches. |
-| `just repository-check` | At the same time: a tidy `go.mod`, the CI helpers' tests and lint, `nix/go-packages.json` matching the tree, every flake output evaluating, spread over nix-eval-jobs workers, the `vms` lists of `ci/components.json` naming every VM check of the flake once, and each package hashing only its own sources (touching `docs/` changes no package, touching a Go package changes exactly its importers and what is built on them); prints each part's result and the wall clock. |
+| `just repository-check` | At the same time: a tidy `go.mod`, the CI helpers' tests and lint, `nix/go-packages.json` matching the tree, every flake output evaluating in nix-eval-jobs workers that share one 6 GiB budget, the `vms` lists of `ci/components.json` naming every VM check of the flake once, and each package hashing only its own sources (touching `docs/` changes no package, touching a Go package changes exactly its importers and what is built on them); prints each part's result and the wall clock. |
 | `just go-packages` | Rewrite `nix/go-packages.json` after a change to the imports, the embedded files or the set of Go packages. |
 | `just update` | Update every Go dependency, then the vendor hash. |
 | `just vendor-hash` | Recompute the one `vendorHash` in `nix/go.nix` after a `go.mod` change. |

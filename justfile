@@ -146,18 +146,20 @@ build-jobs select:
     done
     (( failed == 0 ))
 
-# Evaluate the derivations a nix-eval-jobs selection of the flake picks, on as
-# many workers as cores and memory allow, and print them as JSON lines; any
-# evaluation error fails it, naming the attribute.
+# Evaluate the derivations a nix-eval-jobs selection of the flake picks and
+# print them as JSON lines; any evaluation error fails it, naming the
+# attribute. Its workers share one 6 GiB budget whatever the machine, so it fits
+# beside a desktop session: two workers of 3 GiB at most, the largest NixOS
+# test evaluations running alone in the whole budget.
 [private]
 [script("bash")]
 eval-jobs select *flags:
     set -euo pipefail
-    memory=$(awk '/^MemTotal:/ { print int($2 / 1048576) }' /proc/meminfo)
-    workers=$(( memory / 4 < $(nproc) ? memory / 4 : $(nproc) ))
+    budget=6144
+    workers=$(( $(nproc) < 2 ? $(nproc) : 2 ))
     out=$(mktemp)
     trap 'rm -f "$out"' EXIT
-    nix run --inputs-from . nixpkgs#nix-eval-jobs -- --flake . --force-recurse --workers "$(( workers > 0 ? workers : 1 ))" --max-memory-size 3072 {{ flags }} --select {{ quote(select) }} > "$out"
+    nix run --inputs-from . nixpkgs#nix-eval-jobs -- --flake . --force-recurse --workers "$workers" --max-memory-size "$(( budget / workers ))" {{ flags }} --select {{ quote(select) }} > "$out"
     if jq -e -s 'any(.[]; has("error") and .error != null)' "$out" >/dev/null; then
         jq -r 'select(.error != null) | "eval-jobs: \(.attr) does not evaluate:\n\(.error)"' "$out" >&2
         exit 1
@@ -418,8 +420,8 @@ affected base="origin/main":
 # The repository's own gate, its parts at the same time: a tidy go.mod, the CI
 # helpers' tests and lint, nix/go-packages.json matching the tree, every
 # process start and runtime PATH addition in ci/exec-allowlist.json, every
-# package, dev shell and check evaluating on both systems, spread over
-# nix-eval-jobs' workers so no evaluation holds them all at once, the NixOS
+# package, dev shell and check evaluating on both systems in nix-eval-jobs'
+# workers within one memory budget, the NixOS
 # modules evaluating, the VM jobs covering every VM check, and each package
 # hashing only its own sources. Prints each part's result and the wall clock.
 [script("bash")]
