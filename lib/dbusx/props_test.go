@@ -71,8 +71,8 @@ func changedSignal(path dbus.ObjectPath, body ...any) *dbus.Signal {
 
 func TestChangedPropertyIsTheAnnouncedValue(t *testing.T) {
 	changed := map[string]dbus.Variant{"Name": dbus.MakeVariant("new")}
-	v, ok, err := dbusx.ChangedProperty(changedSignal(propsPath, propsIface, changed, []string{}), propsPath, propsIface, "Name")
-	if err != nil || !ok || v.Value() != "new" {
+	v, ok, err := dbusx.ChangedProperty[string](changedSignal(propsPath, propsIface, changed, []string{}), propsPath, propsIface, "Name")
+	if err != nil || !ok || v != "new" {
 		t.Fatalf("ChangedProperty = %v %v %v", v, ok, err)
 	}
 	for name, sig := range map[string]*dbus.Signal{
@@ -81,11 +81,22 @@ func TestChangedPropertyIsTheAnnouncedValue(t *testing.T) {
 		"another object":    changedSignal("/org/example/Other", propsIface, changed, []string{}),
 		"another signal":    {Path: propsPath, Name: propsIface + ".Changed", Body: []any{propsIface, changed, []string{}}},
 	} {
-		if v, ok, err := dbusx.ChangedProperty(sig, propsPath, propsIface, "Name"); ok || err != nil {
+		if v, ok, err := dbusx.ChangedProperty[string](sig, propsPath, propsIface, "Name"); ok || err != nil {
 			t.Errorf("%s: ChangedProperty = %v %v %v, want nothing", name, v, ok, err)
 		}
 	}
-	if _, ok, err := dbusx.ChangedProperty(changedSignal(propsPath, propsIface, "not a map", []string{}), propsPath, propsIface, "Name"); ok || err == nil {
+	if _, ok, err := dbusx.ChangedProperty[string](changedSignal(propsPath, propsIface, "not a map", []string{}), propsPath, propsIface, "Name"); ok || err == nil {
 		t.Fatalf("a malformed PropertiesChanged gave %v, %v", ok, err)
+	}
+	if _, ok, err := dbusx.ChangedProperty[uint32](changedSignal(propsPath, propsIface, changed, []string{}), propsPath, propsIface, "Name"); ok || err == nil || !strings.Contains(err.Error(), propsIface+".Name") {
+		t.Fatalf("a string read as uint32 gave %v, %v", ok, err)
+	}
+	type pair struct {
+		A string
+		B uint32
+	}
+	structured := map[string]dbus.Variant{"Pair": dbus.MakeVariant([]any{"a", uint32(2)})}
+	if p, ok, err := dbusx.ChangedProperty[pair](changedSignal(propsPath, propsIface, structured, []string{}), propsPath, propsIface, "Pair"); !ok || err != nil || p != (pair{"a", 2}) {
+		t.Fatalf("a struct property gave %+v, %v, %v", p, ok, err)
 	}
 }

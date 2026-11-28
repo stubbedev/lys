@@ -27,20 +27,28 @@ func GetAll(ctx context.Context, obj dbus.BusObject, iface string) (map[string]d
 }
 
 // ChangedProperty is the new value of the property name of iface that
-// sig announces, when sig is a PropertiesChanged from the object at path
-// carrying it; false for any other signal. A PropertiesChanged that does
-// not decode is an error.
-func ChangedProperty(sig *dbus.Signal, path dbus.ObjectPath, iface, name string) (dbus.Variant, bool, error) {
+// sig announces, as a T converted the way dbus.Store does, when sig is a
+// PropertiesChanged from the object at path carrying it; false for any
+// other signal. A PropertiesChanged that does not decode, or whose value
+// is not a T, is an error.
+func ChangedProperty[T any](sig *dbus.Signal, path dbus.ObjectPath, iface, name string) (T, bool, error) {
+	var v T
 	if sig.Path != path || !PropertiesChanged.named(sig.Name) {
-		return dbus.Variant{}, false, nil
+		return v, false, nil
 	}
 	changed, err := PropertiesChanged.Decode(sig)
 	if err != nil {
-		return dbus.Variant{}, false, fmt.Errorf("%s from %s at %s: %w", sig.Name, sig.Sender, path, err)
+		return v, false, fmt.Errorf("%s from %s at %s: %w", sig.Name, sig.Sender, path, err)
 	}
 	if changed.Interface != iface {
-		return dbus.Variant{}, false, nil
+		return v, false, nil
 	}
-	v, ok := changed.Changed[name]
-	return v, ok, nil
+	value, ok := changed.Changed[name]
+	if !ok {
+		return v, false, nil
+	}
+	if err := dbus.Store([]any{value}, &v); err != nil {
+		return v, false, fmt.Errorf("%s from %s at %s: %s.%s of signature %s: %w", sig.Name, sig.Sender, path, iface, name, value.Signature(), err)
+	}
+	return v, true, nil
 }
