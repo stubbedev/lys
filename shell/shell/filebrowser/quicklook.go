@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -35,31 +36,45 @@ const (
 // may take along each axis.
 const quicklookShare = 0.85
 
+// quicklookPatience is how long Space waits for Quick Look's content
+// to load before the card enters showing the file loading.
+const quicklookPatience = 500 * time.Millisecond
+
 // newQuicklook is Quick Look's card, in the frame that lays it over the
 // file views: a preview of the selection, a document's pages scrolling,
 // closed by Space, Escape and a click beside it, stepped through the view by the arrows
 // (quicklookArrow), playing a video at once, opening the file in its
-// default app from its Open button.
+// default app from its Open button. The card enters once its content
+// has loaded.
 func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
 	least := image.Pt(quicklookMinW, quicklookMinH)
+	f := &quicklookFrame{outside: c.closeQuicklook}
 	v := preview.New(c.previewConfig(preview.Config{
 		Class: "file-chooser-quicklook", NameChars: 48, Autoplay: true, Bare: true, Pages: true,
 		Image: least, Text: least, OnClose: c.closeQuicklook, Open: c.d.OpenFile,
+		OnRender: func(preview.Renderer) {
+			if f.awaiting != nil {
+				c.enterQuicklook()
+			}
+		},
 	}))
 	v.Root().AddClass(css.Card)
-	rev := widget.NewRevealer(v.Root())
-	rev.SetFadeFrom(reveal.FadeFrom)
-	f := &quicklookFrame{rev: rev, outside: c.closeQuicklook, fit: func(area render.Rect) {
+	f.rev = widget.NewRevealer(v.Root())
+	f.rev.SetFadeFrom(reveal.FadeFrom)
+	f.fit = func(area render.Rect) {
 		box := quicklookBox(area)
 		v.Fit(box, image.Pt(min(box.X, quicklookTextW), box.Y))
-	}}
+	}
 	f.SetVisible(false)
 	return v, f
 }
 
-// quicklookOpen reports Quick Look open: showing, or entering, and not
-// leaving.
-func (c *Browser) quicklookOpen() bool { return c.ui.quicklook.rev.Revealed() }
+// quicklookOpen reports Quick Look open: awaiting its content, showing,
+// or entering, and not leaving.
+func (c *Browser) quicklookOpen() bool {
+	f := c.ui.quicklook
+	return f.awaiting != nil || f.rev.Revealed()
+}
 
 // quicklookKey handles a plain key while Quick Look shows: its own
 // keys, then the arrows stepping through the view. It reports whether
@@ -73,11 +88,25 @@ func (c *Browser) toggleQuicklook() {
 		c.closeQuicklook()
 		return
 	}
-	if _, ok := c.selected(); ok {
-		c.ui.quicklook.SetVisible(true)
-		reveal.Show(c.ui.quicklook.rev, c.quicklookMotion(), config.AnimLauncher)
-		c.refreshPreview()
+	e, ok := c.selected()
+	if !ok {
+		return
 	}
+	f := c.ui.quicklook
+	f.SetVisible(true)
+	f.awaiting = anim.Play(f, anim.Delay(quicklookPatience), anim.Animate(0, func(float64) { c.enterQuicklook() }))
+	c.ui.ql.Show(e.Path)
+	if c.ui.ql.Renderer() != preview.Loading {
+		c.enterQuicklook()
+	}
+}
+
+// enterQuicklook plays Quick Look's enter: its content loaded, or
+// loading past quicklookPatience.
+func (c *Browser) enterQuicklook() {
+	f := c.ui.quicklook
+	f.stopAwaiting()
+	reveal.Show(f.rev, c.quicklookMotion(), config.AnimLauncher)
 }
 
 // closeQuicklook plays Quick Look's exit, then hides it and lets go of
@@ -93,6 +122,7 @@ func (c *Browser) closeQuicklook() {
 // dropQuicklook hides Quick Look at once and lets go of what it showed.
 func (c *Browser) dropQuicklook() {
 	f := c.ui.quicklook
+	f.stopAwaiting()
 	f.rev.SetOnTransitionDone(nil)
 	f.rev.SetDuration(0)
 	f.rev.SetRevealed(false)
@@ -146,15 +176,26 @@ func quicklookBox(area render.Rect) image.Point {
 
 // quicklookFrame covers the file views and centers Quick Look's card,
 // in the revealer playing its enter and exit, on them at the card's own
-// size, its content fitted to the views' area (fit). A click beside the
-// open card runs outside; while the card leaves, presses pass through
-// to the views.
+// size, its content fitted to the views' area (fit). While the card
+// awaits its content it is laid out but not revealed, and awaiting
+// cancels the wait's patience. A click beside the open card runs
+// outside; while the card awaits or leaves, presses pass through to the
+// views.
 type quicklookFrame struct {
 	widget.Base
-	rev     *widget.Revealer
-	fit     func(area render.Rect)
-	outside func()
-	kids    [1]widget.Widget
+	rev      *widget.Revealer
+	fit      func(area render.Rect)
+	outside  func()
+	awaiting anim.Cancel
+	kids     [1]widget.Widget
+}
+
+// stopAwaiting ends the wait for the card's content.
+func (f *quicklookFrame) stopAwaiting() {
+	if f.awaiting != nil {
+		f.awaiting()
+		f.awaiting = nil
+	}
 }
 
 // Measure wants nothing: the frame is the views' area.
