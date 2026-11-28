@@ -60,7 +60,7 @@ func (c *Compositor) Snapshot() ipc.Snapshot {
 			Name:         b.Name(),
 			Description:  b.Description(),
 			Rect:         ipc.RectOf(o.Logical()),
-			Scale:        float64(o.Scale()) / float64(output.Unit),
+			Scale:        o.Scale().Float(),
 			Mode:         wmipc.Mode{Width: mode.Size.X, Height: mode.Size.Y, RefreshMHz: mode.RefreshMHz},
 			Workspace:    active,
 			Focused:      b.Name() == focusedOutput,

@@ -901,7 +901,7 @@ func TestAnXTransientThatGrowsAfterItsMapIsCentredOverItsParent(t *testing.T) {
 		return ws[i], true
 	}
 	knownToX := func(xc *xclient, win xproto.Window, w ipc.Window) bool {
-		return xc.geometry(win) == rectOf(w.Rect)
+		return xc.geometry(win) == ipc.RectangleOf(w.Rect)
 	}
 	open := func(t *testing.T) (*Harness, *xclient, xproto.Window, wmipc.Rect) {
 		h := StartXwayland(t, func(err error) { t.Errorf("xwayland reported: %v", err) }, small)

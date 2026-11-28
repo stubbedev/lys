@@ -234,7 +234,7 @@ func (ct *cursorTexture) extent(px int, growth float64) (size, hotspot image.Poi
 
 func (c *Compositor) cursorTip(o *output.Output) image.Point {
 	local := c.cursor.sub(o.Position())
-	scale := float64(o.Scale()) / float64(output.Unit)
+	scale := o.Scale().Float()
 	return image.Pt(int(math.Floor(local.X*scale)), int(math.Floor(local.Y*scale)))
 }
 

@@ -300,7 +300,7 @@ func (c *Compositor) outputDraw(o *output.Output, region image.Rectangle, cursor
 }
 
 func (c *Compositor) windowRegion(w *window) image.Rectangle {
-	return w.output.Scale().Rect(w.rect.Sub(w.output.Position()))
+	return deviceRect(w.output, w.rect)
 }
 
 func (c *Compositor) windowDraw(w *window, cursor bool, kind wm.CaptureKind) func(render.Pass) error {

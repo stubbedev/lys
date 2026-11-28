@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	cxdg "github.com/stubbedev/lys/wm/internal/protocol/client/xdgshell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
@@ -78,7 +79,7 @@ func (h *Harness) titledRect(title string) image.Rectangle {
 	h.Do(func(_ *headless.Backend, c *compositor.Compositor) error {
 		for _, w := range c.Snapshot().Windows {
 			if w.Title == title {
-				r, found = image.Rect(w.Rect.X, w.Rect.Y, w.Rect.X+w.Rect.Width, w.Rect.Y+w.Rect.Height), true
+				r, found = ipc.RectangleOf(w.Rect), true
 			}
 		}
 		return nil
@@ -94,7 +95,7 @@ func (h *Harness) settledAt(title string, want image.Rectangle) {
 	h.Eventually(fmt.Sprintf("%s at %v", title, want), func(_ *headless.Backend, c *compositor.Compositor) bool {
 		for _, w := range c.Snapshot().Windows {
 			if w.Title == title {
-				return image.Rect(w.Rect.X, w.Rect.Y, w.Rect.X+w.Rect.Width, w.Rect.Y+w.Rect.Height) == want && !c.Holding()
+				return ipc.RectangleOf(w.Rect) == want && !c.Holding()
 			}
 		}
 		return false
@@ -379,7 +380,7 @@ func onlyRect(c *compositor.Compositor) (image.Rectangle, bool) {
 	if len(ws) != 1 {
 		return image.Rectangle{}, false
 	}
-	return image.Rect(ws[0].Rect.X, ws[0].Rect.Y, ws[0].Rect.X+ws[0].Rect.Width, ws[0].Rect.Y+ws[0].Rect.Height), true
+	return ipc.RectangleOf(ws[0].Rect), true
 }
 
 func onlyWindowRect(h *Harness) image.Rectangle {

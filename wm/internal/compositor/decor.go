@@ -620,7 +620,7 @@ func (c *Compositor) drawTabBars(pass *frame, o *output.Output) {
 		}
 		n := len(bar.Tabs)
 		for tab, id := range bar.Tabs {
-			dst := o.Scale().Rect(tabSlot(strip, tab, n).Sub(o.Position()))
+			dst := deviceRect(o, tabSlot(strip, tab, n))
 			if dst.Empty() {
 				continue
 			}

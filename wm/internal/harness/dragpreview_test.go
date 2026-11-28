@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/anim"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
+	"github.com/stubbedev/lys/wm/internal/ipc"
 	"github.com/stubbedev/lys/wm/internal/testclient"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
@@ -131,7 +132,7 @@ func TestATiledWindowDraggedPreviewsWhereItDrops(t *testing.T) {
 		settle(t, h)
 		h.Do(func(_ *headless.Backend, comp *compositor.Compositor) error {
 			for _, w := range comp.Snapshot().Windows {
-				if w.ID == id && image.Rect(w.Rect.X, w.Rect.Y, w.Rect.X+w.Rect.Width, w.Rect.Y+w.Rect.Height) != want {
+				if w.ID == id && ipc.RectangleOf(w.Rect) != want {
 					t.Errorf("landed on %+v, the preview showed %v", w.Rect, want)
 				}
 			}

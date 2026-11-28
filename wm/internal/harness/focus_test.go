@@ -56,7 +56,7 @@ func (r *focusRig) rect(title string) image.Rectangle {
 	if !ok {
 		r.t.Fatalf("no window %q", title)
 	}
-	return image.Rect(w.Rect.X, w.Rect.Y, w.Rect.X+w.Rect.Width, w.Rect.Y+w.Rect.Height)
+	return ipc.RectangleOf(w.Rect)
 }
 
 func (r *focusRig) focused() string {

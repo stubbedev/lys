@@ -104,7 +104,7 @@ func TestADraggedToplevelFollowsThePointerWithoutConfigures(t *testing.T) {
 			}
 			return nil
 		})
-		moved := rectOf(last.Rect).Union(rectOf(now.Rect)).Inset(-64)
+		moved := ipc.RectangleOf(last.Rect).Union(ipc.RectangleOf(now.Rect)).Inset(-64)
 		for _, r := range damage.Rects() {
 			if !r.In(moved) {
 				t.Fatalf("motion %d damaged %v outside the tab's old and new places %v", i, r, moved)
@@ -121,10 +121,6 @@ func TestADraggedToplevelFollowsThePointerWithoutConfigures(t *testing.T) {
 	if w, _ := windowRect(h, idTab); !w.Floating || w.Rect != last.Rect {
 		t.Fatalf("after the drop the tab is %+v, want floating at %+v", w, last.Rect)
 	}
-}
-
-func rectOf(r wmipc.Rect) image.Rectangle {
-	return image.Rect(r.X, r.Y, r.X+r.Width, r.Y+r.Height)
 }
 
 func TestAnUnmappedToplevelAttachedToADragMapsAtThePointer(t *testing.T) {

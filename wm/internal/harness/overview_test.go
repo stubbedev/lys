@@ -57,7 +57,6 @@ func planOf(h *Harness, outputIndex int) overviewPlan {
 			}
 		}
 		state := c.WM()
-		rect := func(r wmipc.Rect) image.Rectangle { return image.Rect(r.X, r.Y, r.X+r.Width, r.Y+r.Height) }
 		var shown, hidden []wm.WindowID
 		var shownRects, hiddenRects []image.Rectangle
 		for _, p := range state.WorkspacePlacements(out.Workspace, wm.Spacing{TabBar: 20}) {
@@ -67,7 +66,7 @@ func planOf(h *Harness, outputIndex int) overviewPlan {
 				shown, shownRects = append(shown, p.ID), append(shownRects, p.Rect)
 			}
 		}
-		plan.OverviewPlan = wm.PlanOverview(rect(out.Rect), len(plan.spaces), shownRects, hiddenRects)
+		plan.OverviewPlan = wm.PlanOverview(ipc.RectangleOf(out.Rect), len(plan.spaces), shownRects, hiddenRects)
 		plan.windows, plan.minimized = map[wm.WindowID]image.Rectangle{}, map[wm.WindowID]image.Rectangle{}
 		for i, id := range shown {
 			plan.windows[id] = plan.Windows[i]
