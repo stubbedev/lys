@@ -621,8 +621,9 @@ func (s *Scroll) scrollMax() (int, int) {
 // pinned at 0. The next Arrange moves the content and owes the damage.
 func (s *Scroll) SetOffset(x, y int) {
 	maxX, maxY := s.scrollMax()
-	x = min(max(0, x), maxX)
-	y = min(max(0, y), maxY)
+	g := s.deviceGrid()
+	x = onGrid(min(max(0, x), maxX), g, maxX)
+	y = onGrid(min(max(0, y), maxY), g, maxY)
 	if x == s.offX && y == s.offY {
 		return
 	}
@@ -1159,7 +1160,8 @@ func (s *Scroll) ScrollEnd() {
 func (s *Scroll) movePixels(dx, dy float64) bool {
 	s.pxFrac[0] += dx
 	s.pxFrac[1] += dy
-	wx, wy := int(s.pxFrac[0]), int(s.pxFrac[1])
+	g := s.deviceGrid()
+	wx, wy := int(s.pxFrac[0])/g*g, int(s.pxFrac[1])/g*g
 	s.pxFrac[0] -= float64(wx)
 	s.pxFrac[1] -= float64(wy)
 	if wx == 0 && wy == 0 {
@@ -1167,7 +1169,8 @@ func (s *Scroll) movePixels(dx, dy float64) bool {
 	}
 	x0, y0 := s.offX, s.offY
 	s.SetOffset(s.offX+wx, s.offY+wy)
-	lost := [2]int{x0 + wx - s.offX, y0 + wy - s.offY}
+	maxX, maxY := s.scrollMax()
+	lost := [2]int{beyond(x0+wx, maxX), beyond(y0+wy, maxY)}
 	for axis, l := range lost {
 		if l != 0 {
 			s.overscroll(axis, l)
@@ -1175,6 +1178,9 @@ func (s *Scroll) movePixels(dx, dy float64) bool {
 	}
 	return s.offX != x0 || s.offY != y0
 }
+
+// beyond is how far v lies outside 0..limit, negative before 0.
+func beyond(v, limit int) int { return v - min(max(0, v), limit) }
 
 // glowSpan is the swallowed motion that fills the edge glow.
 const glowSpan = 160.0

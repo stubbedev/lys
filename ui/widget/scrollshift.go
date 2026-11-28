@@ -8,6 +8,31 @@ import (
 
 const scrollOverscan = 64
 
+// deviceGrid is the step a scroll offset moves in, in logical pixels:
+// the least whole logical distance that is whole in device pixels too at
+// the tree's device scale, so every step can move pixels rather than
+// repaint the view (two at 1.5, four at 1.25, one at a whole scale).
+func (s *Scroll) deviceGrid() int {
+	num, denom := DeviceScaleOf(s)
+	if num <= 0 {
+		return 1
+	}
+	a, b := num, denom
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return denom / a
+}
+
+// onGrid is v at the nearest multiple of g, but limit, the offset's
+// end, which stays reachable wherever it falls.
+func onGrid(v, g, limit int) int {
+	if g == 1 || v == limit {
+		return v
+	}
+	return min(limit, (v+g/2)/g*g)
+}
+
 // ScrollMove is a viewport whose pixels moved by DX, DY as they stand:
 // a frame can copy them there instead of painting them, and owes only
 // what the move exposed, which the damage holds. All in logical pixels.
