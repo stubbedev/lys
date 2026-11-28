@@ -2558,8 +2558,6 @@ func (p *parser) outputCorners(a *At[rawOutputCorners], key string, global compo
 	return &set
 }
 
-const defaultVirtualRefreshMHz = 60000
-
 func (p *parser) virtualOutputs(raw []At[rawVirtualOutput]) []compositor.VirtualOutput {
 	out := make([]compositor.VirtualOutput, 0, len(raw))
 	for i, at := range raw {
@@ -2582,7 +2580,7 @@ func (p *parser) virtualOutputs(raw []At[rawVirtualOutput]) []compositor.Virtual
 			continue
 		}
 		if m.RefreshMHz == 0 {
-			m.RefreshMHz = defaultVirtualRefreshMHz
+			m.RefreshMHz = backend.DefaultRefreshMHz
 		}
 		out = append(out, compositor.VirtualOutput{Name: v.Name.V, Size: image.Pt(m.Width, m.Height), RefreshMHz: m.RefreshMHz})
 	}

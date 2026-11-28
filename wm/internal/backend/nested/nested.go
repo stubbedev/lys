@@ -24,8 +24,6 @@ var ErrClosed = errors.New("nested: the last host window was closed")
 
 var defaultSize = image.Pt(1280, 720)
 
-const nominalRefreshMHz = 60000
-
 type Backend struct {
 	loop       *loop.Loop
 	host       *wlclient.Display
@@ -335,7 +333,7 @@ func (*Output) MaxBitDepth() backend.BitDepth {
 }
 
 func (o *Output) mode() backend.Mode {
-	return backend.Mode{Size: o.size, RefreshMHz: nominalRefreshMHz, Preferred: true}
+	return backend.Mode{Size: o.size, RefreshMHz: backend.DefaultRefreshMHz, Preferred: true}
 }
 
 func (o *Output) Modes() []backend.Mode {

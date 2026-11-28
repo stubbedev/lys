@@ -18,6 +18,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/wmipc"
 
+	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/ipc"
 	"github.com/stubbedev/lys/wm/internal/wm"
 )
@@ -128,8 +129,6 @@ func parseArgs(args []string) (ipc.Request, error) {
 	return req, nil
 }
 
-const defaultRefreshMHz = 60000
-
 func parseOutput(args []string) (ipc.Request, error) {
 	if len(args) == 0 {
 		return ipc.Request{}, fmt.Errorf("%w: output takes create or remove", errUsage)
@@ -168,7 +167,7 @@ func parseCreateOutput(args []string) (ipc.Request, error) {
 		return ipc.Request{}, fmt.Errorf("%w: output create: %w", errUsage, err)
 	}
 	if m.RefreshMHz == 0 {
-		m.RefreshMHz = defaultRefreshMHz
+		m.RefreshMHz = backend.DefaultRefreshMHz
 	}
 	return ipc.Request{Request: wmipc.KindCreateOutput, Name: *name, Mode: &m, Scale: *scale}, nil
 }

@@ -25,6 +25,8 @@ func NextVblank(last, now, interval time.Duration) (at time.Duration, ticks uint
 	return last + time.Duration(ticks)*interval, ticks //nolint:gosec // a tick count fits a duration
 }
 
+const DefaultRefreshMHz = 60000
+
 type Pacing struct {
 	Vblank   time.Duration
 	Shown    time.Duration

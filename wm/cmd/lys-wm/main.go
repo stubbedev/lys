@@ -85,7 +85,7 @@ func parseDebug(s string) (debug, error) {
 	return d, nil
 }
 
-var headlessMode = backend.Mode{Size: image.Pt(1920, 1080), RefreshMHz: 60000, Preferred: true}
+var headlessMode = backend.Mode{Size: image.Pt(1920, 1080), RefreshMHz: backend.DefaultRefreshMHz, Preferred: true}
 
 type backendKind uint8
 
