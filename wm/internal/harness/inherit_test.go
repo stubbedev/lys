@@ -2,6 +2,7 @@ package harness
 
 import (
 	"errors"
+	"image"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
+	cwlr "github.com/stubbedev/lys/wm/internal/protocol/client/wlrlayershell"
 	"github.com/stubbedev/lys/wm/internal/testclient"
 )
 
@@ -195,4 +197,75 @@ func TestThePointerShowsFromTheStartWithoutAnInheritedFrame(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func barOver(t *testing.T, c *testclient.Client) {
+	t.Helper()
+	bar := c.Layer(testclient.LayerSpec{
+		Layer:  cwlr.ZwlrLayerShellV1LayerTop,
+		Anchor: cwlr.ZwlrLayerSurfaceV1AnchorTop | cwlr.ZwlrLayerSurfaceV1AnchorLeft | cwlr.ZwlrLayerSurfaceV1AnchorRight,
+		Size:   image.Pt(0, 10),
+	}, testclient.Fill(0x20, 0x20, 0x20))
+	c.DispatchUntil("the bar to map", bar.Mapped)
+	bar.Stop()
+}
+
+// A session's first client is often its bar, drawn before its
+// wallpaper: fading the inherited frame out then shows the bar on the
+// black background for a moment, the black frame between the greeter
+// and the session (#348). The inherited frame stays until clients cover
+// the output, and gives way the moment an opaque wallpaper does.
+func TestAnInheritedFrameStaysUntilClientsCoverTheOutput(t *testing.T) {
+	t.Parallel()
+	h := StartInherited(t, func(*compositor.Config) {}, small)
+	h.Freeze()
+	c := testclient.Connect(t, h.Socket())
+	barOver(t, c)
+	idleFrames(h, 5)
+	if presents, inherited := takeover(h); presents != 0 || !inherited {
+		t.Fatalf("lys-wm presented %d frames over the inherited one with only a bar drawn (still inherited: %v)", presents, inherited)
+	}
+	wallpaper := c.Layer(testclient.LayerSpec{
+		Layer:  cwlr.ZwlrLayerShellV1LayerBackground,
+		Anchor: cwlr.ZwlrLayerSurfaceV1AnchorTop | cwlr.ZwlrLayerSurfaceV1AnchorBottom | cwlr.ZwlrLayerSurfaceV1AnchorLeft | cwlr.ZwlrLayerSurfaceV1AnchorRight,
+	}, testclient.Fill(0, 0x80, 0))
+	c.DispatchUntil("the wallpaper to map", wallpaper.Mapped)
+	region, err := c.Compositor.CreateRegion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := errors.Join(region.Add(0, 0, 1<<16, 1<<16), wallpaper.Surface.SetOpaqueRegion(region), wallpaper.Redraw()); err != nil {
+		t.Fatal(err)
+	}
+	h.Eventually("the frame that replaces the inherited one once the wallpaper covers the output", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		return b.Outputs()[0].Takeover() != nil
+	})
+}
+
+// Clients that never cover the output (no wallpaper, a translucent
+// window) hold the inherited frame no longer than the grace after the
+// first of them drew, and that is no failure to report.
+func TestAnInheritedFrameGivesWayAGraceAfterClientsDrew(t *testing.T) {
+	t.Parallel()
+	r := &reports{}
+	grace := time.Minute
+	h := StartInherited(t, func(cfg *compositor.Config) {
+		cfg.InheritGrace = grace
+		cfg.Report = r.report
+	}, small)
+	h.Freeze()
+	c := testclient.Connect(t, h.Socket())
+	barOver(t, c)
+	idleFrames(h, 3)
+	h.Advance(grace / 2)
+	if presents, inherited := takeover(h); presents != 0 || !inherited {
+		t.Fatalf("lys-wm presented %d frames over the inherited one halfway through the %v grace (still inherited: %v)", presents, grace, inherited)
+	}
+	h.Advance(grace)
+	h.Eventually("the frame that replaces the inherited one after the grace", func(b *headless.Backend, _ *compositor.Compositor) bool {
+		return b.Outputs()[0].Takeover() != nil
+	})
+	if got := r.take(); len(got) != 0 {
+		t.Fatalf("the grace ending reported %q", got)
+	}
 }

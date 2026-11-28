@@ -13,7 +13,9 @@ import (
 	"github.com/stubbedev/lys/wm/internal/anim"
 	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/gpu"
+	"github.com/stubbedev/lys/wm/internal/loop"
 	"github.com/stubbedev/lys/wm/internal/output"
+	"github.com/stubbedev/lys/wm/internal/region"
 	"github.com/stubbedev/lys/wm/internal/render"
 )
 
@@ -24,6 +26,12 @@ type inheritedFade struct {
 }
 
 const DefaultInheritTimeout = 30 * time.Second
+
+const DefaultInheritGrace = time.Second
+
+type inheritHold struct {
+	timeout, grace *loop.Timer
+}
 
 func showsInherited(o *output.Output) bool {
 	in, ok := o.Backend().(backend.Inheriting)
@@ -41,20 +49,63 @@ func (c *Compositor) keepInherited(o *output.Output) error {
 	if err := t.Arm(c.inheritTimeout); err != nil {
 		return errors.Join(fmt.Errorf("compositor: time the frame %s inherited: %w", o.Backend().Name(), err), t.Remove())
 	}
-	c.inherited[o] = t
+	c.inherited[o] = &inheritHold{timeout: t}
 	c.presence.unmoved = true
 	return nil
 }
 
-func (c *Compositor) holdsInherited(o *output.Output, content bool) (bool, error) {
-	if _, ok := c.inherited[o]; !ok {
+func (c *Compositor) holdsInherited(o *output.Output, content, covered bool) (bool, error) {
+	h, ok := c.inherited[o]
+	if !ok {
 		return false, nil
 	}
-	if !content && showsInherited(o) {
+	if showsInherited(o) && (!content || !covered) {
+		if content && h.grace == nil {
+			return true, c.startInheritGrace(o, h)
+		}
 		return true, nil
 	}
 	c.fadeFromInherited(o, c.frameTime)
 	return false, c.endInherited(o)
+}
+
+func (c *Compositor) startInheritGrace(o *output.Output, h *inheritHold) error {
+	t, err := c.loop.AddTimer(func() error { return c.inheritGraceEnded(o) })
+	if err != nil {
+		return fmt.Errorf("compositor: time the grace over the frame %s inherited: %w", o.Backend().Name(), err)
+	}
+	if err := t.Arm(c.inheritGrace); err != nil {
+		return errors.Join(fmt.Errorf("compositor: time the grace over the frame %s inherited: %w", o.Backend().Name(), err), t.Remove())
+	}
+	h.grace = t
+	err = h.timeout.Remove()
+	h.timeout = nil
+	return err
+}
+
+func (c *Compositor) inheritGraceEnded(o *output.Output) error {
+	if _, ok := c.inherited[o]; !ok {
+		return nil
+	}
+	c.fadeFromInherited(o, c.clock())
+	return errors.Join(c.endInherited(o), c.schedule(o))
+}
+
+func (c *Compositor) inheritCovered(pass *frame, o *output.Output, bounds image.Rectangle) bool {
+	if _, ok := c.inherited[o]; !ok {
+		return false
+	}
+	return pass.clientsCover(bounds, &c.inheritCover)
+}
+
+func (f *frame) clientsCover(bounds image.Rectangle, covered *region.Set) bool {
+	covered.Reset()
+	for _, op := range f.ops {
+		if op.surface != nil {
+			op.solid(covered.Add)
+		}
+	}
+	return covered.Covers(bounds)
 }
 
 func (c *Compositor) fadeFromInherited(o *output.Output, now time.Duration) {
@@ -177,10 +228,16 @@ func (c *Compositor) inheritTimedOut(o *output.Output) error {
 }
 
 func (c *Compositor) endInherited(o *output.Output) error {
-	t, ok := c.inherited[o]
+	h, ok := c.inherited[o]
 	if !ok {
 		return nil
 	}
 	delete(c.inherited, o)
-	return t.Remove()
+	var errs []error
+	for _, t := range []*loop.Timer{h.timeout, h.grace} {
+		if t != nil {
+			errs = append(errs, t.Remove())
+		}
+	}
+	return errors.Join(errs...)
 }

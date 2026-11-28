@@ -214,7 +214,7 @@ func (c *Compositor) render(o *output.Output) error {
 		}
 		c.drawLockSnapshot(pass, o, bounds, lockAlpha)
 	}
-	if held, err := c.holdsInherited(o, len(shown) > 0); held || err != nil {
+	if held, err := c.holdsInherited(o, len(shown) > 0, c.inheritCovered(pass, o, bounds)); held || err != nil {
 		return err
 	}
 	c.drawInheritedFade(pass, o, bounds)

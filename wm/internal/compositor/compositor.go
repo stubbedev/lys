@@ -48,6 +48,7 @@ import (
 	shfg "github.com/stubbedev/lys/wm/internal/protocol/server/hyprlandfocusgrab"
 	ssb "github.com/stubbedev/lys/wm/internal/protocol/server/systembell"
 	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
+	"github.com/stubbedev/lys/wm/internal/region"
 	"github.com/stubbedev/lys/wm/internal/render"
 	"github.com/stubbedev/lys/wm/internal/seat"
 	"github.com/stubbedev/lys/wm/internal/server"
@@ -90,6 +91,7 @@ type Config struct {
 	LidClosedAtStart  bool
 	PowerSaverAtStart bool
 	InheritTimeout    time.Duration
+	InheritGrace      time.Duration
 	HoldBound         time.Duration
 	HiddenFrame       time.Duration
 	SleepGrace        time.Duration
@@ -173,6 +175,7 @@ func PlainConfig(keymap *xkb.Keymap, font *gtext.Typeface) Config {
 		Font:           font,
 		Icons:          icontheme.New("", nil),
 		InheritTimeout: DefaultInheritTimeout,
+		InheritGrace:   DefaultInheritGrace,
 		HoldBound:      DefaultHoldBound,
 		HiddenFrame:    DefaultHiddenFrame,
 		SleepGrace:     DefaultSleepGrace,
@@ -279,9 +282,11 @@ type Compositor struct {
 	stops              map[render.BorderStops]render.Texture
 	scenes             map[*output.Output]*scene
 	dropped            map[backend.Output]int
-	inherited          map[*output.Output]*loop.Timer
+	inherited          map[*output.Output]*inheritHold
 	inheritFades       map[*output.Output]*inheritedFade
 	inheritTimeout     time.Duration
+	inheritGrace       time.Duration
+	inheritCover       region.Set
 	outputResources    []*sw.WlOutput
 	tabBars            []wm.TabBar
 	rings              []wm.GroupRing
@@ -493,6 +498,9 @@ func validate(cfg Config) (binds.Map, error) {
 	if cfg.InheritTimeout <= 0 {
 		return binds.Map{}, fmt.Errorf("compositor: inherited frame timeout %v is not positive", cfg.InheritTimeout)
 	}
+	if cfg.InheritGrace <= 0 {
+		return binds.Map{}, fmt.Errorf("compositor: inherited frame grace %v is not positive", cfg.InheritGrace)
+	}
 	for _, b := range [2]render.Border{cfg.Decor.ActiveBorder, cfg.Decor.InactiveBorder} {
 		if len(b.Colors()) == 0 {
 			return binds.Map{}, errors.New("compositor: a border without a colour; use SolidBorder or GradientBorder")
@@ -525,7 +533,7 @@ func (c *Compositor) adopt(cfg Config, m binds.Map) {
 	c.primaryOutput = cfg.PrimaryOutput
 	c.colorManagement = cfg.ColorManagement
 	c.clientHotkeys = cfg.ClientHotkeys
-	c.tearing, c.icons, c.inheritTimeout, c.holdBound = cfg.Tearing, cfg.Icons, cfg.InheritTimeout, cfg.HoldBound
+	c.tearing, c.icons, c.inheritTimeout, c.inheritGrace, c.holdBound = cfg.Tearing, cfg.Icons, cfg.InheritTimeout, cfg.InheritGrace, cfg.HoldBound
 	c.animations, c.layerRules, c.workspaceRules = cfg.Animations, cfg.LayerRules, cfg.WorkspaceRules
 	c.swallow = cfg.Swallow
 	c.syncWorkspaceRules()
@@ -571,7 +579,7 @@ func New(l *loop.Loop, display *server.Display, b backend.Backend, cfg Config) (
 		capabilities:   map[backend.Output]wmipc.OutputCapabilities{},
 		profiles:       map[backend.Output]*profile{},
 		dropped:        map[backend.Output]int{},
-		inherited:      map[*output.Output]*loop.Timer{},
+		inherited:      map[*output.Output]*inheritHold{},
 		inheritFades:   map[*output.Output]*inheritedFade{},
 		loop:           l,
 		clock:          l.Now,
