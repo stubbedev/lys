@@ -20,7 +20,7 @@ var barItemColors = []string{"color", "icon-color", "label-color", "icon-bg-colo
 var barItemToggles = []string{"icon-show", "label-show", "label-max-length", "border-show", "tooltip"}
 
 func hasKey(path string) bool {
-	_, ok := config.Field(path)
+	_, _, ok := config.LeafPath(path)
 	return ok
 }
 

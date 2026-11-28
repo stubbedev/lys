@@ -183,3 +183,18 @@ func TestALoneBarItemColourIsARow(t *testing.T) {
 		t.Errorf("the Brightness page shows %d colour strips, want its one", len(strips))
 	}
 }
+
+// A bar item's key exists when it names a leaf of the config, what a
+// settings row edits; a section or a key the config lacks does not.
+func TestASchemaKeyIsALeafOfTheConfig(t *testing.T) {
+	for _, path := range config.LeafPaths() {
+		if !hasKey(path) {
+			t.Errorf("the leaf %s is taken for no key", path)
+		}
+	}
+	for _, path := range []string{"", "modules", "modules.battery", "modules.battery.no-such-key", "no-such-section.color"} {
+		if hasKey(path) {
+			t.Errorf("%q is taken for a key", path)
+		}
+	}
+}

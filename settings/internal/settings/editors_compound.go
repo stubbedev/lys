@@ -333,7 +333,10 @@ const motionPageID = "motion"
 func animationSurfaces() []string {
 	var surfaces []string
 	for _, p := range config.LeafPaths() {
-		if _, ok := config.Field(p + ".enter-duration"); ok && strings.HasPrefix(p, "animations.") {
+		if !strings.HasPrefix(p, "animations.") {
+			continue
+		}
+		if _, _, ok := config.LeafPath(p + ".enter-duration"); ok {
 			surfaces = append(surfaces, p)
 		}
 	}
