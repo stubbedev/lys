@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -32,21 +33,13 @@ func RivalsAmong(active []string) []Rival {
 }
 
 func ActiveRivals(ctx context.Context, conn *dbus.Conn) ([]Rival, error) {
-	var units []struct {
-		Name, Description, Load, Active, Sub, Following string
-		Path                                            dbus.ObjectPath
-		JobID                                           uint32
-		JobType                                         string
-		JobPath                                         dbus.ObjectPath
-	}
-	manager := conn.Object("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
-	if err := manager.CallWithContext(ctx, "org.freedesktop.systemd1.Manager.ListUnitsByNames", 0, rivalUnits).Store(&units); err != nil {
+	var units []systemd1.ListedUnit
+	if err := systemd1.Manager(conn).CallWithContext(ctx, systemd1.ManagerInterface+".ListUnitsByNames", 0, rivalUnits).Store(&units); err != nil {
 		return nil, fmt.Errorf("asking systemd whether %v are active: %w", rivalUnits, err)
 	}
 	var active []string
 	for _, u := range units {
-		switch u.Active {
-		case "active", "activating", "reloading":
+		if systemd1.IsActive(u.Active) {
 			active = append(active, u.Name)
 		}
 	}

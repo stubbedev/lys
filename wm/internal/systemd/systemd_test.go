@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/systemd1"
 	"github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/wm/internal/testenv"
@@ -67,7 +68,7 @@ func (m *fakeManager) UnsetAndSetEnvironment(names, assignments []string) *dbus.
 type fakeProperties struct{ m *fakeManager }
 
 func (p fakeProperties) Get(iface, name string) (dbus.Variant, *dbus.Error) {
-	if iface != manager || name != "Environment" || p.m.fail == "Get" {
+	if iface != systemd1.ManagerInterface || name != "Environment" || p.m.fail == "Get" {
 		return dbus.Variant{}, dbus.MakeFailedError(errors.New("no property " + iface + "." + name))
 	}
 	p.m.mu.Lock()
@@ -101,13 +102,13 @@ func systemd(t *testing.T, address, fail string, prior map[string]string) *fakeM
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	m := &fakeManager{env: prior, fail: fail}
-	if err := conn.Export(m, "/org/freedesktop/systemd1", manager); err != nil {
+	if err := conn.Export(m, systemd1.Path, systemd1.ManagerInterface); err != nil {
 		t.Fatal(err)
 	}
 	if err := conn.Export(fakeProperties{m}, "/org/freedesktop/systemd1", "org.freedesktop.DBus.Properties"); err != nil {
 		t.Fatal(err)
 	}
-	if reply, err := conn.RequestName("org.freedesktop.systemd1", dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+	if reply, err := conn.RequestName(systemd1.BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
 		t.Fatalf("own org.freedesktop.systemd1: %v, %v", reply, err)
 	}
 	return m

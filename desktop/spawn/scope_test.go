@@ -13,6 +13,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbustest"
 	"github.com/stubbedev/lys/lib/logtest"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -71,11 +72,11 @@ func onBus(t *testing.T, manager *fakeManager) {
 	t.Cleanup(scopes.moves.Wait)
 	if manager != nil {
 		conn := bus.Conn(t)
-		if err := conn.Export(manager, systemdPath, systemdIface); err != nil {
+		if err := conn.Export(manager, systemd1.Path, systemd1.ManagerInterface); err != nil {
 			t.Fatal(err)
 		}
-		if reply, err := conn.RequestName(systemdName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
-			t.Fatalf("own %s: %v %v", systemdName, reply, err)
+		if reply, err := conn.RequestName(systemd1.BusName, dbus.NameFlagDoNotQueue); err != nil || reply != dbus.RequestNameReplyPrimaryOwner {
+			t.Fatalf("own %s: %v %v", systemd1.BusName, reply, err)
 		}
 	}
 	bus.UseAsSessionBus(t)

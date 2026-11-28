@@ -10,17 +10,10 @@ import (
 	"syscall"
 
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
 	"github.com/stubbedev/lys/power/pause"
-)
-
-const (
-	SystemdName    = "org.freedesktop.systemd1"
-	SystemdPath    = dbus.ObjectPath("/org/freedesktop/systemd1")
-	SystemdManager = SystemdName + ".Manager"
-	SystemdUnit    = SystemdName + ".Unit"
-	ErrNoSuchUnit  = SystemdName + ".NoSuchUnit"
 )
 
 var ErrNoManager = errors.New("no systemd manager runs for the user")
@@ -40,23 +33,23 @@ type Managers interface {
 
 type Systemd struct{ Conn *dbus.Conn }
 
-func (s Systemd) manager() dbus.BusObject { return s.Conn.Object(SystemdName, SystemdPath) }
+func (s Systemd) manager() dbus.BusObject { return systemd1.Manager(s.Conn) }
 
 func (s Systemd) Running(ctx context.Context, name string) (bool, error) {
 	var path dbus.ObjectPath
-	err := s.manager().CallWithContext(ctx, SystemdManager+".GetUnit", 0, name).Store(&path)
-	if reply, ok := errors.AsType[dbus.Error](err); ok && reply.Name == ErrNoSuchUnit {
+	err := s.manager().CallWithContext(ctx, systemd1.ManagerInterface+".GetUnit", 0, name).Store(&path)
+	if reply, ok := errors.AsType[dbus.Error](err); ok && reply.Name == systemd1.ErrNoSuchUnit {
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("find %s: %w", name, err)
 	}
-	unit := s.Conn.Object(SystemdName, path)
-	active, err := dbusx.Get[string](ctx, unit, SystemdUnit, "ActiveState")
+	unit := s.Conn.Object(systemd1.BusName, path)
+	active, err := dbusx.Get[string](ctx, unit, systemd1.UnitInterface, "ActiveState")
 	if err != nil {
 		return false, fmt.Errorf("read whether %s is active: %w", name, err)
 	}
-	freezer, err := dbusx.Get[string](ctx, unit, SystemdUnit, "FreezerState")
+	freezer, err := dbusx.Get[string](ctx, unit, systemd1.UnitInterface, "FreezerState")
 	if err != nil {
 		return false, fmt.Errorf("read whether %s is frozen: %w", name, err)
 	}
@@ -80,7 +73,7 @@ func (s Systemd) Stop(ctx context.Context, name string) error {
 }
 
 func (s Systemd) call(ctx context.Context, method, name string, args ...any) error {
-	if err := s.manager().CallWithContext(ctx, SystemdManager+"."+method, 0, append([]any{name}, args...)...).Err; err != nil {
+	if err := s.manager().CallWithContext(ctx, systemd1.ManagerInterface+"."+method, 0, append([]any{name}, args...)...).Err; err != nil {
 		return fmt.Errorf("%s %s: %w", method, name, err)
 	}
 	return nil

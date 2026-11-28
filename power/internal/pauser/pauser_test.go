@@ -19,6 +19,7 @@ import (
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/polkit"
 	"github.com/stubbedev/lys/lib/polkit/polkittest"
+	"github.com/stubbedev/lys/lib/systemd1"
 	"github.com/stubbedev/lys/lib/testhome"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 
@@ -54,7 +55,7 @@ func startSystemd(t *testing.T, conn *dbus.Conn, units map[string]string) *fakeS
 		f.units[name] = &fakeUnit{active: units[name], freezer: "running"}
 		path := dbus.ObjectPath("/org/freedesktop/systemd1/unit/u" + strconv.Itoa(i))
 		f.paths[name] = path
-		unexport, err := dbusx.Export(conn, path, dbusx.Interface{Name: pauser.SystemdUnit, Properties: dbusx.Getters{
+		unexport, err := dbusx.Export(conn, path, dbusx.Interface{Name: systemd1.UnitInterface, Properties: dbusx.Getters{
 			"ActiveState":  func() any { return f.state(name).active },
 			"FreezerState": func() any { return f.state(name).freezer },
 		}})
@@ -63,7 +64,7 @@ func startSystemd(t *testing.T, conn *dbus.Conn, units map[string]string) *fakeS
 		}
 		t.Cleanup(unexport)
 	}
-	release, err := dbusx.Serve(conn, dbusx.Service{Name: pauser.SystemdName, Path: pauser.SystemdPath, Interface: pauser.SystemdManager, Methods: manager{f}})
+	release, err := dbusx.Serve(conn, dbusx.Service{Name: systemd1.BusName, Path: systemd1.Path, Interface: systemd1.ManagerInterface, Methods: manager{f}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +105,7 @@ func (m manager) GetUnit(name string) (dbus.ObjectPath, *dbus.Error) {
 	defer m.f.mu.Unlock()
 	path, ok := m.f.paths[name]
 	if !ok {
-		return "", dbus.NewError(pauser.ErrNoSuchUnit, []any{"Unit " + name + " not loaded."})
+		return "", dbus.NewError(systemd1.ErrNoSuchUnit, []any{"Unit " + name + " not loaded."})
 	}
 	return path, nil
 }
@@ -119,7 +120,7 @@ func (m manager) act(method, name string, change func(*fakeUnit)) *dbus.Error {
 	}
 	u, ok := m.f.units[name]
 	if !ok {
-		return dbus.NewError(pauser.ErrNoSuchUnit, []any{"Unit " + name + " not loaded."})
+		return dbus.NewError(systemd1.ErrNoSuchUnit, []any{"Unit " + name + " not loaded."})
 	}
 	change(u)
 	return nil

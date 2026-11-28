@@ -12,15 +12,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/nap"
-)
-
-const (
-	systemdName    = "org.freedesktop.systemd1"
-	systemdPath    = dbus.ObjectPath("/org/freedesktop/systemd1")
-	systemdManager = "org.freedesktop.systemd1.Manager"
-	noSuchUnit     = "org.freedesktop.systemd1.NoSuchUnit"
 )
 
 // ErrNoEfficiencyCores is the efficiency-cores level on a machine without them.
@@ -42,7 +36,7 @@ type Systemd struct {
 // efficiency cores under sys.
 func NewSystemd(session *dbus.Conn, slack Slacker, sys string) Systemd {
 	return Systemd{
-		Manager:    session.Object(systemdName, systemdPath),
+		Manager:    systemd1.Manager(session),
 		Slack:      slack,
 		Efficiency: func() ([]byte, error) { return EfficiencyMask(sys) },
 	}
@@ -57,7 +51,7 @@ type property struct {
 // is gone needs nothing.
 func (s Systemd) Apply(ctx context.Context, c Change) error {
 	err := s.apply(ctx, c)
-	if dbusErr, ok := errors.AsType[dbus.Error](err); ok && dbusErr.Name == noSuchUnit {
+	if dbusErr, ok := errors.AsType[dbus.Error](err); ok && dbusErr.Name == systemd1.ErrNoSuchUnit {
 		return nil
 	}
 	if err != nil {
@@ -108,7 +102,7 @@ func (s Systemd) apply(ctx context.Context, c Change) error {
 }
 
 func (s Systemd) call(ctx context.Context, method string, args ...any) error {
-	return s.Manager.CallWithContext(ctx, systemdManager+"."+method, 0, args...).Err
+	return s.Manager.CallWithContext(ctx, systemd1.ManagerInterface+"."+method, 0, args...).Err
 }
 
 // EfficiencyMask is the AllowedCPUs mask of the cores the kernel lists as

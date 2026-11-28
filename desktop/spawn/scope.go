@@ -14,13 +14,8 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
-)
-
-const (
-	systemdName  = "org.freedesktop.systemd1"
-	systemdPath  = dbus.ObjectPath("/org/freedesktop/systemd1")
-	systemdIface = "org.freedesktop.systemd1.Manager"
 )
 
 const scopeTimeout = 5 * time.Second
@@ -99,7 +94,7 @@ func (s *scopeMover) session(ctx context.Context) (*dbus.Conn, error) {
 
 func intoScope(ctx context.Context, conn *dbus.Conn, pid int, name string) error {
 	var running bool
-	if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.NameHasOwner", 0, systemdName).Store(&running); err != nil {
+	if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.NameHasOwner", 0, systemd1.BusName).Store(&running); err != nil {
 		return fmt.Errorf("look up the systemd user manager: %w", err)
 	}
 	if !running {
@@ -124,7 +119,7 @@ func intoScope(ctx context.Context, conn *dbus.Conn, pid int, name string) error
 			Value dbus.Variant
 		}
 	}{}
-	if err := conn.Object(systemdName, systemdPath).CallWithContext(ctx, systemdIface+".StartTransientUnit", 0, ScopeName(name, pid), "fail", props, aux).Err; err != nil {
+	if err := systemd1.Manager(conn).CallWithContext(ctx, systemd1.ManagerInterface+".StartTransientUnit", 0, ScopeName(name, pid), "fail", props, aux).Err; err != nil {
 		return fmt.Errorf("start its scope: %w", err)
 	}
 	return nil

@@ -49,6 +49,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/logind"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/xdg"
 	"golang.org/x/sys/unix"
@@ -272,8 +273,8 @@ func exportEnv(conn *dbus.Conn, name, value string) (unexport func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	assignment := name + "=" + value
-	systemd := conn.Object("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
-	if err := systemd.CallWithContext(ctx, "org.freedesktop.systemd1.Manager.SetEnvironment", 0, []string{assignment}).Err; err != nil {
+	systemd := systemd1.Manager(conn)
+	if err := systemd.CallWithContext(ctx, systemd1.ManagerInterface+".SetEnvironment", 0, []string{assignment}).Err; err != nil {
 		log.Printf("lys-secrets: the systemd user manager does not have %s: %v", assignment, err)
 	}
 	if err := conn.BusObject().CallWithContext(ctx, "org.freedesktop.DBus.UpdateActivationEnvironment", 0, map[string]string{name: value}).Err; err != nil {
@@ -282,7 +283,7 @@ func exportEnv(conn *dbus.Conn, name, value string) (unexport func()) {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := systemd.CallWithContext(ctx, "org.freedesktop.systemd1.Manager.UnsetEnvironment", 0, []string{name}).Err; err != nil {
+		if err := systemd.CallWithContext(ctx, systemd1.ManagerInterface+".UnsetEnvironment", 0, []string{name}).Err; err != nil {
 			log.Printf("lys-secrets: take %s back from the systemd user manager: %v", name, err)
 		}
 	}

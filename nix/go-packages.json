@@ -2374,6 +2374,7 @@
   "desktop/spawn": {
     "imports": [
       "lib/intconv",
+      "lib/systemd1",
       "lib/third_party/godbus"
     ],
     "external": [
@@ -5085,6 +5086,14 @@
       "testing"
     ]
   },
+  "lib/systemd1": {
+    "imports": [
+      "lib/third_party/godbus"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "lib/testbuild": {
     "imports": [
       "lib/debug"
@@ -7368,6 +7377,7 @@
   "power/internal/devicepower": {
     "imports": [
       "lib/intconv",
+      "lib/systemd1",
       "lib/third_party/godbus",
       "power/internal/sysfs"
     ],
@@ -7521,6 +7531,7 @@
       "lib/busauth",
       "lib/dbusx",
       "lib/polkit",
+      "lib/systemd1",
       "lib/third_party/godbus",
       "power/internal/statefile",
       "power/pause"
@@ -7896,6 +7907,7 @@
     "imports": [
       "lib/dbusx",
       "lib/logind",
+      "lib/systemd1",
       "lib/third_party/godbus",
       "lib/xdg",
       "secrets/client",
@@ -8623,6 +8635,7 @@
       "lib/pam",
       "lib/pulse/native",
       "lib/render",
+      "lib/systemd1",
       "lib/third_party/godbus",
       "lib/wmipc",
       "lib/xcursor",
@@ -9737,6 +9750,7 @@
     "imports": [
       "lib/dbusx",
       "lib/procstat",
+      "lib/systemd1",
       "lib/third_party/godbus",
       "power/energy",
       "shell/service/powerprop"
@@ -9764,6 +9778,7 @@
   },
   "shell/service/appnap": {
     "imports": [
+      "lib/systemd1",
       "lib/third_party/godbus",
       "lib/wmipc",
       "power/nap"
@@ -15341,22 +15356,22 @@
   },
   "wm/internal/golden": {
     "imports": [
+      "lib/golden",
       "wm/internal/render/soft"
     ],
     "external": [
-      "bytes",
-      "flag",
-      "fmt",
       "image",
-      "image/png",
-      "os",
-      "path/filepath",
       "testing"
     ],
     "testImports": [
       "lib/testhome"
     ],
     "testExternal": [
+      "bytes",
+      "fmt",
+      "image/png",
+      "os",
+      "path/filepath",
       "strings"
     ]
   },
@@ -17176,6 +17191,7 @@
   "wm/internal/systemd": {
     "imports": [
       "lib/dbusx",
+      "lib/systemd1",
       "lib/third_party/godbus"
     ],
     "external": [

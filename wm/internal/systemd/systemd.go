@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/stubbedev/lys/lib/dbusx"
+	"github.com/stubbedev/lys/lib/systemd1"
 	"github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
 const (
 	Target      = "lys-wm-session.target"
 	callTimeout = 5 * time.Second
-	manager     = "org.freedesktop.systemd1.Manager"
 )
 
 type Session struct {
@@ -36,13 +36,13 @@ func call(obj dbus.BusObject, method string, args ...any) *dbus.Call {
 }
 
 func (s *Session) manager() dbus.BusObject {
-	return s.conn.Object("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
+	return systemd1.Manager(s.conn)
 }
 
 func (s *Session) environment() (map[string]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), callTimeout)
 	defer cancel()
-	assignments, err := dbusx.Get[[]string](ctx, s.manager(), manager, "Environment")
+	assignments, err := dbusx.Get[[]string](ctx, s.manager(), systemd1.ManagerInterface, "Environment")
 	if err != nil {
 		return nil, fmt.Errorf("systemd: read the user manager's environment: %w", err)
 	}
@@ -55,7 +55,7 @@ func (s *Session) environment() (map[string]string, error) {
 }
 
 func (s *Session) undo() error {
-	return call(s.manager(), manager+".UnsetAndSetEnvironment", s.absent, s.restore).Err
+	return call(s.manager(), systemd1.ManagerInterface+".UnsetAndSetEnvironment", s.absent, s.restore).Err
 }
 
 type Environment struct {
@@ -95,11 +95,11 @@ func Start(address string, env Environment) (*Session, error) {
 	}
 	if err := errors.Join(
 		call(conn.BusObject(), "org.freedesktop.DBus.UpdateActivationEnvironment", activation).Err,
-		call(s.manager(), manager+".UnsetAndSetEnvironment", env.Unset, assignments).Err,
+		call(s.manager(), systemd1.ManagerInterface+".UnsetAndSetEnvironment", env.Unset, assignments).Err,
 	); err != nil {
 		return nil, errors.Join(err, s.undo(), conn.Close())
 	}
-	if err := call(s.manager(), manager+".StartUnit", Target, "replace").Err; err != nil {
+	if err := call(s.manager(), systemd1.ManagerInterface+".StartUnit", Target, "replace").Err; err != nil {
 		return nil, errors.Join(err, s.undo(), conn.Close())
 	}
 	return s, nil
@@ -107,7 +107,7 @@ func Start(address string, env Environment) (*Session, error) {
 
 func (s *Session) Close() error {
 	return errors.Join(
-		call(s.manager(), manager+".StopUnit", Target, "replace").Err,
+		call(s.manager(), systemd1.ManagerInterface+".StopUnit", Target, "replace").Err,
 		s.undo(),
 		s.conn.Close(),
 	)

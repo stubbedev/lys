@@ -17,7 +17,9 @@ import (
 	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
+	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -231,19 +233,13 @@ type userManager interface {
 }
 
 const (
-	systemdName    = "org.freedesktop.systemd1"
-	systemdPath    = dbus.ObjectPath("/org/freedesktop/systemd1")
-	systemdManager = systemdName + ".Manager"
-	systemdUnit    = systemdName + ".Unit"
+	systemdName    = systemd1.BusName
+	systemdPath    = systemd1.Path
+	systemdManager = systemd1.ManagerInterface
+	systemdUnit    = systemd1.UnitInterface
 )
 
-type listedUnit struct {
-	Name, Description, Load, Active, Sub, Following string
-	Path                                            dbus.ObjectPath
-	JobID                                           uint32
-	JobType                                         string
-	JobPath                                         dbus.ObjectPath
-}
+type listedUnit = systemd1.ListedUnit
 
 type systemdUser struct {
 	conn    *dbus.Conn
@@ -259,11 +255,10 @@ func (s systemdUser) units(ctx context.Context) ([]userUnit, error) {
 		if err := s.manager().CallWithContext(ctx, systemdManager+".LoadUnit", 0, target).Store(&path); err != nil {
 			return nil, fmt.Errorf("load %s: %w", target, err)
 		}
-		v, err := s.conn.Object(systemdName, path).GetProperty(systemdUnit + ".Wants")
+		wants, err := dbusx.Get[[]string](ctx, s.conn.Object(systemdName, path), systemdUnit, "Wants")
 		if err != nil {
 			return nil, fmt.Errorf("read what %s wants: %w", target, err)
 		}
-		wants, _ := v.Value().([]string)
 		for _, w := range wants {
 			if strings.HasSuffix(w, ".service") && !slices.Contains(names, w) {
 				names = append(names, w)

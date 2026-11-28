@@ -15,6 +15,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/procstat"
+	"github.com/stubbedev/lys/lib/systemd1"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/power/energy"
 
@@ -24,9 +25,6 @@ import (
 const callTimeout = 5 * time.Second
 
 const (
-	systemdName  = "org.freedesktop.systemd1"
-	systemdPath  = dbus.ObjectPath("/org/freedesktop/systemd1")
-	stopUnit     = "org.freedesktop.systemd1.Manager.StopUnit"
 	renewalShare = 2
 )
 
@@ -98,7 +96,7 @@ func Quit(ctx context.Context, session *dbus.Conn, t Target) error {
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
 	var job dbus.ObjectPath
-	if err := session.Object(systemdName, systemdPath).CallWithContext(ctx, stopUnit, 0, t.unit, "replace").Store(&job); err != nil {
+	if err := systemd1.Manager(session).CallWithContext(ctx, systemd1.ManagerInterface+".StopUnit", 0, t.unit, "replace").Store(&job); err != nil {
 		return fmt.Errorf("stop %s: %w", t.unit, err)
 	}
 	return nil
