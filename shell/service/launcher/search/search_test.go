@@ -20,6 +20,7 @@ import (
 	"github.com/stubbedev/lys/lib/logtest"
 	"github.com/stubbedev/lys/lib/waittest"
 
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 )
@@ -693,27 +694,6 @@ func TestScriptArgumentsStayData(t *testing.T) {
 	}
 }
 
-func TestReadRecentFiles(t *testing.T) {
-	dir := t.TempDir()
-	older, newer := filepath.Join(dir, "older"), filepath.Join(dir, "newer")
-	for _, p := range []string{older, newer} {
-		if err := os.WriteFile(p, nil, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	xbel := filepath.Join(dir, "r.xbel")
-	body := fmt.Sprintf(`<?xml version="1.0"?><xbel><bookmark href="file://%s" modified="2026-01-01T00:00:00Z"/><bookmark href="file://%s" modified="2026-06-01T00:00:00Z"/><bookmark href="file://%s/gone" modified="2026-07-01T00:00:00Z"/><bookmark href="https://x" modified="2026-08-01T00:00:00Z"/></xbel>`, older, newer, dir)
-	if err := os.WriteFile(xbel, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got := readRecentFiles(xbel, 10); !slices.Equal(got, []string{newer, older}) {
-		t.Errorf("recent = %v", got)
-	}
-	if got := readRecentFiles(filepath.Join(dir, "none"), 10); got != nil {
-		t.Errorf("missing file = %v", got)
-	}
-}
-
 func TestWalkFilesRespectsItsBounds(t *testing.T) {
 	root := t.TempDir()
 	for _, p := range []string{"a.txt", "sub/b.txt", ".hidden/c.txt", "node_modules/d.txt", "skipme/e.txt"} {
@@ -731,16 +711,16 @@ func TestWalkFilesRespectsItsBounds(t *testing.T) {
 	got, end := walkFiles(context.Background(), []string{root}, []string{"skipme"}, 100)
 	slices.Sort(got)
 	want := []string{filepath.Join(root, "a.txt"), filepath.Join(root, "sub") + "/", filepath.Join(root, "sub", "b.txt")}
-	if end != walkDone || !slices.Equal(got, want) {
-		t.Errorf("walk = %v (end %v), want %v and walkDone", got, end, want)
+	if end != fileindex.Done || !slices.Equal(got, want) {
+		t.Errorf("walk = %v (end %v), want %v and Done", got, end, want)
 	}
-	if got, end := walkFiles(context.Background(), []string{root}, nil, 1); end != walkFull || len(got) != 1 {
-		t.Errorf("limit: %v, end %v, want one path and walkFull", got, end)
+	if got, end := walkFiles(context.Background(), []string{root}, nil, 1); end != fileindex.Full || len(got) != 1 {
+		t.Errorf("limit: %v, end %v, want one path and Full", got, end)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if got, end := walkFiles(ctx, []string{root}, nil, 100); end != walkCut || len(got) != 0 {
-		t.Errorf("a cancelled walk: %v, end %v, want nothing and walkCut", got, end)
+	if got, end := walkFiles(ctx, []string{root}, nil, 100); end != fileindex.Cut || len(got) != 0 {
+		t.Errorf("a cancelled walk: %v, end %v, want nothing and Cut", got, end)
 	}
 }
 

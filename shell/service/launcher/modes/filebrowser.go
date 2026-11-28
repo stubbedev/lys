@@ -118,14 +118,20 @@ func (f *FileBrowser) state() launcher.ModeState {
 }
 
 func (f *FileBrowser) open(path string) launcher.Action {
-	if strings.TrimSpace(f.cfg.Command) != "" {
-		launcher.RunShell(f.cfg.Command + " " + shlex.MustQuote(path))
-		return launcher.ActionClose{}
-	}
-	if err := launcher.Open(path, f.cfg.Terminal, ""); err != nil {
+	if err := openFile(path, f.cfg.Command, f.cfg.Terminal); err != nil {
 		return failed(f.state(), RanFailed(filepath.Base(path), err), err)
 	}
 	return launcher.ActionClose{}
+}
+
+// openFile opens path with command, or in its default app when command
+// is blank.
+func openFile(path, command, terminal string) error {
+	if strings.TrimSpace(command) != "" {
+		launcher.RunShell(command + " " + shlex.MustQuote(path))
+		return nil
+	}
+	return launcher.Open(path, terminal, "")
 }
 
 // Load lists the current directory.

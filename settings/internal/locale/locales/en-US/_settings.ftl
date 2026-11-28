@@ -1844,6 +1844,7 @@ settings-launcher-mode-windowcd = Windows on this workspace
 settings-launcher-mode-ssh = SSH hosts
 settings-launcher-mode-filebrowser = Files
 settings-launcher-mode-recursivebrowser = Files in all subfolders
+settings-launcher-mode-files = File search
 settings-launcher-mode-keys = Key bindings
 settings-launcher-mode-calc = Calculator
 settings-launcher-mode-clipboard = Clipboard history

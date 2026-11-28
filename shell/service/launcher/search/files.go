@@ -3,14 +3,11 @@ package search
 import (
 	"bufio"
 	"context"
-	"encoding/xml"
 	"errors"
 	"io"
 	"log"
-	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 	"unsafe"
@@ -18,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/lib/atomicfile"
 
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 )
 
@@ -25,29 +23,20 @@ import (
 // the end of a tree too large to index is what lies deepest; it runs
 // while the launcher is open and never otherwise, with no daemon.
 const (
-	fileIndexMax     = 30000
-	fileIndexDepth   = 8
-	fileIndexBudget  = 3 * time.Second
-	fileIndexMaxAge  = 10 * time.Minute
-	recentFilesMax   = 200
-	recentFilesBytes = 4 << 20
+	fileIndexMax    = 30000
+	fileIndexBudget = 3 * time.Second
+	fileIndexMaxAge = 10 * time.Minute
 	// recentRank lifts a recent file over one merely indexed.
 	recentRank = 24
 	// pathRowsMax bounds a directory listing answered for a typed path.
 	pathRowsMax = 30
 )
 
-// skippedDirs are trees full of files nobody searches for by name.
-var skippedDirs = map[string]bool{
-	"node_modules": true, "vendor": true, "target": true, "__pycache__": true,
-	"venv": true, "dist": true, "build": true, "result": true,
-}
-
 // FilesConfig bounds what Files reads.
 type FilesConfig struct {
 	// Roots are walked; a walk stays on each root's filesystem.
 	Roots []string
-	// Exclude are directory names to skip, on top of skippedDirs.
+	// Exclude are directory names to skip, on top of fileindex.Rules' own.
 	Exclude []string
 	// CachePath is the index's file.
 	CachePath string
@@ -83,7 +72,7 @@ func (f *Files) Load(ctx context.Context, publish func([]Entry)) { f.LoadStaged(
 // behind it if the index has gone stale. Only the session's end cuts it
 // short: a walk its own bounds stopped is as whole as the index gets.
 func (f *Files) LoadStaged(session context.Context, publish func([]Entry)) bool {
-	recent := readRecentFiles(f.cfg.RecentPath, recentFilesMax)
+	recent := fileindex.ReadRecent(f.cfg.RecentPath, fileindex.RecentMax)
 	indexed, age, err := readFileIndex(f.cfg.CachePath, f.cfg.Now)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Printf("launcher: file index: %v", err)
@@ -95,8 +84,8 @@ func (f *Files) LoadStaged(session context.Context, publish func([]Entry)) bool 
 	budget, cancel := context.WithTimeout(session, fileIndexBudget)
 	defer cancel()
 	walked, end := walkFiles(budget, f.cfg.Roots, f.cfg.Exclude, fileIndexMax)
-	whole := end != walkCut || errors.Is(budget.Err(), context.DeadlineExceeded)
-	if end == walkCut && len(walked) < len(indexed) {
+	whole := end != fileindex.Cut || errors.Is(budget.Err(), context.DeadlineExceeded)
+	if end == fileindex.Cut && len(walked) < len(indexed) {
 		return whole
 	}
 	publish(f.entries(recent, walked))
@@ -268,63 +257,6 @@ func (f *Files) Actions(e Entry) []Action {
 	}
 }
 
-// readRecentFiles reads the most recent local files of an xbel, the
-// format every toolkit writes. Missing or unreadable is nothing: the
-// file belongs to whichever toolkit made it, and may not exist.
-func readRecentFiles(path string, limit int) []string {
-	file, err := os.Open(path) //nolint:gosec // the desktop's recently-used list
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = file.Close() }()
-	type recent struct {
-		path string
-		when string
-	}
-	var found []recent
-	dec := xml.NewDecoder(io.LimitReader(bufio.NewReader(file), recentFilesBytes))
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			break
-		}
-		start, ok := tok.(xml.StartElement)
-		if !ok || start.Name.Local != "bookmark" {
-			continue
-		}
-		var href, when string
-		for _, a := range start.Attr {
-			switch a.Name.Local {
-			case "href":
-				href = a.Value
-			case "modified":
-				when = a.Value
-			case "visited":
-				if when == "" {
-					when = a.Value
-				}
-			}
-		}
-		u, err := url.Parse(href)
-		if err != nil || u.Scheme != "file" || u.Path == "" {
-			continue
-		}
-		found = append(found, recent{path: u.Path, when: when})
-	}
-	// RFC 3339 timestamps in UTC order as text.
-	slices.SortStableFunc(found, func(a, b recent) int { return strings.Compare(b.when, a.when) })
-	out := make([]string, 0, min(limit, len(found)))
-	for _, r := range found {
-		if len(out) == limit {
-			break
-		}
-		if _, err := os.Stat(r.path); err == nil && !slices.Contains(out, r.path) {
-			out = append(out, r.path)
-		}
-	}
-	return out
-}
-
 // readFileIndex reads the cached paths and how old they are.
 func readFileIndex(path string, now func() time.Time) ([]string, time.Duration, error) {
 	file, err := os.Open(path) //nolint:gosec // the launcher's own cache
@@ -366,75 +298,19 @@ func writeFileIndex(path string, paths []string) error {
 	})
 }
 
-// walkEnd is why a walk stopped.
-type walkEnd uint8
-
-const (
-	// walkDone listed everything under its roots.
-	walkDone walkEnd = iota
-	// walkFull reached its limit of paths.
-	walkFull
-	// walkCut saw its context end.
-	walkCut
-)
-
-// walkFiles lists files and directories under roots breadth first, up to
-// limit paths, directories marked by a trailing slash, and says why it
-// stopped. It skips hidden names and the excluded trees, follows no
-// symlink, and stays on each root's filesystem so a network mount cannot
-// hang it.
-func walkFiles(ctx context.Context, roots, exclude []string, limit int) ([]string, walkEnd) {
+// walkFiles lists files and directories under roots breadth first, up
+// to limit paths, directories marked by a trailing slash, as the index
+// file holds them.
+func walkFiles(ctx context.Context, roots, exclude []string, limit int) ([]string, fileindex.End) {
 	var paths []string
-	skip := func(name string) bool {
-		return strings.HasPrefix(name, ".") || skippedDirs[name] || slices.Contains(exclude, name)
-	}
-	type dir struct {
-		path  string
-		depth int
-		dev   uint64
-	}
-	var queue []dir
-	for _, r := range roots {
-		dev, ok := deviceOf(r)
-		if ok {
-			queue = append(queue, dir{path: r, dev: dev})
-		}
-	}
-	for len(queue) > 0 {
-		if ctx.Err() != nil {
-			return paths, walkCut
-		}
-		d := queue[0]
-		queue = queue[1:]
-		listing, err := os.ReadDir(d.path)
-		if err != nil {
-			continue
-		}
-		for _, entry := range listing {
-			name := entry.Name()
-			if strings.HasPrefix(name, ".") {
-				continue
+	end := fileindex.Walk(ctx, roots, fileindex.Rules{Exclude: exclude}, limit, func(d fileindex.Dir) {
+		for _, c := range d.Children {
+			p := d.Path + "/" + c.Name
+			if c.Dir {
+				p += "/"
 			}
-			full := d.path + "/" + name
-			if !entry.IsDir() {
-				if entry.Type()&os.ModeSymlink == 0 {
-					paths = append(paths, full)
-				}
-			} else {
-				if skip(name) {
-					continue
-				}
-				paths = append(paths, full+"/")
-				if d.depth+1 < fileIndexDepth {
-					if dev, ok := deviceOf(full); ok && dev == d.dev {
-						queue = append(queue, dir{path: full, depth: d.depth + 1, dev: d.dev})
-					}
-				}
-			}
-			if len(paths) >= limit {
-				return paths, walkFull
-			}
+			paths = append(paths, p)
 		}
-	}
-	return paths, walkDone
+	})
+	return paths, end
 }

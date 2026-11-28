@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/ui/widget"
 
 	"github.com/stubbedev/lys/shell/internal/launcheripc"
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	engine "github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/modes"
 	"github.com/stubbedev/lys/shell/service/launcher/search"
@@ -99,6 +100,12 @@ type Deps struct {
 	// OpenFile opens a file in its default app (app.OpenPath), from Quick
 	// Look's Open button; nil shows no button.
 	OpenFile func(path string)
+	// OpenFileIndex opens the index combi's files search (fileindex.Open;
+	// a test seam).
+	OpenFileIndex func(fileindex.Config) (*fileindex.Index, error)
+	// ShowItem shows a file in the file manager (engine.ShowItem; a test
+	// seam).
+	ShowItem func(ctx context.Context, path string) error
 }
 
 // pendingSelection is where the next match list puts the selection.
@@ -189,6 +196,8 @@ type Surface struct {
 	// and pictures holds the pictures the previews decode.
 	thumbs   *thumbnail.Thumbnailer
 	pictures *preview.Pictures
+	// files is the index the files mode searches, kept between sessions.
+	files fileIndex
 }
 
 // New builds the surface over its collaborators.
@@ -199,8 +208,15 @@ func New(d Deps) *Surface {
 	if d.Emoji == nil {
 		d.Emoji = modes.AvailableEmoji
 	}
+	if d.OpenFileIndex == nil {
+		d.OpenFileIndex = fileindex.Open
+	}
+	if d.ShowItem == nil {
+		d.ShowItem = engine.ShowItem
+	}
 	s := &Surface{d: d, sel: -1, sources: search.NewSources(d.WatchFiles, time.Now), thumbs: thumbnail.New(thumbnail.Config{}), pictures: preview.NewPictures(preview.PictureBudget)}
 	s.spawn = s.work.Go
+	s.files.open = d.OpenFileIndex
 	s.openFrecency = s.sources.Frecency(func() (*search.Frecency, error) { return s.d.OpenFrecency() })
 	return s
 }
@@ -296,7 +312,10 @@ func (s *Surface) openSession(sess *launcheripc.Session) {
 		return
 	}
 	cfg := s.d.Config()
-	setup := buildSession(sess.Options, cfg, sess.Rows, setupDeps{clipboard: s.d.Clipboard, vault: s.d.Vault, openHistory: s.d.OpenHistory})
+	setup := buildSession(sess.Options, cfg, sess.Rows, setupDeps{
+		clipboard: s.d.Clipboard, vault: s.d.Vault, openHistory: s.d.OpenHistory,
+		files: func() modes.FileIndex { return s.files.get(cfg.Launcher.Search) }, showItem: s.d.ShowItem,
+	})
 	dialog := setup.ui.errorMessage != nil
 	if len(setup.modes) == 0 && !dialog {
 		log.Printf("launcher: no usable modes in session request")

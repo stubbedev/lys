@@ -99,7 +99,7 @@ type LauncherConfig struct {
 // LauncherBuiltinModes are the modes the launcher builds itself; any other
 // mode name is a `scripts` key.
 var LauncherBuiltinModes = []string{
-	"drun", "run", "window", "windowcd", "ssh", "filebrowser", "recursivebrowser",
+	"drun", "run", "window", "windowcd", "ssh", "filebrowser", "recursivebrowser", "files",
 	"keys", "calc", "clipboard", "emoji", "vault", "combi",
 }
 
@@ -225,6 +225,11 @@ type LauncherCombiConfig struct {
 	Modes []string `cfg:"modes"`
 	// Row template.
 	DisplayFormat string `cfg:"display-format"`
+	// Find files by name in the combined list (`!files` alone), from an
+	// index of `search.file-roots` the shell keeps up to date, recently
+	// used files first. Off leaves them out even when `modes` names
+	// `files`.
+	Files bool `cfg:"files"`
 }
 
 // LauncherSearchConfig is a [launcher] schema type.
@@ -237,11 +242,12 @@ type LauncherSearchConfig struct {
 	WebEngine string `cfg:"web-engine"`
 	// Web search fallback: the URL, with `{query}` where the search goes.
 	WebURL string `cfg:"web-url"`
-	// Directories the file index walks (`~` allowed). Empty indexes the home
-	// directory.
+	// Directories the file index walks (`~` allowed), for the search panel
+	// and combi's file search. Empty indexes the home directory.
 	FileRoots []string `cfg:"file-roots"`
-	// Directory names the file index skips, on top of hidden ones and the
-	// built-in list (`node_modules`, `vendor`, `target`, ...).
+	// Directory names the file index skips, on top of hidden ones, those a
+	// folder's `.hidden` file lists and the built-in list (`node_modules`,
+	// `vendor`, `target`, ...).
 	FileExclude []string `cfg:"file-exclude"`
 	// Directory of script commands. Empty uses `launcher/commands` in the
 	// config directory.
@@ -542,6 +548,7 @@ func DefaultsLauncher() LauncherConfig {
 		Combi: LauncherCombiConfig{
 			Modes:         []string{"window", "drun", "run"},
 			DisplayFormat: "{text}",
+			Files:         true,
 		},
 		Search: LauncherSearchConfig{
 			Providers: []LauncherSearchProvider{

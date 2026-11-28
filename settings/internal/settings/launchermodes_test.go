@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/golden"
@@ -66,8 +67,8 @@ func TestTheModeListShowsTheTabsInOrderThenEveryOtherMode(t *testing.T) {
 	if !slices.Contains(titles[3:], locale.T().Get("settings-launcher-mode-calc")) || titles[len(titles)-1] != script {
 		t.Errorf("the modes off the tabs are %v, want the built-ins then the script", titles[3:])
 	}
-	if got := len(titles); got != 14 {
-		t.Errorf("the list holds %d modes, want the 13 built-ins and the script", got)
+	if got, want := len(titles), len(config.LauncherBuiltinModes)+1; got != want {
+		t.Errorf("the list holds %d modes, want the %d built-ins and the script", got, want-1)
 	}
 }
 

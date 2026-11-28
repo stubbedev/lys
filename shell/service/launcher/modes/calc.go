@@ -57,7 +57,7 @@ func (c *Calc) Load(context.Context) launcher.ModeState { return c.state() }
 
 // Query evaluates the query; the list changes only when the answer
 // does, so an equivalent spelling does not fight the selection.
-func (c *Calc) Query(query string) (launcher.ModeState, bool) {
+func (c *Calc) Query(_ context.Context, query string) (launcher.ModeState, bool) {
 	var result *calcResult
 	if v, ok := Eval(query); ok {
 		result = &calcResult{value: FormatResult(v), shown: ShowResult(c.l, v)}

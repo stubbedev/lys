@@ -3957,6 +3957,11 @@
             }
           ]
         },
+        "files": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Find files by name in the combined list (`!files` alone), from an\nindex of `search.file-roots` the shell keeps up to date, recently\nused files first. Off leaves them out even when `modes` names\n`files`."
+        },
         "modes": {
           "$ref": "#/$defs/Array_of_string",
           "default": [
@@ -3986,6 +3991,7 @@
           "$ref": "#/$defs/LauncherCombiConfig",
           "default": {
             "display-format": "{text}",
+            "files": true,
             "modes": [
               "window",
               "drun",
@@ -4599,12 +4605,12 @@
         "file-exclude": {
           "$ref": "#/$defs/Array_of_string",
           "default": [],
-          "description": "Directory names the file index skips, on top of hidden ones and the\nbuilt-in list (`node_modules`, `vendor`, `target`, ...)."
+          "description": "Directory names the file index skips, on top of hidden ones, those a\nfolder's `.hidden` file lists and the built-in list (`node_modules`,\n`vendor`, `target`, ...)."
         },
         "file-roots": {
           "$ref": "#/$defs/Array_of_string",
           "default": [],
-          "description": "Directories the file index walks (`~` allowed). Empty indexes the home\ndirectory."
+          "description": "Directories the file index walks (`~` allowed), for the search panel\nand combi's file search. Empty indexes the home directory."
         },
         "previews": {
           "$ref": "#/$defs/boolean",
@@ -11558,6 +11564,7 @@
         "case": "insensitive",
         "combi": {
           "display-format": "{text}",
+          "files": true,
           "modes": [
             "window",
             "drun",

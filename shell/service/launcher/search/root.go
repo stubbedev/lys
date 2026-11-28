@@ -18,6 +18,7 @@ import (
 	"github.com/stubbedev/lys/desktop/settingspage"
 	"github.com/stubbedev/lys/lib/xdg"
 
+	"github.com/stubbedev/lys/shell/service/fileindex"
 	"github.com/stubbedev/lys/shell/service/launcher"
 	"github.com/stubbedev/lys/shell/service/launcher/answer"
 	"github.com/stubbedev/lys/shell/service/launcher/charnames"
@@ -227,6 +228,16 @@ func filesConfig(cfg config.LauncherSearchConfig, home string, env xdg.Env) (Fil
 		Roots: roots, Exclude: cfg.FileExclude, CachePath: filepath.Join(cache, fileIndexFileName), RecentPath: filepath.Join(data, "recently-used.xbel"), Home: home,
 		Previews: cfg.Previews, Now: time.Now,
 	}, nil
+}
+
+// IndexConfig is what the shell's file index covers: the roots and
+// exclusions the panel's files walk, and the desktop's recent files.
+func IndexConfig(cfg config.LauncherSearchConfig, home string) (fileindex.Config, error) {
+	fc, err := filesConfig(cfg, home, rootEnv(home))
+	if err != nil {
+		return fileindex.Config{}, err
+	}
+	return fileindex.Config{Roots: fc.Roots, Rules: fileindex.Rules{Exclude: fc.Exclude}, RecentPath: fc.RecentPath}, nil
 }
 
 func sessionLanguage() string {

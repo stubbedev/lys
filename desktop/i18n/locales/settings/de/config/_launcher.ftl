@@ -180,6 +180,9 @@ settings-launcher-combi-modes = Kombinierte Modi
 settings-launcher-combi-display-format = Anzeigeformat
     .description = Was jede Zeile zeigt, aus ihrem Modus und ihrem Text
 
+settings-launcher-combi-files = Dateien finden
+    .description = Dateien nach Namen in der kombinierten Liste, zuletzt verwendete zuerst
+
 ## LauncherLocation variants
 enum-launcher-location-center = Mitte
 enum-launcher-location-north-west = Oben links

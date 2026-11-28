@@ -18,6 +18,7 @@ launcher-section-characters = Caratteri
 launcher-section-vault = Cassaforte
 launcher-section-web = Web
 launcher-failed = { $what } non riuscito
+launcher-files-show-failed = Impossibile mostrare { $what } nel gestore di file
 launcher-no-terminal = Nessun emulatore di terminale per eseguire { $what }
 launcher-action-open = Apri
 launcher-action-run = Esegui

@@ -193,6 +193,7 @@ func (h *harness) stop() {
 		}
 	}()
 	waittest.For(h.t, done, "the surface's work to end with its sessions")
+	s.files.close()
 	for _, release := range h.owned {
 		release()
 	}

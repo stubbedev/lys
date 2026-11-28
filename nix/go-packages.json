@@ -9863,6 +9863,36 @@
       "testing"
     ]
   },
+  "shell/service/fileindex": {
+    "imports": [
+      "desktop/fswatch"
+    ],
+    "external": [
+      "bufio",
+      "context",
+      "encoding/xml",
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io",
+      "log",
+      "net/url",
+      "os",
+      "path/filepath",
+      "slices",
+      "strings",
+      "sync",
+      "sync/atomic",
+      "syscall",
+      "time"
+    ],
+    "testImports": [
+      "lib/waittest"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "shell/service/idle": {
     "imports": [
       "desktop/feed",
@@ -9989,6 +10019,7 @@
       "desktop/shlex",
       "desktop/spawn",
       "desktop/thumbnail",
+      "lib/dbusx",
       "lib/xdg"
     ],
     "external": [
@@ -10001,6 +10032,7 @@
       "log",
       "maps",
       "modernc.org/sqlite",
+      "net/url",
       "os",
       "os/exec",
       "path/filepath",
@@ -10015,7 +10047,9 @@
     "testImports": [
       "desktop/opener/openertest",
       "desktop/thumbnail/thumbnailtest",
+      "lib/dbustest",
       "lib/testhome",
+      "lib/third_party/godbus",
       "lib/waittest",
       "shell/service/launcher/launchertest"
     ],
@@ -10114,6 +10148,7 @@
       "lib/third_party/gomath",
       "lib/wmipc",
       "shell/internal/gvariant",
+      "shell/service/fileindex",
       "shell/service/launcher",
       "shell/service/mango",
       "shell/service/sharepreview"
@@ -10149,6 +10184,7 @@
     "testImports": [
       "desktop/fileuri",
       "desktop/i18n/locales/shell",
+      "desktop/launchermatch",
       "desktop/opener/openertest",
       "desktop/service/clipboard/historybudget",
       "lib/fdtest",
@@ -10181,6 +10217,7 @@
       "lib/peercred",
       "lib/third_party/gomath",
       "lib/xdg",
+      "shell/service/fileindex",
       "shell/service/launcher",
       "shell/service/launcher/answer",
       "shell/service/launcher/charnames",
@@ -10195,7 +10232,6 @@
       "database/sql",
       "encoding/hex",
       "encoding/json",
-      "encoding/xml",
       "errors",
       "fmt",
       "golang.org/x/sys/unix",
@@ -11516,6 +11552,7 @@
       "lib/render",
       "lib/xkb",
       "shell/internal/launcheripc",
+      "shell/service/fileindex",
       "shell/service/launcher",
       "shell/service/launcher/charnames",
       "shell/service/launcher/modes",
@@ -11529,6 +11566,7 @@
     "external": [
       "context",
       "errors",
+      "fmt",
       "github.com/rivo/uniseg",
       "image",
       "log",
@@ -11561,7 +11599,6 @@
     ],
     "testExternal": [
       "bytes",
-      "fmt",
       "image/color",
       "image/png",
       "maps",

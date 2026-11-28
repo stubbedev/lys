@@ -180,6 +180,9 @@ settings-launcher-combi-modes = Combined Modes
 settings-launcher-combi-display-format = Display Format
     .description = What each row shows, from its mode and its text
 
+settings-launcher-combi-files = Find Files
+    .description = Files found by name in the combined list, recently used ones first
+
 ## LauncherLocation variants
 enum-launcher-location-center = Center
 enum-launcher-location-north-west = Top Left

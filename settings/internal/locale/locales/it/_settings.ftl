@@ -1845,6 +1845,7 @@ settings-launcher-mode-windowcd = Finestre di questo spazio di lavoro
 settings-launcher-mode-ssh = Host SSH
 settings-launcher-mode-filebrowser = File
 settings-launcher-mode-recursivebrowser = File in tutte le sottocartelle
+settings-launcher-mode-files = Ricerca file
 settings-launcher-mode-keys = Scorciatoie da tastiera
 settings-launcher-mode-calc = Calcolatrice
 settings-launcher-mode-clipboard = Cronologia degli appunti

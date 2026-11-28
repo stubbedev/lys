@@ -5,6 +5,7 @@
 package launcher
 
 import (
+	"context"
 	"log"
 	"os"
 	"slices"
@@ -67,6 +68,11 @@ type setupDeps struct {
 	vault func() engine.Mode
 	// openHistory opens the history database (a test seam).
 	openHistory func() (*engine.History, error)
+	// files is the file index the files mode searches (nil: none, so the
+	// mode is unknown).
+	files func() modes.FileIndex
+	// showItem shows a file in the file manager (engine.ShowItem).
+	showItem func(ctx context.Context, path string) error
 }
 
 // deref returns *p or fallback.
@@ -201,6 +207,18 @@ func buildMode(name string, opts launcheripc.SessionOptions, cfg *config.Config,
 		return modes.NewFileBrowser(fileBrowserConfig(l, false))
 	case "recursivebrowser":
 		return modes.NewFileBrowser(fileBrowserConfig(l, true))
+	case "files":
+		if deps.files == nil {
+			return nil
+		}
+		index := deps.files()
+		if index == nil {
+			return nil
+		}
+		return modes.NewFiles(modes.FilesConfig{
+			Index: index, Home: os.Getenv("HOME"), Terminal: deref(opts.Terminal, l.Terminal),
+			Negate: matcherOptions(opts, l).NegationChar, ShowItem: deps.showItem,
+		})
 	case "keys":
 		return modes.NewKeys(bindings)
 	case "calc":
@@ -216,9 +234,13 @@ func buildMode(name string, opts launcheripc.SessionOptions, cfg *config.Config,
 		return deps.vault()
 	case "combi":
 		var children []engine.Mode
-		for _, child := range l.Combi.Modes {
-			if child == "combi" {
-				continue // no recursion
+		names := l.Combi.Modes
+		if l.Combi.Files && !slices.Contains(names, "files") {
+			names = append(slices.Clone(names), "files")
+		}
+		for _, child := range names {
+			if child == "combi" || (child == "files" && !l.Combi.Files) {
+				continue
 			}
 			if m := buildMode(child, opts, cfg, history, bindings, deps); m != nil {
 				children = append(children, m)

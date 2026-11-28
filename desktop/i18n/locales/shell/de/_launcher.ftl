@@ -18,6 +18,7 @@ launcher-section-characters = Zeichen
 launcher-section-vault = Tresor
 launcher-section-web = Web
 launcher-failed = { $what } fehlgeschlagen
+launcher-files-show-failed = { $what } konnte nicht im Dateimanager angezeigt werden
 launcher-no-terminal = Kein Terminalemulator, um { $what } auszuführen
 launcher-action-open = Öffnen
 launcher-action-run = Ausführen

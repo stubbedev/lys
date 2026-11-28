@@ -178,6 +178,9 @@ settings-launcher-combi-modes = Modes combinés
 settings-launcher-combi-display-format = Format d'affichage
     .description = Ce qu'affiche chaque ligne, à partir de son mode et de son texte
 
+settings-launcher-combi-files = Trouver des fichiers
+    .description = Fichiers trouvés par leur nom dans la liste combinée, les plus récents en premier
+
 enum-launcher-location-center = Centre
 enum-launcher-location-north-west = Haut gauche
 enum-launcher-location-north = Haut

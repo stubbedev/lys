@@ -100,26 +100,24 @@ func (s *Session) completeWith(ctx context.Context, target Target) Action {
 // SetQuery updates the query. A leading `!bang ` restricts a combi mode
 // to the matching sub-mode; the remainder is the real query. A mode
 // that answers the query (Querier) rebuilds its list first, so the
-// engine matches against the answer.
-func (s *Session) SetQuery(query string) {
+// engine matches against the answer; ctx ends once a newer query
+// arrives.
+func (s *Session) SetQuery(ctx context.Context, query string) {
 	bang, rest, hasBang := splitBang(query)
-	s.subset = nil
-	if hasBang {
-		if sub, ok := s.modes[s.active].(Subsetter); ok {
-			if mask, ok := sub.Subset(bang); ok {
-				s.subset = mask
-			}
-		}
-	}
-	if s.subset != nil {
+	sub, isSub := s.modes[s.active].(Subsetter)
+	restricted := hasBang && isSub && sub.Restricts(bang)
+	s.query = query
+	if restricted {
 		s.query = rest
-	} else {
-		s.query = query
 	}
 	if q, ok := s.modes[s.active].(Querier); ok {
-		if state, changed := q.Query(s.query); changed {
+		if state, changed := q.Query(ctx, s.query); changed {
 			s.applyState(state)
 		}
+	}
+	s.subset = nil
+	if restricted {
+		s.subset = sub.Subset(bang)
 	}
 	s.engine.SetQuery(s.query)
 }
@@ -128,15 +126,35 @@ func (s *Session) SetQuery(query string) {
 func (s *Session) Query() string { return s.query }
 
 // Matched returns the ranked matched indices with a combi !bang mask
-// applied.
+// applied, and the rows the mode demotes for the query after the rest.
 func (s *Session) Matched() []uint32 {
 	matched := s.engine.Matched()
-	if s.subset == nil {
+	if s.subset != nil {
+		matched = slices.DeleteFunc(matched, func(i uint32) bool {
+			return int(i) < len(s.subset) && !s.subset[i]
+		})
+	}
+	d, ok := s.modes[s.active].(Demoter)
+	if !ok {
 		return matched
 	}
-	return slices.DeleteFunc(matched, func(i uint32) bool {
-		return int(i) < len(s.subset) && !s.subset[i]
-	})
+	demoted := d.Demoted(s.query)
+	if demoted == nil {
+		return matched
+	}
+	after := func(i uint32) bool { return int(i) < len(demoted) && demoted[i] }
+	out := make([]uint32, 0, len(matched))
+	for _, i := range matched {
+		if !after(i) {
+			out = append(out, i)
+		}
+	}
+	for _, i := range matched {
+		if after(i) {
+			out = append(out, i)
+		}
+	}
+	return out
 }
 
 // ModeNames lists the loaded modes (tabs, kb-mode-next order).

@@ -18,6 +18,7 @@ launcher-section-characters = Characters
 launcher-section-vault = Vault
 launcher-section-web = Web
 launcher-failed = { $what } failed
+launcher-files-show-failed = Could not show { $what } in the file manager
 launcher-no-terminal = No terminal emulator to run { $what } in
 launcher-action-open = Open
 launcher-action-run = Run

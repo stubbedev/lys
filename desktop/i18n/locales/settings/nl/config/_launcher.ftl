@@ -178,6 +178,9 @@ settings-launcher-combi-modes = Gecombineerde modi
 settings-launcher-combi-display-format = Weergaveformaat
     .description = Wat elke rij toont, uit haar modus en haar tekst
 
+settings-launcher-combi-files = Bestanden vinden
+    .description = Bestanden op naam in de gecombineerde lijst, recent gebruikte eerst
+
 enum-launcher-location-center = Midden
 enum-launcher-location-north-west = Linksboven
 enum-launcher-location-north = Boven

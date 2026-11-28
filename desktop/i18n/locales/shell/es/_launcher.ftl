@@ -18,6 +18,7 @@ launcher-section-characters = Caracteres
 launcher-section-vault = Caja fuerte
 launcher-section-web = Web
 launcher-failed = { $what } ha fallado
+launcher-files-show-failed = No se pudo mostrar { $what } en el gestor de archivos
 launcher-no-terminal = No hay ningún emulador de terminal para ejecutar { $what }
 launcher-action-open = Abrir
 launcher-action-run = Ejecutar

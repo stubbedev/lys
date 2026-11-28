@@ -134,6 +134,7 @@ launcher:
       - drun
       - run
     display-format: '{text}'
+    files: true
   search:
     providers:
       - apps

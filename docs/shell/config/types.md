@@ -703,6 +703,7 @@ combi mode settings.
 |---|---|
 | `modes` | Modes merged into the combined list. |
 | `display-format` | Row template. |
+| `files` | Find files by name in the combined list (`!files` alone), from an index of `search.file-roots` the shell keeps up to date, recently used files first. Off leaves them out even when `modes` names `files`. |
 
 ## LauncherDrunConfig {#launcher-drun-config}
 
@@ -828,8 +829,8 @@ The search panel: one ranked list over apps, windows, files and more.
 | `providers` | What the list searches, and what it leaves out by omission. |
 | `web-engine` | Web search fallback: the engine's name, shown on the row. |
 | `web-url` | Web search fallback: the URL, with `{query}` where the search goes. |
-| `file-roots` | Directories the file index walks (`~` allowed). Empty indexes the home directory. |
-| `file-exclude` | Directory names the file index skips, on top of hidden ones and the built-in list (`node_modules`, `vendor`, `target`, ...). |
+| `file-roots` | Directories the file index walks (`~` allowed), for the search panel and combi's file search. Empty indexes the home directory. |
+| `file-exclude` | Directory names the file index skips, on top of hidden ones, those a folder's `.hidden` file lists and the built-in list (`node_modules`, `vendor`, `target`, ...). |
 | `commands-dir` | Directory of script commands. Empty uses `launcher/commands` in the config directory. |
 | `currency-rates` | Fetch the European Central Bank's daily reference rates (at most once a day, cached) for currency answers such as `100 usd in eur`. |
 | `previews` | Show the side pane for files, snippets, windows and clipboard entries, in the search panel and the window and clipboard modes. |

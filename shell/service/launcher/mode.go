@@ -139,11 +139,13 @@ type Mode interface {
 }
 
 // Querier is a mode whose rows are the query's answer rather than
-// something to search through (calc). Query returns the new state, or
-// false to leave the list as it is. It runs on every keystroke, so
-// anything that waits for the world belongs in Load.
+// something to search through (calc, files). Query returns the new
+// state, or false to leave the list as it is. It runs on every
+// keystroke, so anything that waits for the world belongs in Load; ctx
+// ends once a newer query is typed, and a Query that sees it end
+// returns false.
 type Querier interface {
-	Query(query string) (ModeState, bool)
+	Query(ctx context.Context, query string) (ModeState, bool)
 }
 
 // MultiActivator handles a multi-select accept (dmenu). Without it the
@@ -171,10 +173,25 @@ type CustomPolicy interface {
 	AllowsCustom() bool
 }
 
-// Subsetter is combi's !bang support: the item mask for a bang prefix
-// (true = shown), false when the bang names no sub-mode.
+// Subsetter is combi's !bang support. Restricts reports whether a bang
+// prefix names a sub-mode, and Subset is the item mask for one it does
+// (true = shown), asked once the query has rebuilt the list.
 type Subsetter interface {
-	Subset(bang string) ([]bool, bool)
+	Restricts(bang string) bool
+	Subset(bang string) []bool
+}
+
+// Trailer is a mode whose rows a combined list ranks after the other
+// modes' while Trails holds for the query (files under apps while the
+// query is short).
+type Trailer interface {
+	Trails(query string) bool
+}
+
+// Demoter is a mode with rows that rank after the rest for a query: the
+// mask of those rows (true = after), nil for none.
+type Demoter interface {
+	Demoted(query string) []bool
 }
 
 // AllowsCustom reports whether m accepts typed text that matches no

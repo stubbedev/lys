@@ -1834,6 +1834,7 @@ settings-launcher-mode-windowcd = Vensters op deze werkruimte
 settings-launcher-mode-ssh = SSH-hosts
 settings-launcher-mode-filebrowser = Bestanden
 settings-launcher-mode-recursivebrowser = Bestanden in alle submappen
+settings-launcher-mode-files = Bestanden zoeken
 settings-launcher-mode-keys = Sneltoetsen
 settings-launcher-mode-calc = Rekenmachine
 settings-launcher-mode-clipboard = Klembordgeschiedenis

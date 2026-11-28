@@ -1835,6 +1835,7 @@ settings-launcher-mode-windowcd = Janelas desta área de trabalho
 settings-launcher-mode-ssh = Anfitriões SSH
 settings-launcher-mode-filebrowser = Ficheiros
 settings-launcher-mode-recursivebrowser = Ficheiros em todas as subpastas
+settings-launcher-mode-files = Pesquisa de ficheiros
 settings-launcher-mode-keys = Atalhos de teclado
 settings-launcher-mode-calc = Calculadora
 settings-launcher-mode-clipboard = Histórico da área de transferência

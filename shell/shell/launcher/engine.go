@@ -101,10 +101,12 @@ type engineSink interface {
 // ordered: a query typed while a mode
 // loads must still arrive, after the keys before it.
 type actor struct {
-	mu     sync.Mutex
-	queue  []engineCmd
-	wake   chan struct{}
-	cancel context.CancelFunc
+	mu    sync.Mutex
+	queue []engineCmd
+	// endQuery ends the query in flight, which a newer one supersedes.
+	endQuery context.CancelFunc
+	wake     chan struct{}
+	cancel   context.CancelFunc
 }
 
 // startActor runs the session's engine on a goroutine spawn starts;
@@ -116,10 +118,14 @@ func startActor(spawn func(func()), sess *engine.Session, initial int, sink engi
 	return a
 }
 
-// send queues a command; after stop nothing reads it.
+// send queues a command; after stop nothing reads it. A query ends the
+// one in flight.
 func (a *actor) send(c engineCmd) {
 	a.mu.Lock()
 	a.queue = append(a.queue, c)
+	if _, query := c.(cmdSetQuery); query && a.endQuery != nil {
+		a.endQuery()
+	}
 	a.mu.Unlock()
 	select {
 	case a.wake <- struct{}{}:
@@ -145,6 +151,21 @@ func (a *actor) next(ctx context.Context) (engineCmd, bool) {
 		case <-a.wake:
 		}
 	}
+}
+
+// startQuery is the context of a query about to run, or false when the
+// next queued command is a newer query that makes it moot.
+func (a *actor) startQuery(ctx context.Context) (context.Context, context.CancelFunc, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(a.queue) > 0 {
+		if _, newer := a.queue[0].(cmdSetQuery); newer {
+			return nil, nil, false
+		}
+	}
+	qctx, cancel := context.WithCancel(ctx)
+	a.endQuery = cancel
+	return qctx, cancel, true
 }
 
 // stop ends the actor: modes in flight see their context cancelled.
@@ -187,8 +208,16 @@ func (a *actor) run(ctx context.Context, sess *engine.Session, initial int, sink
 		}
 		switch c := cmd.(type) {
 		case cmdSetQuery:
-			sess.SetQuery(c.query)
-			pushMatches()
+			qctx, done, ok := a.startQuery(ctx)
+			if !ok {
+				continue
+			}
+			sess.SetQuery(qctx, c.query)
+			superseded := qctx.Err() != nil
+			done()
+			if !superseded {
+				pushMatches()
+			}
 		case cmdActivate:
 			dispatch(sess.Activate(ctx, c.target, c.kind))
 		case cmdActivateMulti:

@@ -54,6 +54,7 @@ var launcherModeOptions = []struct {
 	{[]string{"combi"}, []rowSpec{
 		field("launcher.combi.modes", launcherModesRow),
 		field("launcher.combi.display-format", stackedRow),
+		field("launcher.combi.files"),
 	}},
 }
 

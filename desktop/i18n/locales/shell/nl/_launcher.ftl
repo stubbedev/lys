@@ -18,6 +18,7 @@ launcher-section-characters = Tekens
 launcher-section-vault = Kluis
 launcher-section-web = Web
 launcher-failed = { $what } mislukt
+launcher-files-show-failed = Kon { $what } niet tonen in de bestandsbeheerder
 launcher-no-terminal = Geen terminalemulator om { $what } in uit te voeren
 launcher-action-open = Openen
 launcher-action-run = Uitvoeren

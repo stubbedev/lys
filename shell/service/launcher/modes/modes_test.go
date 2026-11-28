@@ -135,13 +135,13 @@ func TestCombiMergesChildrenWithFormat(t *testing.T) {
 func TestCombiBangSubsetMasksOtherChildren(t *testing.T) {
 	c := combiFixture()
 	c.Load(bg)
-	if mask, ok := c.Subset("dr"); !ok || !reflect.DeepEqual(mask, []bool{false, false, true}) {
-		t.Errorf("mask = %v %v", mask, ok)
+	if mask := c.Subset("dr"); !c.Restricts("dr") || !reflect.DeepEqual(mask, []bool{false, false, true}) {
+		t.Errorf("mask = %v", mask)
 	}
-	if _, ok := c.Subset("xyz"); ok {
+	if c.Restricts("xyz") {
 		t.Error("a bang naming no child is no subset")
 	}
-	if _, ok := c.Subset(""); ok {
+	if c.Restricts("") {
 		t.Error("an empty bang is no subset")
 	}
 }
@@ -490,18 +490,18 @@ func TestCalcArithmetic(t *testing.T) {
 
 func TestCalcModeReloadsOnlyOnANewAnswer(t *testing.T) {
 	m := NewCalc()
-	st, changed := m.Query("1+2")
+	st, changed := m.Query(bg, "1+2")
 	if !changed || len(st.Items) != 1 || st.Items[0].Display != "= 3" || !st.Items[0].Flags.Has(launcher.FlagPermanent) {
 		t.Fatalf("state = %+v", st)
 	}
-	if _, changed := m.Query("1 + 2"); changed {
+	if _, changed := m.Query(bg, "1 + 2"); changed {
 		t.Error("the same answer must not reload")
 	}
-	st, changed = m.Query("1+")
+	st, changed = m.Query(bg, "1+")
 	if !changed || len(st.Items) != 0 {
 		t.Error("losing the answer clears the row")
 	}
-	m.Query("6*7")
+	m.Query(bg, "6*7")
 	if c, ok := m.Activate(bg, launcher.RowTarget(0), launcher.ActivateDefault{}, "").(launcher.ActionCopy); !ok || c.Text != "42" {
 		t.Errorf("accept = %#v", c)
 	}
@@ -905,7 +905,7 @@ func TestCalcModeShowsTheLocalesDigitsAndCopiesThePlainOnes(t *testing.T) {
 		{"fr", "= 1\u202f234,5"},
 	} {
 		m := newCalcIn(loaderIn(t, c.locale))
-		st, changed := m.Query("2469/2")
+		st, changed := m.Query(bg, "2469/2")
 		if !changed || len(st.Items) != 1 || st.Items[0].Display != c.shown {
 			t.Fatalf("%s state = %+v, want %q", c.locale, st, c.shown)
 		}

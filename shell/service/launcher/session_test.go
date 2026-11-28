@@ -174,7 +174,7 @@ func TestAPermanentRowOutlivesTheQueryAndAPlainOneDoesNot(t *testing.T) {
 	ctx := context.Background()
 	s, _ := NewSession([]Mode{&permanentMode{staticMode{name: "calc", entries: []string{"Firefox", "Files", "= 3"}}}}, launchermatch.DefaultOptions())
 	s.Load(ctx)
-	s.SetQuery("fire")
+	s.SetQuery(ctx, "fire")
 	if got := s.Matched(); !slices.Equal(got, []uint32{0, 2}) {
 		t.Errorf("fire matches %v, want Firefox and the permanent row", got)
 	}
@@ -221,18 +221,15 @@ func TestSplitBang(t *testing.T) {
 // subsetMode is a combi stand-in whose bang "b" keeps only row 1.
 type subsetMode struct{ staticMode }
 
-func (subsetMode) Subset(bang string) ([]bool, bool) {
-	if bang != "b" {
-		return nil, false
-	}
-	return []bool{false, true}, true
-}
+func (subsetMode) Restricts(bang string) bool { return bang == "b" }
+
+func (subsetMode) Subset(string) []bool { return []bool{false, true} }
 
 func TestABangMasksAndIsStripped(t *testing.T) {
 	ctx := context.Background()
 	s, _ := NewSession([]Mode{&subsetMode{staticMode{name: "combi", entries: []string{"x1", "x2"}}}}, launchermatch.DefaultOptions())
 	s.Load(ctx)
-	s.SetQuery("!b x")
+	s.SetQuery(ctx, "!b x")
 	if got := s.Matched(); len(got) != 1 || got[0] != 1 {
 		t.Errorf("masked matches = %v, want [1]", got)
 	}
@@ -240,7 +237,7 @@ func TestABangMasksAndIsStripped(t *testing.T) {
 		t.Errorf("query = %q, want the bang stripped", s.Query())
 	}
 	// An unknown bang is plain query text.
-	s.SetQuery("!zz x")
+	s.SetQuery(ctx, "!zz x")
 	if s.Query() != "!zz x" {
 		t.Errorf("unknown bang query = %q", s.Query())
 	}
