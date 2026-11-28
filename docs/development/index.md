@@ -120,6 +120,14 @@ the architecture (`test`, `build`, `test-lysdebug`, `atspi`,
 `atspi-verify`, `dist`), and vet, lint, formatting, `no-fused`, `vuln` and
 `schema-check` run on x86_64 alone; `ci/affected` refuses a gate no runner
 runs, and `just gates` applies the same list on the machine it runs on.
+x86_64 runs every gate but `test`: every component with a test gate but
+polkit and splash has a race suite, which runs the same tests under the race
+detector, so the plain run on x86_64 only repeated them, at 1009 s of the Go
+jobs' recipe time in run 45974767264. Each test now runs once per
+architecture, under `-race` on x86_64 and plainly on aarch64. The price is
+that polkit's and splash's tests, which have no race suite, run on aarch64
+alone, and that no CI job runs the other components' tests plainly on
+x86_64.
 `go-jobs` lists, per runner, the Go jobs: each a list of
 targets run together by one `just gates`. On every push and pull request the
 plan job runs `ci/affected`, which takes the changed files, adds every
@@ -159,16 +167,30 @@ The account runs about twenty jobs at once, so a full run's wall clock is about
 its runner-minutes divided by twenty, plus the longest lane's build, and
 each job pays about a minute of fixed cost (runner, checkout, Nix install, the
 dev shell). Jobs are therefore as few as fit: work is grouped until a job holds
-six to eight minutes of it, and split only where one suite alone comes near ten.
-A runner has four cores, and `just gates` runs four recipes at once, so a job
-whose recipes are each a few minutes long ends with its longest one: lib's
-race suite (510 s) and its gates (test 377 s, lint 204 s) in one job took 9.7
-minutes, the last job of run 44897398937, and run apart, the race suite with
-power's short gates beside it; wm's light race parts, `wm/1` and `wm/2` (91 to
-117 s each), share a job with shell's third race part and first test part
-instead, and the harness's halves, `wm/3` and `wm/4` (254 and 230 s on four
-local cores), have a job each, as settings' two race parts share one with
-secrets (219 s on four local cores, against 333 s unsplit).
+about four to seven warm minutes of it, and split only where one suite alone
+comes near ten. A runner has four cores, and `just gates` runs four recipes at
+once, so a job whose recipes are each a few minutes long ends with its longest
+one: lib's race suite (510 s) and its gates (test 377 s, lint 204 s) in one
+job took 9.7 minutes, the last job of run 44897398937, so they run apart, the
+race suite beside power and login's race suite; wm's light race parts, `wm/1`
+and `wm/2` (91 to 117 s each), share a job with shell's third race part, the
+harness's halves, `wm/3` and `wm/4` (254 and 230 s on four local cores), have
+a job each, and so does `settings/2`, while `settings/1` shares one with
+secrets, viewer and files.
+
+`go-jobs` lists each runner's jobs longest first, and the plan lists every
+runner's Go jobs before its further jobs and x86_64's before aarch64's, so the
+longest work takes the first runners. The account takes jobs in the order they
+queue, and the Go jobs queue together once the dev shells are built, before
+the slower lane builds finish: in run 45974767264 wm's VM jobs were ready at
+2.7 minutes but started at 7.0 to 7.7, behind the Go jobs, and ended the run at
+13.4. So the Go stage runs at most fourteen jobs at once (`max-parallel` of
+`run.yml`), the rest starting in the matrix's order as those finish, by which
+time the VM jobs have queued ahead of them. A list-scheduling simulation of
+that run's job times with twenty runners put the run at about 10.6 minutes
+with the cap and 11.3 without it; caps from 12 to 15 all came to 10.6 to 11.0.
+The cost is that a Go job past the fourteenth waits for a runner even when one
+is free.
 
 The jobs run in lanes, each a build and the jobs on it, none waiting for
 another lane's build:
@@ -204,7 +226,11 @@ another lane's build:
    component build. It is the only job that builds them: no VM or
    `after-build` job uses a dev shell, so a build job fetching the gigabyte
    or more of a dev shell's inputs again would only take time from its own
-   six-minute build.
+   six-minute build. It realises the environments side by side, one
+   `nix print-dev-env` each, and names each failure with its log: one after
+   another, they took 60 s of the job's 76 s build step in run 45974767264
+   though every one was in the binary cache already, and every Go and
+   further job waits for this job.
 
 A build job builds only the jobs nix-eval-jobs does not find in a binary cache (`--check-cache-status`), so outputs an earlier run already pushed, VM disk images included, are neither built nor downloaded again. Every build job pushes each store path to the binary cache (`xilos.dev`,
 through `XILO_TOKEN`; without the token the job fails, since nothing could be
@@ -248,12 +274,17 @@ first runners. The jobs on the builds:
      target as `<component>:gates` on aarch64. `ci/affected` refuses a
      `go-jobs` that does not run each component's Go gates on every runner and
      its race suite on x86_64 exactly once, either whole or in every one of its
-     parts, that names a suite or part a component lacks (the race suite has
-     no static part), or a component whose `shards` no job uses, and a
+     parts that runs something there, that names a suite or part a component
+     lacks (the race suite has no static part) or a part that runs no gate on
+     its runner, or a component whose `shards` no job uses, and a
      `static-gates` entry that is no component's gate or that `sharded-gates`
-     also splits. A push runs each Go job with only its affected
-     targets, and skips it when none is; the job keeps its id, and with it its
-     Go build cache, whatever subset runs.
+     also splits. A gates part runs nothing on a runner whose `gate-runners`
+     leave it none of its gates: on x86_64, which runs no `test`, the gates
+     parts of settings, shell and wm below their shards are empty, so their
+     gates run whole there (`settings:gates`), and `just gates` names the part
+     and the architecture when a target runs nothing. A push runs each Go job
+     with only its affected targets, and skips it when none is; the job keeps
+     its id, and with it its Go build cache, whatever subset runs.
    - **Shards**: a component one of whose suites would not fit a job lists
      `shards`, each a list of its package directories (`./cmd/lys-wm`,
      `./internal/...`) and of tests of one package by name
@@ -286,8 +317,9 @@ first runners. The jobs on the builds:
      runs its 185 slowest tests in `wm/3` and the rest beside wm's other
      packages in `wm/4`. ui splits its test and lysdebug suites (`ui/1`, the
      client and app tests, `ui/2` the rest beside build and the at-spi gates,
-     `ui/3` its static gates), shell its test and race suites, and settings
-     its race suite: `./internal/settings` runs one test at a time, since the
+     `ui/3` its static gates), of which x86_64 runs the lysdebug parts and
+     aarch64 runs ui's gates whole, shell its test and race suites, of which
+     CI runs only the race suite in parts, and settings its race suite: `./internal/settings` runs one test at a time, since the
      UI's font shaper and preview state are not goroutine-safe, and takes
      about five and a half minutes under `-race` on four local cores, so
      `settings/1` runs its six sweeps over every page or every row and
