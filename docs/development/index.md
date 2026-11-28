@@ -24,7 +24,7 @@ Inside a shell, `just <component>::<recipe>` runs the same recipe:
 
 | Recipe | Effect |
 | --- | --- |
-| `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. A component with `shards` has a last part for its static gates, the ones `static-gates` names (`ui/3` for ui's one shard). A part that splits a package by test name runs that package in a process of its own beside the part's other packages. A target whose justfile `just --fmt --check` refuses fails before anything runs. |
+| `just gates [target]...` | Every Go gate and race suite of the targets (default every component) in parallel, each recipe in its own process in its component's dev shell, as many at once as cores and memory allow, over one Go build cache; prints each result, the failures' logs and the wall clock. A target is a component or one part of a component with `shards` (`wm/2`), with `:gates` for its Go gates alone or `:race` for its race suite alone, as CI's Go jobs name them: `just gates wm/3:race lib`. A component with `shards` named whole (`settings`, `wm:race`) runs as every part `ci/components.json` splits it into, planned by `ci/affected -gates` from the same definitions CI's jobs use, so no race suite runs as one package past Go's ten-minute package timeout. A component with `shards` has a last part for its static gates, the ones `static-gates` names (`ui/3` for ui's one shard). A part that splits a package by test name runs that package in a process of its own beside the part's other packages. A target whose justfile `just --fmt --check` refuses fails before anything runs. |
 | `just checks <name>...` | Build Nix checks for this machine, named `<component>-<check>`: `just checks login-vms-greeter wm-module`. |
 | `just vm-checks <name>...` | Run NixOS VM checks one after another on closures built first: the drivers, then each test alone. |
 | `just build-stage <component>... [vm]...` | A CI build job for this machine: every package and non-VM check of the components, and the named VM checks' closures, in one `nix build` that keeps going past a failure. Their dev shells are `just build-shells`' work. |
@@ -296,8 +296,10 @@ first runners. The jobs on the builds:
      also splits. A gates part runs nothing on a runner whose `gate-runners`
      leave it none of its gates: on x86_64, which runs no `test`, the gates
      parts of settings, shell and wm below their shards are empty, so their
-     gates run whole there (`settings:gates`), and `just gates` names the part
-     and the architecture when a target runs nothing. A push runs each Go job
+     gates parts run nothing there, and a whole-component target such as
+     `settings:gates` runs as its parts that have a gate on that runner;
+     `just gates` names the part and the architecture when a target runs
+     nothing. A push runs each Go job
      with only its affected targets, and skips it when none is; the job keeps
      its id, and with it its Go build cache, whatever subset runs.
    - **Shards**: a component one of whose suites would not fit a job lists
