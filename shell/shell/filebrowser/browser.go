@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/i18n"
@@ -130,6 +131,9 @@ type Deps struct {
 	// OpenFile opens a file in its default app, from Quick Look's Open
 	// button; nil shows no button.
 	OpenFile func(path string)
+	// Animations is the [animations] config Quick Look enters and leaves
+	// with, as the launcher does (config.AnimLauncher).
+	Animations func() config.AnimationsConfig
 }
 
 // Options are one browse: where it starts, what it lists and offers,

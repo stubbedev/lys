@@ -121,6 +121,7 @@ func newHarness(t *testing.T) *harness {
 			Locations:   func() []filebrowser.Place { return nil },
 			TrashDirs:   func() []string { return []string{hs.trash} },
 			ForgetImage: func(render.ImageID) {},
+			Animations:  func() config.AnimationsConfig { return conf.Animations },
 		},
 	})
 	return hs

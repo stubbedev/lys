@@ -87,7 +87,8 @@ func headlessChooser(t *testing.T, a *app.Application, home string) *Chooser {
 			Places: func() []filebrowser.Place {
 				return []filebrowser.Place{{Label: "Home", Path: home, Icon: "user-home-symbolic"}}
 			},
-			Locations: func() []filebrowser.Place { return nil },
+			Locations:  func() []filebrowser.Place { return nil },
+			Animations: func() config.AnimationsConfig { return cfg.Animations },
 		},
 	})
 }

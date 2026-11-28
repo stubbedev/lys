@@ -138,6 +138,7 @@ func newHarness(t *testing.T, viewFile string, browse ...func(*filebrowser.Deps)
 		ForgetImage: func(id render.ImageID) {
 			hs.forgotten = append(hs.forgotten, id)
 		},
+		Animations: func() config.AnimationsConfig { return hs.conf.Animations },
 	}
 	for _, b := range browse {
 		b(&bd)

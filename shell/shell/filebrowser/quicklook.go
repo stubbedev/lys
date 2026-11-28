@@ -4,10 +4,13 @@ import (
 	"context"
 	"image"
 
+	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/preview"
+	"github.com/stubbedev/lys/desktop/shell/reveal"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
+	"github.com/stubbedev/lys/ui/anim"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
 
@@ -31,10 +34,10 @@ const (
 const quicklookShare = 0.85
 
 // newQuicklook is Quick Look's card, in the frame that lays it over the
-// file views: a preview of the selection, closed by Space and Escape,
-// stepped through the view by the arrows (quicklookArrow), playing a
-// video at once, opening the file in its default app from its Open
-// button.
+// file views: a preview of the selection, closed by Space, Escape and a
+// click beside it, stepped through the view by the arrows
+// (quicklookArrow), playing a video at once, opening the file in its
+// default app from its Open button.
 func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
 	least := image.Pt(quicklookMinW, quicklookMinH)
 	v := preview.New(c.previewConfig(preview.Config{
@@ -42,7 +45,9 @@ func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
 		Image: least, Text: least, OnClose: c.closeQuicklook, Open: c.d.OpenFile,
 	}))
 	v.Root().AddClass(css.Card)
-	f := &quicklookFrame{card: v.Root(), fit: func(area render.Rect) {
+	rev := widget.NewRevealer(v.Root())
+	rev.SetFadeFrom(reveal.FadeFrom)
+	f := &quicklookFrame{rev: rev, outside: c.closeQuicklook, fit: func(area render.Rect) {
 		box := quicklookBox(area)
 		v.Fit(box, image.Pt(min(box.X, quicklookTextW), box.Y))
 	}}
@@ -50,8 +55,9 @@ func (c *Browser) newQuicklook() (*preview.View, *quicklookFrame) {
 	return v, f
 }
 
-// quicklookOpen reports Quick Look showing.
-func (c *Browser) quicklookOpen() bool { return c.ui.quicklook.Visible() }
+// quicklookOpen reports Quick Look open: showing, or entering, and not
+// leaving.
+func (c *Browser) quicklookOpen() bool { return c.ui.quicklook.rev.Revealed() }
 
 // quicklookKey handles a plain key while Quick Look shows: its own
 // keys, then the arrows stepping through the view. It reports whether
@@ -67,14 +73,39 @@ func (c *Browser) toggleQuicklook() {
 	}
 	if _, ok := c.selected(); ok {
 		c.ui.quicklook.SetVisible(true)
+		reveal.Show(c.ui.quicklook.rev, c.quicklookMotion(), config.AnimLauncher)
 		c.refreshPreview()
 	}
 }
 
-// closeQuicklook hides Quick Look and lets go of what it showed.
+// closeQuicklook plays Quick Look's exit, then hides it and lets go of
+// what it showed, unless it opened again meanwhile.
 func (c *Browser) closeQuicklook() {
-	c.ui.quicklook.SetVisible(false)
+	f := c.ui.quicklook
+	if !f.Visible() {
+		return
+	}
+	reveal.Hide(f.rev, c.quicklookMotion(), config.AnimLauncher, c.dropQuicklook)
+}
+
+// dropQuicklook hides Quick Look at once and lets go of what it showed.
+func (c *Browser) dropQuicklook() {
+	f := c.ui.quicklook
+	f.rev.SetOnTransitionDone(nil)
+	f.rev.SetDuration(0)
+	f.rev.SetRevealed(false)
+	f.SetVisible(false)
 	c.ui.ql.Close()
+}
+
+// quicklookMotion is how Quick Look moves: as the launcher does, and at
+// once while the toolkit's motion is reduced or off.
+func (c *Browser) quicklookMotion() config.AnimationsConfig {
+	a := c.d.Animations()
+	if anim.Instant() {
+		a.Enabled = false
+	}
+	return a
 }
 
 // refreshPreview shows the selected entry in the previews showing, or
@@ -103,14 +134,17 @@ func quicklookBox(area render.Rect) image.Point {
 	)
 }
 
-// quicklookFrame covers the file views and centers Quick Look's card on
-// them at the card's own size, its content fitted to the views' area
-// (fit); presses beside the card pass through to the views.
+// quicklookFrame covers the file views and centers Quick Look's card,
+// in the revealer playing its enter and exit, on them at the card's own
+// size, its content fitted to the views' area (fit). A click beside the
+// open card runs outside; while the card leaves, presses pass through
+// to the views.
 type quicklookFrame struct {
 	widget.Base
-	card widget.Widget
-	fit  func(area render.Rect)
-	kids [1]widget.Widget
+	rev     *widget.Revealer
+	fit     func(area render.Rect)
+	outside func()
+	kids    [1]widget.Widget
 }
 
 // Measure wants nothing: the frame is the views' area.
@@ -119,18 +153,31 @@ func (f *quicklookFrame) Measure(widget.Axis, int) widget.Sizes { return widget.
 func (f *quicklookFrame) Arrange(r render.Rect) {
 	f.ArrangeSelf(r)
 	f.fit(r)
-	f.card.Arrange(quicklook.Centered(r, f.card))
+	f.rev.Arrange(quicklook.Centered(r, f.rev))
 	widget.SetParents(f, f.Children()...)
 }
 
 // ArrangeRoot mirrors Arrange for the root path.
 func (f *quicklookFrame) ArrangeRoot(r render.Rect) { f.Arrange(r) }
 
-func (f *quicklookFrame) Paint(cv *render.Canvas) { widget.PaintChild(cv, f.card) }
+func (f *quicklookFrame) Paint(cv *render.Canvas) { widget.PaintChild(cv, f.rev) }
 
-func (f *quicklookFrame) Children() []widget.Widget { f.kids[0] = f.card; return f.kids[:] }
+func (f *quicklookFrame) Children() []widget.Widget { f.kids[0] = f.rev; return f.kids[:] }
 
-func (f *quicklookFrame) HitTest(p widget.Point) widget.Widget { return f.card.HitTest(p) }
+// HitTest is the card's, else the frame itself while the card is open:
+// a click beside it.
+func (f *quicklookFrame) HitTest(p widget.Point) widget.Widget {
+	if hit := f.rev.HitTest(p); hit != nil {
+		return hit
+	}
+	if f.rev.Revealed() {
+		return f.HitLeaf(f, p)
+	}
+	return nil
+}
+
+// ClickAt is a click beside the card.
+func (f *quicklookFrame) ClickAt(widget.Point) { f.outside() }
 
 // newPreviewPane is the preview pane beside the file views, w wide,
 // saying so while nothing is selected.
@@ -172,7 +219,7 @@ func (c *Browser) closePreviews() {
 	if c.ui == nil {
 		return
 	}
-	c.ui.ql.Close()
+	c.dropQuicklook()
 	c.ui.pv.Close()
 }
 

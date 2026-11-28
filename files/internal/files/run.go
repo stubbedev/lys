@@ -128,6 +128,7 @@ func Run(paths []string, service bool) error {
 			TrashDirs:     filebrowser.SystemTrashDirs(home),
 			ForgetImage:   application.ForgetImage,
 			OpenFile:      h.OpenFile,
+			Animations:    func() config.AnimationsConfig { return h.svc.Config().Animations },
 		},
 	}
 	defer w.close()

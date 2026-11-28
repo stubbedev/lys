@@ -99,13 +99,14 @@ func newHarness(t *testing.T, viewFile string) *harness {
 	// browser closes.
 	t.Cleanup(hs.end)
 	hs.s = NewStandalone(Deps{
-		Invoke:    hs.invoke,
-		Font:      treetest.Font(t),
-		MIME:      browsertest.MIME(t),
-		Home:      hs.root,
-		Places:    func() []Place { return []Place{{Label: "Home", Path: hs.root, Icon: "user-home-symbolic"}} },
-		Locations: func() []Place { return []Place{{Label: "Computer", Path: "/", Icon: "drive-harddisk-symbolic"}} },
-		ViewFile:  viewFile,
+		Invoke:     hs.invoke,
+		Font:       treetest.Font(t),
+		MIME:       browsertest.MIME(t),
+		Home:       hs.root,
+		Places:     func() []Place { return []Place{{Label: "Home", Path: hs.root, Icon: "user-home-symbolic"}} },
+		Locations:  func() []Place { return []Place{{Label: "Computer", Path: "/", Icon: "drive-harddisk-symbolic"}} },
+		ViewFile:   viewFile,
+		Animations: func() config.AnimationsConfig { return conf.Animations },
 		ForgetImage: func(id render.ImageID) {
 			hs.forgotten = append(hs.forgotten, id)
 		},

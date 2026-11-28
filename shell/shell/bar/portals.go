@@ -102,6 +102,7 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 			TrashDirs:     filebrowser.SystemTrashDirs(home),
 			ForgetImage:   application.ForgetImage,
 			OpenFile:      quicklook.Opener(application),
+			Animations:    func() config.AnimationsConfig { return current().Animations },
 		},
 	})
 	if _, err := filechooser.NewDaemon(chooser).Export(conn); err != nil {
