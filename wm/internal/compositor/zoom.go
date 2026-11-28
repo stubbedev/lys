@@ -253,7 +253,7 @@ func (c *Compositor) renderZoomed(o *output.Output, sc *scene, bounds image.Rect
 		o.Backend().AbortFrame()
 		return errors.Join(drawErr, err)
 	}
-	if err := c.present(o, sc, whole); err != nil {
+	if shown, err := c.present(o, sc, whole); err != nil || !shown {
 		return err
 	}
 	sc.presented()

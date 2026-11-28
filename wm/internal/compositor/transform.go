@@ -31,12 +31,12 @@ func (c *Compositor) beginFrame(o *output.Output, sc *scene) (backend.Frame, err
 	return backend.Frame{Renderer: f.Renderer, Target: sc.composed, Age: age}, nil
 }
 
-func (c *Compositor) present(o *output.Output, sc *scene, repaint render.Region) error {
-	if !c.composedApart(o) {
-		return o.Backend().Present(repaint)
-	}
+func (c *Compositor) present(o *output.Output, sc *scene, repaint render.Region) (bool, error) {
 	f := sc.real
 	sc.real = backend.Frame{}
+	if !c.composedApart(o) {
+		return c.presentComplete(o, repaint)
+	}
 	size := o.PixelSize()
 	whole := image.Rectangle{Max: size}
 	t := o.Transform()
@@ -51,14 +51,27 @@ func (c *Compositor) present(o *output.Output, sc *scene, repaint render.Region)
 	p, err := f.Renderer.Begin(f.Target, sc.blit)
 	if err != nil {
 		o.Backend().AbortFrame()
-		return err
+		return false, err
 	}
 	p.DrawTexture(sc.composed.Texture(), render.FRect{W: float64(size.X), H: float64(size.Y)}, image.Rectangle{Max: o.Backend().State().Mode.Size}, t, 1, render.Mask{})
 	if err := p.End(); err != nil {
 		o.Backend().AbortFrame()
-		return err
+		return false, err
 	}
-	return errors.Join(o.Backend().Present(sc.blit), c.scheduleMirrorsOf(o))
+	shown, err := c.presentComplete(o, sc.blit)
+	if !shown {
+		return false, err
+	}
+	return true, errors.Join(err, c.scheduleMirrorsOf(o))
+}
+
+func (c *Compositor) presentComplete(o *output.Output, repaint render.Region) (bool, error) {
+	if c.renderer.Counts().Incomplete != c.incompleteAtFrame {
+		o.Backend().AbortFrame()
+		c.frames.Drop(o.Backend().Name())
+		return false, nil
+	}
+	return true, o.Backend().Present(repaint)
 }
 
 func (sc *scene) dropComposed() error {

@@ -173,7 +173,7 @@ func (c *Compositor) renderShaded(o *output.Output, sc *scene, s *screenShader, 
 		return c.schedule(o)
 	}
 	c.frames.Submit(o.Backend().Name())
-	if err := c.present(o, sc, whole); err != nil {
+	if shown, err := c.present(o, sc, whole); err != nil || !shown {
 		return err
 	}
 	sc.presented()

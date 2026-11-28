@@ -6,11 +6,13 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/stubbedev/lys/wm/internal/backend"
 	"github.com/stubbedev/lys/wm/internal/backend/headless"
 	"github.com/stubbedev/lys/wm/internal/compositor"
 	"github.com/stubbedev/lys/wm/internal/render/soft"
 	"github.com/stubbedev/lys/wm/internal/render/vulkan"
 	"github.com/stubbedev/lys/wm/internal/testclient"
+	"github.com/stubbedev/lys/wm/internal/testenv"
 )
 
 const heldPasses = 8
@@ -77,4 +79,48 @@ func darkened(held, complete, closed *soft.Buffer, skip []image.Rectangle) (imag
 
 func saturated(p [3]byte) bool {
 	return p != [3]byte{} && !slices.ContainsFunc(p[:], func(c byte) bool { return c != 0 && c != 0xff })
+}
+
+func startVulkanBuildingOffThread(t *testing.T, configure func(*compositor.Config), modes ...backend.Mode) (*Harness, func()) {
+	t.Helper()
+	vulkanTurn.hold(t)
+	testenv.Vulkan(t)
+	var release func()
+	h := start(t, setup{open: vulkanBackend, configure: configure, traced: true, beforeRun: func(b *headless.Backend, c *compositor.Compositor) error {
+		r, ok := b.Renderer().(*vulkan.Renderer)
+		if !ok {
+			return fmt.Errorf("the harness renderer is a %T, not Vulkan", b.Renderer())
+		}
+		release = r.HoldPipelineBuilds()
+		for _, o := range b.Outputs() {
+			o.RecordShown(true)
+		}
+		return c.BuildOffThread()
+	}}, modes...)
+	t.Cleanup(release)
+	return h, release
+}
+
+func TestFramesDrawnBeforeTheStartupPipelinesAreBuiltShowOnlyDrawnContent(t *testing.T) {
+	if raceEnabled {
+		t.Skip("the pipelines a worker builds are the Vulkan renderer's")
+	}
+	h, release := startVulkanBuildingOffThread(t, func(*compositor.Config) {}, small)
+	h.Eventually(fmt.Sprintf("%d passes to skip a draw whose pipeline is held", heldPasses), func(b *headless.Backend, _ *compositor.Compositor) bool {
+		return b.Renderer().Counts().Incomplete >= heldPasses
+	})
+	held := h.takeShown()
+	release()
+	h.Eventually("the compositor to owe no frame", quiet)
+	complete := h.shown()
+	background := [3]byte{compositor.Background.R, compositor.Background.G, compositor.Background.B}
+	cursor, _ := notColor(complete, image.Rectangle{Max: small.Size}, background, nil)
+	if cursor.Dx() > cursorReach || cursor.Dy() > cursorReach {
+		t.Fatalf("the complete frame shows %v not the background, more than the cursor covers", cursor)
+	}
+	for i, f := range held {
+		if box, n := notColor(f.Image, image.Rectangle{Max: small.Size}, background, []image.Rectangle{cursor}); n > 0 {
+			t.Errorf("frame %d of %d shown while the startup pipelines were held has %d pixels in %v the compositor never drew", i+1, len(held), n, box)
+		}
+	}
 }

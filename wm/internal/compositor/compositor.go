@@ -201,6 +201,7 @@ type Compositor struct {
 	layout             *output.Manager
 	renderer           render.Renderer
 	incompletePasses   uint64
+	incompleteAtFrame  uint64
 	frames             *frametrace.Recorder
 	surfaces           *surface.Manager
 	shm                *shm.Manager

@@ -77,6 +77,7 @@ type setup struct {
 	configure func(*compositor.Config)
 	traced    bool
 	xwayland  func(error)
+	beforeRun func(*headless.Backend, *compositor.Compositor) error
 }
 
 func Start(t *testing.T, modes ...backend.Mode) *Harness {
@@ -278,6 +279,11 @@ func start(t testing.TB, s setup, modes ...backend.Mode) *Harness {
 		h.compositor.SetDropTarget(h.xwayland)
 		h.compositor.WatchWorkArea(h.xwayland.WorkAreaChanged)
 		if err := h.compositor.ScaleXwayland(h.xwayland.IsClient); err != nil {
+			t.Fatalf("harness: %v", err)
+		}
+	}
+	if s.beforeRun != nil {
+		if err := s.beforeRun(h.backend, h.compositor); err != nil {
 			t.Fatalf("harness: %v", err)
 		}
 	}

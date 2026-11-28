@@ -182,6 +182,7 @@ func (c *Compositor) sceneOf(o *output.Output) *scene {
 
 func (c *Compositor) render(o *output.Output) error {
 	c.frameTime = c.aimed(o, c.clock())
+	c.incompleteAtFrame = c.renderer.Counts().Incomplete
 	c.prepareSwitch(o)
 	if err := c.settleOverview(c.frameTime); err != nil {
 		return err
@@ -307,7 +308,7 @@ func (c *Compositor) render(o *output.Output) error {
 		return err
 	}
 	c.frames.Submit(o.Backend().Name())
-	if err := c.present(o, sc, repaint); err != nil {
+	if shown, err := c.present(o, sc, repaint); err != nil || !shown {
 		return err
 	}
 	sc.presented()

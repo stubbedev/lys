@@ -15,9 +15,13 @@ type offThreadRenderer struct {
 	render.Renderer
 	offThread  int
 	incomplete uint64
+	skipping   bool
 }
 
 func (r *offThreadRenderer) Counts() render.Counts {
+	if r.skipping {
+		r.incomplete++
+	}
 	counts := r.Renderer.Counts()
 	counts.Incomplete = r.incomplete
 	return counts
@@ -85,6 +89,39 @@ func TestAFrameWithAnIncompletePassIsRedrawnWhole(t *testing.T) {
 	}
 	if again := frameAsked(false); again != unchanged {
 		t.Errorf("once no pass was incomplete a frame was followed by %d frames, want %d", again, unchanged)
+	}
+}
+
+func TestAFrameWhosePassSkipsADrawIsNeverPresented(t *testing.T) {
+	var b offThreadBackend
+	size := image.Pt(320, 240)
+	r := setupWith(t, func(l *loop.Loop, _ *spyRenderer) backend.Backend {
+		hb := headless.New(l)
+		if _, err := hb.AddOutput(backend.Mode{Size: size, RefreshMHz: 60000}); err != nil {
+			t.Fatal(err)
+		}
+		b = offThreadBackend{Backend: hb, r: &offThreadRenderer{Renderer: hb.Renderer()}}
+		return b
+	}, func(*Config) {})
+	o := b.Outputs()[0]
+	r.until("the first frames to settle", func() bool { return o.Frames() > 0 && !o.FrameOwed() })
+	var presents, frames uint64
+	r.on(func() {
+		presents, frames, b.r.skipping = o.Presents(), o.Frames(), true
+		if err := o.ScheduleFrame(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	r.until("frames whose passes skip a draw to run", func() bool { return o.Frames() >= frames+3 })
+	r.on(func() {
+		if n := o.Presents() - presents; n != 0 {
+			t.Errorf("%d frames whose passes skipped a draw were presented, want none", n)
+		}
+		b.r.skipping = false
+	})
+	r.until("a complete frame to be presented", func() bool { return o.Presents() > presents && !o.FrameOwed() })
+	if d := o.LastDamage(); len(d) != 1 || d[0] != (image.Rectangle{Max: size}) {
+		t.Errorf("the first complete frame repainted %v, want the whole output", d)
 	}
 }
 
