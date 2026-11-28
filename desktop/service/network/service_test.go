@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stubbedev/lys/lib/dbustest"
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 	"github.com/stubbedev/lys/lib/waittest"
 )
@@ -82,7 +83,7 @@ func TestTheServiceClosesTheDescriptorsOfTheSignalsItReads(t *testing.T) {
 		must(t, sender.Emit(settingPath(1), connectionIface+".Updated", pipe.Write))
 		must(t, sender.Emit(fakePrimaryPath, activeIface+".StateChanged", uint32(ActiveActivated), uint32(0), pipe.Write))
 		must(t, sender.Emit(fakePrimaryPath, activeIface+".StateChanged", pipe.Write, uint32(0)))
-		must(t, sender.Emit(nmPath, properties+".PropertiesChanged", nmIface, map[string]dbus.Variant{"Handed": dbus.MakeVariant(pipe.Write)}, []string{}))
+		must(t, sender.Emit(nmPath, dbusx.PropertiesInterface+".PropertiesChanged", nmIface, map[string]dbus.Variant{"Handed": dbus.MakeVariant(pipe.Write)}, []string{}))
 	}
 	pipe.RequireEveryCopyClosed(t)
 }

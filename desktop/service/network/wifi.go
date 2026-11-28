@@ -214,7 +214,7 @@ func (w *Wifi) Enabled(ctx context.Context) (bool, error) {
 // SetEnabled turns the radio on or off system-wide; off terminates
 // every wifi connection.
 func (w *Wifi) SetEnabled(ctx context.Context, on bool) error {
-	err := w.nm.manager().CallWithContext(ctx, properties+".Set", 0, nmIface, "WirelessEnabled", dbus.MakeVariant(on)).Err
+	err := w.nm.manager().CallWithContext(ctx, dbusx.PropertiesInterface+".Set", 0, nmIface, "WirelessEnabled", dbus.MakeVariant(on)).Err
 	if err != nil {
 		return fmt.Errorf("cannot set wireless enabled: %w", err)
 	}
@@ -270,7 +270,7 @@ func (w *Wifi) AccessPoints(ctx context.Context) ([]AccessPoint, error) {
 
 func (w *Wifi) accessPoint(ctx context.Context, path dbus.ObjectPath) (AccessPoint, error) {
 	var props map[string]dbus.Variant
-	if err := w.nm.object(path).CallWithContext(ctx, properties+".GetAll", 0, apIface).Store(&props); err != nil {
+	if err := w.nm.object(path).CallWithContext(ctx, dbusx.PropertiesInterface+".GetAll", 0, apIface).Store(&props); err != nil {
 		return AccessPoint{}, err
 	}
 	u32 := func(key string) uint32 { v, _ := props[key].Value().(uint32); return v }

@@ -20,14 +20,14 @@ func TestOnlyTheManagersChangesTick(t *testing.T) {
 		want bool
 	}{
 		{dbus.Signal{Sender: nm, Path: manager, Name: nmIface + ".StateChanged", Body: []any{uint32(70)}}, true},
-		{dbus.Signal{Sender: nm, Path: manager, Name: properties + ".PropertiesChanged", Body: []any{nmIface, noProps, noInvalidated}}, true},
-		{dbus.Signal{Sender: nm, Path: manager, Name: properties + ".PropertiesChanged", Body: []any{"org.freedesktop.NetworkManager.Other", noProps, noInvalidated}}, false},
-		{dbus.Signal{Sender: nm, Path: manager, Name: properties + ".PropertiesChanged"}, false},
+		{dbus.Signal{Sender: nm, Path: manager, Name: dbusx.PropertiesInterface + ".PropertiesChanged", Body: []any{nmIface, noProps, noInvalidated}}, true},
+		{dbus.Signal{Sender: nm, Path: manager, Name: dbusx.PropertiesInterface + ".PropertiesChanged", Body: []any{"org.freedesktop.NetworkManager.Other", noProps, noInvalidated}}, false},
+		{dbus.Signal{Sender: nm, Path: manager, Name: dbusx.PropertiesInterface + ".PropertiesChanged"}, false},
 		{dbus.Signal{Sender: nm, Path: manager, Name: nmIface + ".DeviceAdded", Body: []any{dbus.ObjectPath("/org/freedesktop/NetworkManager/Devices/1")}}, false},
-		{dbus.Signal{Sender: nm, Path: "/org/bluez/hci0", Name: properties + ".PropertiesChanged", Body: []any{nmIface, noProps, noInvalidated}}, false},
+		{dbus.Signal{Sender: nm, Path: "/org/bluez/hci0", Name: dbusx.PropertiesInterface + ".PropertiesChanged", Body: []any{nmIface, noProps, noInvalidated}}, false},
 		{dbus.Signal{Sender: nm, Path: "/org/freedesktop/UPower/devices/DisplayDevice", Name: nmIface + ".StateChanged", Body: []any{uint32(70)}}, false},
 		{dbus.Signal{Sender: other, Path: manager, Name: nmIface + ".StateChanged", Body: []any{uint32(70)}}, false},
-		{dbus.Signal{Sender: other, Path: manager, Name: properties + ".PropertiesChanged", Body: []any{nmIface, noProps, noInvalidated}}, false},
+		{dbus.Signal{Sender: other, Path: manager, Name: dbusx.PropertiesInterface + ".PropertiesChanged", Body: []any{nmIface, noProps, noInvalidated}}, false},
 	} {
 		before := ticked
 		err := dbusx.Dispatch(&c.sig, nm, routes)

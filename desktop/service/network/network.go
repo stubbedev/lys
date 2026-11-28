@@ -17,7 +17,6 @@ const (
 	BusName     = "org.freedesktop.NetworkManager"
 	nmPath      = "/org/freedesktop/NetworkManager"
 	nmIface     = "org.freedesktop.NetworkManager"
-	properties  = dbusx.PropertiesInterface
 	deviceIface = "org.freedesktop.NetworkManager.Device"
 	apIface     = "org.freedesktop.NetworkManager.AccessPoint"
 	// wiredIface carries the link speed, the IP config objects the
@@ -134,7 +133,7 @@ func NewOn(conn *dbus.Conn) *System { return &System{conn: conn} }
 
 func (s *System) prop(ctx context.Context, iface, name string, out any) error {
 	obj := s.conn.Object(BusName, dbus.ObjectPath(nmPath))
-	return obj.CallWithContext(ctx, properties+".Get", 0, iface, name).Store(out)
+	return obj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, iface, name).Store(out)
 }
 
 // Read collects the snapshot.
@@ -160,11 +159,11 @@ func (s *System) Read(ctx context.Context) (Snapshot, error) {
 		}
 		dev := s.conn.Object(BusName, devicePath)
 		var deviceType uint32
-		if err := dev.CallWithContext(ctx, properties+".Get", 0, deviceIface, "DeviceType").Store(&deviceType); err != nil {
+		if err := dev.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, deviceIface, "DeviceType").Store(&deviceType); err != nil {
 			continue
 		}
 		var state uint32
-		if err := dev.CallWithContext(ctx, properties+".Get", 0, deviceIface, "State").Store(&state); err != nil {
+		if err := dev.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, deviceIface, "State").Store(&state); err != nil {
 			continue
 		}
 		status := statusOf(DeviceState(state))
@@ -172,7 +171,7 @@ func (s *System) Read(ctx context.Context) (Snapshot, error) {
 		case deviceEthernet:
 			snap.HasWired = true
 			if status == StatusConnected && snap.Wired != StatusConnected {
-				_ = dev.CallWithContext(ctx, properties+".Get", 0, wiredIface, "Speed").Store(&snap.WiredSpeed)
+				_ = dev.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, wiredIface, "Speed").Store(&snap.WiredSpeed)
 				snap.WiredIP4 = s.ip4(ctx, dev)
 			}
 			snap.Wired = max(snap.Wired, status)
@@ -186,17 +185,17 @@ func (s *System) Read(ctx context.Context) (Snapshot, error) {
 			var ap dbus.ObjectPath
 			// ActiveAccessPoint is a Device.Wireless property, not a
 			// Device one.
-			if err := dev.CallWithContext(ctx, properties+".Get", 0, wirelessIface, "ActiveAccessPoint").Store(&ap); err != nil || ap == "/" {
+			if err := dev.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, wirelessIface, "ActiveAccessPoint").Store(&ap); err != nil || ap == "/" {
 				continue
 			}
 			apObj := s.conn.Object(BusName, ap)
 			var ssidBytes []byte
 			var strength uint8
-			if err := apObj.CallWithContext(ctx, properties+".Get", 0, apIface, "Ssid").Store(&ssidBytes); err != nil {
+			if err := apObj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, apIface, "Ssid").Store(&ssidBytes); err != nil {
 				continue
 			}
-			_ = apObj.CallWithContext(ctx, properties+".Get", 0, apIface, "Strength").Store(&strength)
-			_ = apObj.CallWithContext(ctx, properties+".Get", 0, apIface, "Frequency").Store(&snap.WifiFrequency)
+			_ = apObj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, apIface, "Strength").Store(&strength)
+			_ = apObj.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, apIface, "Frequency").Store(&snap.WifiFrequency)
 			snap.WifiIP4 = s.ip4(ctx, dev)
 			snap.WifiSSID = strings.TrimRight(string(ssidBytes), "\x00")
 			snap.WifiStrength = strength
@@ -304,7 +303,7 @@ func (s *System) Details(ctx context.Context, kind Link) (LinkDetails, bool, err
 // when it has none.
 func (s *System) ip4(ctx context.Context, dev dbus.BusObject) string {
 	var cfg dbus.ObjectPath
-	if err := dev.CallWithContext(ctx, properties+".Get", 0, deviceIface, "Ip4Config").Store(&cfg); err != nil || cfg == "/" || cfg == "" {
+	if err := dev.CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, deviceIface, "Ip4Config").Store(&cfg); err != nil || cfg == "/" || cfg == "" {
 		return ""
 	}
 	for _, addr := range (nm{s.conn}).configAddresses(ctx, cfg, ip4ConfigIface) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/stubbedev/lys/lib/dbusx"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -86,7 +87,7 @@ func (n nm) object(path dbus.ObjectPath) dbus.BusObject { return n.conn.Object(B
 
 // prop reads one property of an NM object.
 func (n nm) prop(ctx context.Context, path dbus.ObjectPath, iface, name string, out any) error {
-	return n.object(path).CallWithContext(ctx, properties+".Get", 0, iface, name).Store(out)
+	return n.object(path).CallWithContext(ctx, dbusx.PropertiesInterface+".Get", 0, iface, name).Store(out)
 }
 
 // activeConnections lists NM's active-connection objects.
