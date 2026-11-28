@@ -35,6 +35,13 @@ type scrollDrainer interface {
 	drainScroll(c *DamageCollector)
 }
 
+// kidDamageWatcher is a container that keeps its children's pixels
+// across frames (a stack's switch layers): the walk tells it each child
+// that owed damage.
+type kidDamageWatcher interface {
+	kidDamaged(kid Widget)
+}
+
 // childser exposes a widget's children for tree walks (the same
 // interface focus traversal uses).
 type childser interface {
@@ -221,10 +228,15 @@ func (c *DamageCollector) collectInto(w Widget) render.Rect {
 	if n != nil && n.culled {
 		c.clip, c.clipped = render.Rect{}, true
 	}
+	watcher, watches := w.(kidDamageWatcher)
 	c.kids.each(func(kids []Widget) []Widget { return appendKids(w, kids) }, func(k Widget) {
 		if k != nil {
 			markUnlinked(w, k)
-			bbox = bbox.Union(c.collectInto(k))
+			kb := c.collectInto(k)
+			if watches && !kb.Empty() {
+				watcher.kidDamaged(k)
+			}
+			bbox = bbox.Union(kb)
 		}
 	})
 	return bbox

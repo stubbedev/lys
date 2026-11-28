@@ -481,7 +481,7 @@ func (r *Revealer) Paint(cv *render.Canvas) {
 	if r.reuses(cv, layer, dev) {
 		r.layer = layer
 	} else {
-		r.subDamaged, r.stamp = false, r.stampOf(cv, dev)
+		r.subDamaged, r.stamp = false, layerStampOf(cv, dev)
 		r.layer = cv.Layer(layer, dev)
 		r.child.Paint(r.layer.Canvas())
 	}
@@ -639,15 +639,16 @@ func (r *Revealer) appendStyleKids(buf []Widget) []Widget {
 // showing reports a child that is shown, or on its way in or out.
 func (r *Revealer) showing() bool { return r.child != nil && (r.reveal || r.progress > 0) }
 
-// stampOf is what a layer recorded for dev on cv depends on.
-func (r *Revealer) stampOf(cv *render.Canvas, dev render.Rect) layerStamp {
+// layerStampOf is what a layer a widget kept across frames, recorded for
+// dev on cv, depends on besides the widget's own damage.
+func layerStampOf(cv *render.Canvas, dev render.Rect) layerStamp {
 	return layerStamp{dev: dev, list: cv.Recording(), style: styleGen.Load(), theme: themeGen.Load(), icons: icons.Default().Generation(), kept: keptLayerGen.Load()}
 }
 
 // reuses reports whether layer still holds the child as cv would paint
 // it at dev, and readies it to composite again.
 func (r *Revealer) reuses(cv *render.Canvas, layer *render.Layer, dev render.Rect) bool {
-	return layer != nil && !r.subDamaged && r.stamp == r.stampOf(cv, dev) && cv.ReuseLayer(layer, dev)
+	return layer != nil && !r.subDamaged && r.stamp == layerStampOf(cv, dev) && cv.ReuseLayer(layer, dev)
 }
 
 // landLayer draws the frame a transform lands on from the layer its last

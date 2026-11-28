@@ -41,6 +41,9 @@ type Stack struct {
 	progress float64
 	cancel   anim.Cancel
 	layers   [2]*render.Layer
+	// kept is what each switch layer holds: the leaving page, then the
+	// one coming in.
+	kept [2]keptPage
 	// heterogeneous sizes the stack to its visible page instead of its
 	// largest (GTK's homogeneous off); interpolate tweens that size
 	// through a switch (GTK's interpolate-size).
@@ -314,15 +317,13 @@ func (s *Stack) Paint(cv *render.Canvas) {
 		for _, l := range s.layers {
 			keepOrFree(l, nil)
 		}
-		s.layers = [2]*render.Layer{}
+		s.layers, s.kept = [2]*render.Layer{}, [2]keptPage{}
 		PaintChild(cv, w)
 		return
 	}
 	dev := cv.MapRect(s.bounds)
-	s.layers[0] = cv.Layer(s.layers[0], dev)
-	s.layers[1] = cv.Layer(s.layers[1], dev)
-	old.Paint(s.layers[0].Canvas())
-	w.Paint(s.layers[1].Canvas())
+	s.keepLayer(cv, 0, s.prev, old, dev)
+	s.keepLayer(cv, 1, s.visible, w, dev)
 	switch s.shownTransition() {
 	case StackSlideLeftRight:
 		// Moving to a later page pushes the old one out to the left.
@@ -336,8 +337,37 @@ func (s *Stack) Paint(cv *render.Canvas) {
 		cv.Composite(s.layers[1], dev, render.Translate(dir*(float64(dev.W)-off), 0), 1)
 		cv.PopClip(prev)
 	default:
-		s.layers[0].CrossFade(s.layers[1], dev, s.progress)
-		cv.Composite(s.layers[0], dev, render.Identity, 1)
+		mix := cv.ScratchLayer(dev)
+		mix.Canvas().DrawLayer(s.layers[0], dev, render.BlendNormal)
+		mix.CrossFade(s.layers[1], dev, s.progress)
+		cv.Composite(mix, dev, render.Identity, 1)
+		mix.Release()
+	}
+}
+
+// keepLayer readies layer i to hold page, under name, as cv paints it at
+// dev: the page painted into it afresh, unless the layer already holds
+// it and nothing the page shows changed since. A switch thereby paints
+// each page once and then only what changes on it, not both pages on
+// every frame it runs.
+func (s *Stack) keepLayer(cv *render.Canvas, i int, name string, page Widget, dev render.Rect) {
+	k := &s.kept[i]
+	stamp := layerStampOf(cv, dev)
+	if k.name == name && !k.stale && !nodeOf(page).damageStale && k.stamp == stamp && cv.ReuseLayer(s.layers[i], dev) {
+		return
+	}
+	s.layers[i] = cv.Layer(s.layers[i], dev)
+	page.Paint(s.layers[i].Canvas())
+	*k = keptPage{name: name, stamp: stamp}
+}
+
+// kidDamaged implements kidDamageWatcher: the layer holding the page
+// that owed damage paints it again.
+func (s *Stack) kidDamaged(kid Widget) {
+	for i := range s.kept {
+		if k := &s.kept[i]; k.name != "" && nodeOf(s.kids[k.name]) == nodeOf(kid) {
+			k.stale = true
+		}
 	}
 }
 
@@ -350,6 +380,14 @@ func (s *Stack) HitTest(p Point) Widget {
 		}
 	}
 	return s.HitLeaf(s, p)
+}
+
+// keptPage is the page a stack's switch layer holds, what it was painted
+// for, and whether the page owed damage since.
+type keptPage struct {
+	name  string
+	stamp layerStamp
+	stale bool
 }
 
 // Overlay stacks all children on the same rect and paints them in add

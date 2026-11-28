@@ -88,3 +88,49 @@ func TestStackSlideFollowsPageOrder(t *testing.T) {
 		t.Error("removing the leaving page left the switch running on nothing")
 	}
 }
+
+// TestAStackSwitchPaintsEachPageOnce pins that a running switch keeps
+// what it painted: a page paints into its layer once, again only after
+// it owed damage, and the frames between composite the layers.
+func TestAStackSwitchPaintsEachPageOnce(t *testing.T) {
+	c := pinAnimClock(t)
+	s := stackAt(t, c, StackCrossfade)
+	a, b := s.Page("a").(*solidLeaf), s.Page("b").(*solidLeaf)
+	var damage DamageCollector
+	frame := func() shot {
+		damage.Collect(s)
+		return paintStack(s)
+	}
+	frame()
+	s.Show("b")
+	advance(c, 10*time.Millisecond)
+	frame()
+	if a.paints != 2 || b.paints != 1 {
+		t.Fatalf("the first switch frame painted a %d and b %d times, want a at rest and in its layer, b once", a.paints, b.paints)
+	}
+	for range 3 {
+		advance(c, 20*time.Millisecond)
+		mid := frame()
+		if r, bl := redAt(mid, 30, 30), blueAt(mid, 30, 30); r == 0 || bl == 0 {
+			t.Fatalf("mid switch red %d blue %d, want both pages showing", r, bl)
+		}
+	}
+	if a.paints != 2 || b.paints != 1 {
+		t.Errorf("frames that changed no page painted a %d and b %d times, want neither again", a.paints-2, b.paints-1)
+	}
+	b.col = render.RGB(0, 255, 0)
+	b.Invalidate()
+	frame()
+	if a.paints != 2 || b.paints != 2 {
+		t.Errorf("a change on the coming page painted a %d and b %d times again, want only b once", a.paints-2, b.paints-1)
+	}
+	a.col = render.RGB(0, 0, 0)
+	a.Invalidate()
+	got := frame()
+	if a.paints != 3 {
+		t.Errorf("a change on the leaving page painted it %d times again, want once", a.paints-2)
+	}
+	if r := redAt(got, 30, 30); r != 0 {
+		t.Errorf("red %d after the leaving page turned black: its change does not show", r)
+	}
+}
