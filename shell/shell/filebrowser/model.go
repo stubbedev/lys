@@ -23,6 +23,7 @@ import (
 	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/fileuri"
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/procstat"
 	"github.com/stubbedev/lys/lib/xdg"
 )
 
@@ -615,7 +616,7 @@ func VisibleMounts(mounts io.Reader, home, user string) []string {
 		if len(fields) < 2 {
 			continue
 		}
-		path := unescapeMount(fields[1])
+		path := procstat.UnescapeMount(fields[1])
 		if seen[path] || !userVisibleMount(path, home, user) {
 			continue
 		}
@@ -640,25 +641,6 @@ func userVisibleMount(path, home, user string) bool {
 	}
 	return false
 }
-
-// unescapeMount resolves /proc/mounts' octal escapes (\040 a space).
-func unescapeMount(s string) string {
-	if !strings.Contains(s, `\`) {
-		return s
-	}
-	var b strings.Builder
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\\' && i+3 < len(s) && isOctal(s[i+1]) && isOctal(s[i+2]) && isOctal(s[i+3]) {
-			b.WriteByte((s[i+1]-'0')<<6 | (s[i+2]-'0')<<3 | (s[i+3] - '0'))
-			i += 3
-			continue
-		}
-		b.WriteByte(s[i])
-	}
-	return b.String()
-}
-
-func isOctal(c byte) bool { return c >= '0' && c <= '7' }
 
 // Crumb is one breadcrumb button.
 type Crumb struct {
