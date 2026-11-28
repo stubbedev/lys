@@ -425,12 +425,15 @@
   "desktop/fileops": {
     "imports": [
       "desktop/fileuri",
+      "desktop/vfs",
       "lib/xdg"
     ],
     "external": [
       "bufio",
       "bytes",
       "context",
+      "crypto/rand",
+      "encoding/hex",
       "errors",
       "fmt",
       "golang.org/x/sys/unix",
@@ -445,7 +448,11 @@
       "strings",
       "time"
     ],
+    "testImports": [
+      "desktop/vfs/vfstest"
+    ],
     "testExternal": [
+      "sync",
       "testing"
     ]
   },
@@ -835,6 +842,106 @@
     ],
     "testExternal": [
       "syscall",
+      "testing"
+    ]
+  },
+  "desktop/mtp": {
+    "imports": [
+      "desktop/mtp/ptp",
+      "desktop/mtp/usb",
+      "lib/intconv",
+      "lib/udevmonitor"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "io",
+      "io/fs",
+      "maps",
+      "path",
+      "slices",
+      "strings",
+      "time"
+    ],
+    "testImports": [
+      "desktop/mtp/ptp/ptptest",
+      "lib/udevmonitor/udevmonitortest"
+    ],
+    "testExternal": [
+      "bytes",
+      "os",
+      "path/filepath",
+      "sync",
+      "testing"
+    ]
+  },
+  "desktop/mtp/ptp": {
+    "imports": [
+      "lib/intconv"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "encoding/binary",
+      "errors",
+      "fmt",
+      "io",
+      "io/fs",
+      "math",
+      "slices",
+      "sync",
+      "time",
+      "unicode/utf16"
+    ],
+    "testImports": [
+      "desktop/mtp/ptp/ptptest"
+    ],
+    "testExternal": [
+      "math/rand/v2",
+      "reflect",
+      "strings",
+      "testing"
+    ]
+  },
+  "desktop/mtp/ptp/ptptest": {
+    "imports": [
+      "desktop/mtp/ptp",
+      "lib/intconv"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "slices",
+      "sync",
+      "time"
+    ]
+  },
+  "desktop/mtp/usb": {
+    "imports": [
+      "desktop/mtp/ptp",
+      "lib/intconv"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "encoding/binary",
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io/fs",
+      "os",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "sync",
+      "time",
+      "unicode/utf16",
+      "unsafe"
+    ],
+    "testExternal": [
       "testing"
     ]
   },
@@ -2518,6 +2625,61 @@
       "testing"
     ]
   },
+  "desktop/vfs": {
+    "imports": [
+      "desktop/fileuri"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "crypto/sha256",
+      "crypto/x509",
+      "encoding/binary",
+      "errors",
+      "fmt",
+      "github.com/stubbedev/memory-go",
+      "github.com/stubbedev/memory-go/bufpool",
+      "golang.org/x/sys/unix",
+      "io",
+      "io/fs",
+      "net",
+      "net/url",
+      "os",
+      "path",
+      "path/filepath",
+      "slices",
+      "strconv",
+      "strings",
+      "sync",
+      "time",
+      "unsafe"
+    ],
+    "testImports": [
+      "desktop/vfs/vfstest"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
+  "desktop/vfs/vfstest": {
+    "imports": [
+      "desktop/vfs"
+    ],
+    "external": [
+      "bytes",
+      "context",
+      "errors",
+      "io",
+      "io/fs",
+      "maps",
+      "path",
+      "slices",
+      "strings",
+      "sync",
+      "testing",
+      "time"
+    ]
+  },
   "files/cmd/lys-files": {
     "imports": [
       "desktop/argpaths",
@@ -2574,6 +2736,7 @@
       "desktop/shell/widgets",
       "desktop/spawn",
       "desktop/styling",
+      "desktop/vfs",
       "files/internal/filemanager1",
       "files/internal/locale",
       "lib/dbusx",
@@ -2608,6 +2771,7 @@
     "testImports": [
       "desktop/resources",
       "desktop/shell/treetest",
+      "desktop/vfs/vfstest",
       "lib/dbustest",
       "lib/render",
       "lib/testhome",
@@ -9183,6 +9347,34 @@
       "testing"
     ]
   },
+  "shell/service/automount": {
+    "imports": [
+      "desktop/i18n",
+      "lib/third_party/godbus",
+      "shell/internal/desktopnotify",
+      "shell/service/notifications",
+      "shell/service/udisks"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "log",
+      "slices",
+      "sync",
+      "time"
+    ],
+    "testImports": [
+      "lib/testhome",
+      "lib/waittest",
+      "shell/service/udisks/udiskstest"
+    ],
+    "testExternal": [
+      "strings",
+      "sync/atomic",
+      "testing"
+    ]
+  },
   "shell/service/backgroundapps": {
     "imports": [
       "desktop/desktopentry",
@@ -10599,6 +10791,7 @@
       "shell/internal/widgetipc",
       "shell/service/appenergy",
       "shell/service/appnap",
+      "shell/service/automount",
       "shell/service/backgroundapps",
       "shell/service/batteryalert",
       "shell/service/brightness",
@@ -10871,6 +11064,7 @@
       "desktop/shell/widgets",
       "desktop/styling",
       "desktop/thumbnail",
+      "desktop/vfs",
       "lib/atomicfile",
       "lib/intconv",
       "lib/render",
@@ -10894,18 +11088,14 @@
       "bytes",
       "cmp",
       "context",
-      "encoding/binary",
       "encoding/xml",
       "errors",
       "fmt",
-      "github.com/stubbedev/memory-go",
-      "github.com/stubbedev/memory-go/bufpool",
       "golang.org/x/sys/unix",
       "image",
       "io",
       "io/fs",
       "log",
-      "net/url",
       "os",
       "path/filepath",
       "slices",
@@ -10921,6 +11111,7 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "desktop/thumbnail/thumbnailtest",
+      "desktop/vfs/vfstest",
       "lib/logtest",
       "lib/testhome",
       "lib/waittest",
@@ -16038,47 +16229,6 @@
     ],
     "external": [
       "golang.org/x/sys/unix",
-      "testing"
-    ]
-  },
-  "wm/internal/scanner": {
-    "imports": [
-      "lib/protocols",
-      "lib/srcroot",
-      "wm/internal/wire"
-    ],
-    "external": [
-      "bytes",
-      "cmp",
-      "encoding/json",
-      "encoding/xml",
-      "errors",
-      "flag",
-      "fmt",
-      "go/format",
-      "go/token",
-      "go/types",
-      "io",
-      "maps",
-      "os",
-      "path",
-      "path/filepath",
-      "slices",
-      "strconv",
-      "strings"
-    ],
-    "testImports": [
-      "lib/testhome",
-      "wm/internal/protocol/client/wayland",
-      "wm/internal/protocol/server/cursorshape",
-      "wm/internal/protocol/server/presentationtime",
-      "wm/internal/protocol/server/wayland",
-      "wm/internal/protocol/server/wlrlayershell",
-      "wm/internal/protocol/server/xdgshell"
-    ],
-    "testExternal": [
-      "golang.org/x/sys/unix",
-      "runtime",
       "testing"
     ]
   },
