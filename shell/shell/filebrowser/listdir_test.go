@@ -40,22 +40,18 @@ func bigDir(t testing.TB) string {
 	return root
 }
 
-// Listing 100,000 entries costs a constant number of allocations plus
-// the path chunks, one stat per entry relative to the directory fd
-// (none walks a path), and getdents64 calls a large buffer bounds;
-// partitioning and sorting the cached listing per keystroke allocate
-// nothing.
+// Listing 100,000 entries through the local filesystem costs a
+// constant number of allocations plus the name and path chunks (the
+// system calls are vfs's to count); partitioning and sorting the
+// cached listing per keystroke allocate nothing.
 func TestListingABigFolderIsCounted(t *testing.T) {
 	root := bigDir(t)
-	entries, counts, err := testReader.List(root, FilesAndFolders)
+	entries, err := listDir(testMounts, root, FilesAndFolders)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != bigDirEntries || counts.stats != bigDirEntries {
-		t.Errorf("%d entries from %d stats, want %d of each", len(entries), counts.stats, bigDirEntries)
-	}
-	if counts.getdents > 40 {
-		t.Errorf("%d getdents64 calls for %d entries, want at most 40", counts.getdents, bigDirEntries)
+	if len(entries) != bigDirEntries {
+		t.Errorf("%d entries, want %d", len(entries), bigDirEntries)
 	}
 	if !slices.IsSortedFunc(entries, func(a, b Entry) int { return strings.Compare(a.Path, b.Path) }) {
 		t.Error("the listing is not sorted by path")
@@ -70,19 +66,19 @@ func TestListingABigFolderIsCounted(t *testing.T) {
 		t.Errorf("%d folders listed, want %d", dirs, bigDirEntries/10)
 	}
 	allocs := testing.AllocsPerRun(3, func() {
-		if _, _, err := testReader.List(root, FilesAndFolders); err != nil {
+		if _, err := listDir(testMounts, root, FilesAndFolders); err != nil {
 			t.Fatal(err)
 		}
 	})
 	if allocs > 2000 {
 		t.Errorf("listing %d entries made %.0f allocations, want at most 2000", bigDirEntries, allocs)
 	}
-	folders, _, _ := testReader.List(root, FoldersOnly)
+	folders, _ := listDir(testMounts, root, FoldersOnly)
 	if len(folders) != bigDirEntries/10 {
 		t.Errorf("a folder pick listed %d, want the %d folders", len(folders), bigDirEntries/10)
 	}
 
-	s := newSession(testReader, FilesAndFolders, root, nil, "/nonexistent-home", defaultView, testColumns(t))
+	s := newSession(testMounts, FilesAndFolders, root, nil, "/nonexistent-home", defaultView, testColumns(t))
 	s.refresh()
 	queries := []string{"f", "fi", "fil", "file-0", "file-00", "file-000", "FILE-0001"}
 	i := 0
@@ -106,7 +102,7 @@ func BenchmarkListDir(b *testing.B) {
 	root := bigDir(b)
 	b.ReportAllocs()
 	for b.Loop() {
-		if _, _, err := testReader.List(root, FilesAndFolders); err != nil {
+		if _, err := listDir(testMounts, root, FilesAndFolders); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -130,7 +126,7 @@ func follow(t *testing.T, dir string) followCount {
 	f := followCount{updates: make(chan dirUpdate, 1024)}
 	done := make(chan struct{})
 	go func() {
-		followDir(w, dir, FilesAndFolders, func(u dirUpdate) { f.updates <- u })
+		followDir(w, testMounts, dir, FilesAndFolders, func(u dirUpdate) { f.updates <- u })
 		close(done)
 	}()
 	t.Cleanup(func() {
@@ -216,7 +212,7 @@ func TestChangesWaitForTheListing(t *testing.T) {
 	s.request = func(string) {}
 	s.reload()
 	browsertest.Touch(t, root, "late.txt")
-	if s.applyChanges(root, statChanges(root, []string{"late.txt"}, s.kinds)) {
+	if s.applyChanges(root, statChanges(testMounts, root, []string{"late.txt"}, s.kinds)) {
 		t.Error("a change applied while the listing was read")
 	}
 	if !s.setListing(root, listing{entries: slices.Clone(s.all), hidden: s.hiddenNames}) {
@@ -228,7 +224,7 @@ func TestChangesWaitForTheListing(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, ".hidden"), []byte("late.txt\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s.applyChanges(root, statChanges(root, []string{".hidden"}, s.kinds))
+	s.applyChanges(root, statChanges(testMounts, root, []string{".hidden"}, s.kinds))
 	if slices.Contains(names(s.entries), "late.txt") {
 		t.Errorf("a name .hidden lists is shown: %v", names(s.entries))
 	}
@@ -255,7 +251,7 @@ func TestLostChangesRescanOnce(t *testing.T) {
 	}
 	close(src.ticks)
 	var updates []dirUpdate
-	followDir(src, browsertest.Tree(t), FilesAndFolders, func(u dirUpdate) { updates = append(updates, u) })
+	followDir(src, testMounts, browsertest.Tree(t), FilesAndFolders, func(u dirUpdate) { updates = append(updates, u) })
 	if len(updates) != 2 || !updates[0].rescan || updates[1].rescan || len(updates[1].changes) != 1 {
 		t.Errorf("updates %+v, want one rescan then one change", updates)
 	}

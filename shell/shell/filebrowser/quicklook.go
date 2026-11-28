@@ -2,12 +2,17 @@ package filebrowser
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"image"
+	"io"
+	"strings"
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/preview"
 	"github.com/stubbedev/lys/desktop/shell/reveal"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/anim"
@@ -121,7 +126,41 @@ func (c *Browser) refreshPreview() {
 		return
 	}
 	for _, v := range c.openPreviews() {
+		if vfs.IsRemote(e.Path) && !e.IsDir && e.Size <= remotePreviewMax && strings.HasPrefix(c.d.MIME.TypeByName(e.Name()), "image/") {
+			v.ShowPicture(preview.Memory{Name: e.Name(), Read: c.remoteReader(e.Path)})
+			continue
+		}
 		v.Show(e.Path)
+	}
+}
+
+// remotePreviewMax is the largest picture on a network location the
+// previews fetch to show.
+const remotePreviewMax = 32 << 20
+
+// remoteReader reads the file at loc whole through its filesystem, for
+// a preview off the loop.
+func (c *Browser) remoteReader(loc string) func() ([]byte, error) {
+	mounts := c.mounts
+	return func() ([]byte, error) {
+		fsys, p, err := mounts.Resolve(loc)
+		if err != nil {
+			return nil, err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+		defer cancel()
+		f, err := fsys.Open(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		data, err := io.ReadAll(io.LimitReader(f, remotePreviewMax+1))
+		if err = errors.Join(err, f.Close()); err != nil {
+			return nil, fmt.Errorf("read %s: %w", loc, err)
+		}
+		if len(data) > remotePreviewMax {
+			return nil, fmt.Errorf("read %s: past %d bytes", loc, remotePreviewMax)
+		}
+		return data, nil
 	}
 }
 

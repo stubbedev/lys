@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,6 +21,7 @@ import (
 	"github.com/stubbedev/lys/desktop/glob"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/xdg"
 )
@@ -130,11 +130,11 @@ func CountItems(dir string) (int, error) {
 // countBatch is how many names CountItems reads at once.
 const countBatch = 256
 
-// hiddenNames are the names dir's .hidden file lists, one a line, which
-// GTK hides with the dot files; none without one.
-func hiddenNames(dir string) map[string]bool {
-	data, err := os.ReadFile(filepath.Join(dir, ".hidden")) //nolint:gosec // a folder's own .hidden list
-	if err != nil {
+// hiddenNames are the names the folder loc's .hidden file lists, one a
+// line, which GTK hides with the dot files; none without one.
+func hiddenNames(mounts *vfs.Mounts, loc string) map[string]bool {
+	data := readHidden(mounts, loc)
+	if data == nil {
 		return nil
 	}
 	names := map[string]bool{}
@@ -152,17 +152,6 @@ func hiddenName(name string, listed map[string]bool) bool {
 	return strings.HasPrefix(name, ".") || strings.HasSuffix(name, "~") || listed[name]
 }
 
-// searchEntries stats a recursive search's matches.
-func searchEntries(paths []string, kinds Kinds) []Entry {
-	var entries []Entry
-	for _, p := range paths {
-		if e, ok := statEntry(p, kinds); ok {
-			entries = append(entries, e)
-		}
-	}
-	return entries
-}
-
 // The recursive search's bounds: at most searchCap matches, handed
 // over searchBatch at a time so the first rows appear at once without
 // a message per file.
@@ -171,15 +160,20 @@ const (
 	searchBatch = 64
 )
 
-// WalkSearch walks root depth first, handing every path whose name
-// matches query to emit in batches as they are found, and returns the
-// match count. Hidden entries (GTK's rule) are skipped, and their
-// subtrees not entered, unless showHidden; symlinked directories are
-// not entered, which keeps the walk out of loops. A cancelled ctx
-// stops the walk, mid-directory too.
-func WalkSearch(ctx context.Context, root, query string, showHidden bool, emit func([]string)) int {
+// searchDepth bounds how deep a recursive search goes below its root:
+// past it a folder is a loop a filesystem did not mark as a link.
+const searchDepth = 64
+
+// WalkSearch walks the folder root depth first, on whatever filesystem
+// it lies on, handing every entry whose name matches query and kinds
+// lists to emit in batches as they are found, and returns the match
+// count. Hidden entries (GTK's rule) are skipped, and their subtrees not
+// entered, unless showHidden; linked folders are not entered, which
+// keeps the walk out of loops. A cancelled ctx stops the walk,
+// mid-folder too.
+func WalkSearch(ctx context.Context, mounts *vfs.Mounts, root, query string, kinds Kinds, showHidden bool, emit func([]Entry)) int {
 	match := newTextFilter(query)
-	var batch []string
+	var batch []Entry
 	found := 0
 	flush := func() {
 		if len(batch) > 0 {
@@ -187,30 +181,38 @@ func WalkSearch(ctx context.Context, root, query string, showHidden bool, emit f
 			batch = nil
 		}
 	}
-	stack := []string{root}
+	type folder struct {
+		loc   string
+		depth int
+	}
+	stack := []folder{{root, 0}}
 walk:
 	for len(stack) > 0 && found < searchCap {
 		dir := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		des, err := os.ReadDir(dir)
+		fsys, p, err := mounts.Resolve(dir.loc)
 		if err != nil {
 			continue
 		}
+		infos, err := fsys.ReadDir(ctx, p)
+		if err != nil {
+			continue
+		}
+		slices.SortFunc(infos, func(a, b vfs.Info) int { return strings.Compare(a.Name, b.Name) })
 		var listed map[string]bool
 		if !showHidden {
-			listed = hiddenNames(dir)
+			listed = hiddenNames(mounts, dir.loc)
 		}
-		for _, de := range des {
+		for _, info := range infos {
 			if ctx.Err() != nil {
 				return found
 			}
-			name := de.Name()
-			if !showHidden && hiddenName(name, listed) {
+			if !showHidden && hiddenName(info.Name, listed) {
 				continue
 			}
-			path := filepath.Join(dir, name)
-			if match.matches(name) {
-				batch = append(batch, path)
+			loc := vfs.Join(dir.loc, info.Name)
+			if match.matches(info.Name) && (info.IsDir || kinds != FoldersOnly) {
+				batch = append(batch, Entry{Path: loc, IsDir: info.IsDir, Size: info.Size, Modified: info.Modified})
 				found++
 				if len(batch) >= searchBatch {
 					flush()
@@ -219,8 +221,8 @@ walk:
 					break walk
 				}
 			}
-			if de.IsDir() {
-				stack = append(stack, path)
+			if info.IsDir && !info.Link && dir.depth < searchDepth {
+				stack = append(stack, folder{loc, dir.depth + 1})
 			}
 		}
 	}
@@ -554,7 +556,7 @@ type xbelBookmark struct {
 
 // ListRecent lists the recently used local files that still exist,
 // the newest maxRecent of them; an unreadable list lists none.
-func ListRecent(path string, kinds Kinds) ([]Entry, error) {
+func ListRecent(mounts *vfs.Mounts, path string, kinds Kinds) ([]Entry, error) {
 	data, err := os.ReadFile(path) //nolint:gosec // the user's recently-used list
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -576,7 +578,7 @@ func ListRecent(path string, kinds Kinds) ([]Entry, error) {
 		if _, err := os.Stat(p); err != nil {
 			continue
 		}
-		if e, ok := statEntry(p, kinds); ok && !e.IsDir {
+		if e, ok := statEntry(mounts, p, kinds); ok && !e.IsDir {
 			entries = append(entries, e)
 			if len(entries) == maxRecent {
 				break
@@ -621,57 +623,6 @@ func VisibleMounts(mounts io.Reader, home, user string) []string {
 		paths = append(paths, path)
 	}
 	return paths
-}
-
-// NetworkLocations are the network shares gvfs mounted, as its FUSE
-// daemon shows them under runtimeDir/gvfs, one folder each named
-// "<type>:<key>=<value>,...": labelled by share and server, else by
-// user and host; none without gvfsd-fuse running.
-func NetworkLocations(runtimeDir string) []Place {
-	if runtimeDir == "" {
-		return nil
-	}
-	dir := filepath.Join(runtimeDir, "gvfs")
-	des, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	var places []Place
-	for _, de := range des {
-		if de.IsDir() {
-			places = append(places, Place{Label: gvfsLabel(de.Name()), Path: filepath.Join(dir, de.Name()), Icon: "ld-server-symbolic"})
-		}
-	}
-	return places
-}
-
-// gvfsLabel names a gvfs mount from its "<type>:<key>=<value>,..."
-// folder name: "share on server", "user@host", "host", else the name.
-func gvfsLabel(name string) string {
-	_, params, ok := strings.Cut(name, ":")
-	if !ok {
-		return name
-	}
-	kv := map[string]string{}
-	for pair := range strings.SplitSeq(params, ",") {
-		if k, v, ok := strings.Cut(pair, "="); ok {
-			if u, err := url.PathUnescape(v); err == nil {
-				v = u
-			}
-			kv[k] = v
-		}
-	}
-	switch {
-	case kv["share"] != "" && kv["server"] != "":
-		return i18n.T("file-chooser-share-on-server", i18n.Str("share", kv["share"]), i18n.Str("server", kv["server"]))
-	case kv["host"] != "" && kv["user"] != "":
-		return kv["user"] + "@" + kv["host"]
-	case kv["host"] != "":
-		return kv["host"]
-	case kv["server"] != "":
-		return kv["server"]
-	}
-	return name
 }
 
 // userVisibleMount is g_unix_mount_guess_should_display's path rule.
@@ -722,7 +673,7 @@ const maxCrumbTail = 3
 // Crumbs is dir's breadcrumb trail: Home for the home directory (else
 // /), its named segments, and past maxCrumbTail of them a … crumb
 // standing for (and jumping to) the deepest collapsed one. Recent is
-// one crumb.
+// one crumb. A network location's trail starts at its server.
 func Crumbs(dir, home string) []Crumb {
 	switch dir {
 	case recentLocation:
@@ -732,7 +683,11 @@ func Crumbs(dir, home string) []Crumb {
 	}
 	base, baseLabel := "/", "/"
 	rest := strings.TrimPrefix(dir, "/")
-	if home != "" && (dir == home || strings.HasPrefix(dir, strings.TrimSuffix(home, "/")+"/")) {
+	if vfs.IsRemote(dir) {
+		base = vfs.Root(dir)
+		baseLabel = vfs.Base(base)
+		rest = strings.TrimPrefix(dir, base)
+	} else if home != "" && (dir == home || strings.HasPrefix(dir, strings.TrimSuffix(home, "/")+"/")) {
 		base, baseLabel = home, i18n.T("file-chooser-place-home")
 		rest = strings.TrimPrefix(strings.TrimPrefix(dir, home), "/")
 	}
@@ -746,7 +701,7 @@ func Crumbs(dir, home string) []Crumb {
 	acc := base
 	collapse := max(0, len(names)-maxCrumbTail)
 	for i, n := range names {
-		acc = filepath.Join(acc, n)
+		acc = vfs.Join(acc, n)
 		switch {
 		case collapse > 0 && i+1 == collapse:
 			crumbs = append(crumbs, Crumb{"…", acc, false})

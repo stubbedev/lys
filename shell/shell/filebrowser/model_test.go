@@ -218,9 +218,9 @@ func TestWalkSearchRecursesAndHonorsHidden(t *testing.T) {
 	browsertest.Touch(t, root, "top_match.txt", "plain.txt", "sub/nested_match.txt", ".hidden/buried_match.txt", ".secret_match.txt")
 	run := func(ctx context.Context, query string, hidden bool) []string {
 		var out []string
-		WalkSearch(ctx, root, query, hidden, func(batch []string) {
-			for _, p := range batch {
-				out = append(out, filepath.Base(p))
+		WalkSearch(ctx, testMounts, root, query, FilesAndFolders, hidden, func(batch []Entry) {
+			for _, e := range batch {
+				out = append(out, e.Name())
 			}
 		})
 		slices.Sort(out)
@@ -254,7 +254,11 @@ func TestWalkSearchDoesNotFollowSymlinkedDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got []string
-	WalkSearch(context.Background(), root, "match", false, func(b []string) { got = append(got, b...) })
+	WalkSearch(context.Background(), testMounts, root, "match", FilesAndFolders, false, func(b []Entry) {
+		for _, e := range b {
+			got = append(got, e.Path)
+		}
+	})
 	if len(got) != 1 || got[0] != filepath.Join(root, "real", "match_a") {
 		t.Errorf("walk through symlinks = %v, want only the real match", got)
 	}
@@ -266,7 +270,7 @@ func TestWalkSearchStreamsBatchesAndCaps(t *testing.T) {
 		browsertest.Touch(t, root, filepath.Join("d", "m"+strings.Repeat("x", i%7)+string(rune('a'+i%26))+"_"+time.Duration(i).String()))
 	}
 	var batches []int
-	total := WalkSearch(context.Background(), root, "m", false, func(b []string) { batches = append(batches, len(b)) })
+	total := WalkSearch(context.Background(), testMounts, root, "m", FilesAndFolders, false, func(b []Entry) { batches = append(batches, len(b)) })
 	if total != searchCap {
 		t.Errorf("found %d, want the cap %d", total, searchCap)
 	}
@@ -285,17 +289,17 @@ func TestWalkSearchStreamsBatchesAndCaps(t *testing.T) {
 func TestListDirReturnsEverythingButHonorsFolderMode(t *testing.T) {
 	root := t.TempDir()
 	browsertest.Touch(t, root, "sub/", "visible.txt", ".hidden.txt")
-	all, _, err := testReader.List(root, FilesAndFolders)
+	all, err := listDir(testMounts, root, FilesAndFolders)
 	got := names(all)
 	slices.Sort(got)
 	if err != nil || !slices.Equal(got, []string{".hidden.txt", "sub", "visible.txt"}) {
 		t.Errorf("listing = %v, %v; want everything", got, err)
 	}
-	folders, _, _ := testReader.List(root, FoldersOnly)
+	folders, _ := listDir(testMounts, root, FoldersOnly)
 	if got := names(folders); !slices.Equal(got, []string{"sub"}) {
 		t.Errorf("folder mode = %v, want only folders", got)
 	}
-	if got, _, err := testReader.List(filepath.Join(root, "missing"), FilesAndFolders); got != nil || err == nil {
+	if got, err := listDir(testMounts, filepath.Join(root, "missing"), FilesAndFolders); got != nil || err == nil {
 		t.Errorf("an unreadable directory = %v, %v; want none and the error", got, err)
 	}
 }
@@ -478,17 +482,17 @@ func TestListRecent(t *testing.T) {
 	if err := os.WriteFile(xbelPath, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	entries, err := ListRecent(xbelPath, FilesAndFolders)
+	entries, err := ListRecent(testMounts, xbelPath, FilesAndFolders)
 	if got := names(entries); err != nil || !slices.Equal(got, []string{"new.txt", "old.txt"}) {
 		t.Errorf("recent = %v, %v", got, err)
 	}
-	if entries, err := ListRecent(filepath.Join(dir, "none.xbel"), FilesAndFolders); err != nil || len(entries) != 0 {
+	if entries, err := ListRecent(testMounts, filepath.Join(dir, "none.xbel"), FilesAndFolders); err != nil || len(entries) != 0 {
 		t.Errorf("a missing list = %v, %v", entries, err)
 	}
 	if err := os.WriteFile(xbelPath, []byte("<xbel"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ListRecent(xbelPath, FilesAndFolders); err == nil {
+	if _, err := ListRecent(testMounts, xbelPath, FilesAndFolders); err == nil {
 		t.Error("a broken list read without an error")
 	}
 	if crumbs := Crumbs(recentLocation, "/home/u"); len(crumbs) != 1 || crumbs[0].Label != "Recent" {

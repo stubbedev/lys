@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 
 	"github.com/stubbedev/lys/desktop/fileops"
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 // TrashLocation is the Trash place's directory (Browser.Dir): not a
@@ -18,14 +19,14 @@ func VirtualLocation(dir string) bool { return dir == recentLocation || dir == T
 // ListTrash lists the trashed files of the trash directories
 // (fileops.List), each named by the original basename its info
 // records.
-func ListTrash(dirs []string, kinds Kinds) ([]Entry, error) {
+func ListTrash(mounts *vfs.Mounts, dirs []string, kinds Kinds) ([]Entry, error) {
 	items, err := fileops.List(dirs)
 	if err != nil {
 		return nil, err
 	}
 	entries := make([]Entry, 0, len(items))
 	for _, it := range items {
-		if e, ok := statEntry(it.Path(), kinds); ok {
+		if e, ok := statEntry(mounts, it.Path(), kinds); ok {
 			e.Label = filepath.Base(it.Original)
 			entries = append(entries, e)
 		}

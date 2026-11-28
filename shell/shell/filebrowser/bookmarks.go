@@ -133,8 +133,8 @@ func (c *Browser) bookmarksChanged(err error) {
 // sidebar; a file dropped there opens its folder.
 func (c *Browser) droppedOnSidebar(paths []string, _ widget.Dropped) {
 	path := paths[0]
-	OffLoop(c, statPath(path), func(st pathStat) {
-		if st.err == nil && st.info.IsDir() {
+	OffLoop(c, statPath(c.mounts, path), func(st pathStat) {
+		if st.err == nil && st.info.IsDir {
 			c.bookmark(path)
 			return
 		}

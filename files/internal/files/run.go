@@ -116,7 +116,7 @@ func Run(paths []string, service bool) error {
 			Home:           home,
 			Places:         func() []filebrowser.Place { return userPlaces(home) },
 			Locations:      filebrowser.SystemLocations(home),
-			WatchLocations: filebrowser.WatchSystemLocations,
+			WatchLocations: filebrowser.WatchMounts,
 			Drives: func() *udisks.Client {
 				if system == nil {
 					return nil

@@ -90,7 +90,7 @@ func servePortalHosts(conn *dbus.Conn, application *app.Application, outputs fun
 			Home:           home,
 			Places:         func() []filebrowser.Place { return userPlaces(home) },
 			Locations:      filebrowser.SystemLocations(home),
-			WatchLocations: filebrowser.WatchSystemLocations,
+			WatchLocations: filebrowser.WatchMounts,
 			Drives: func() *udisks.Client {
 				if conn := system(); conn != nil {
 					return udisks.New(conn)

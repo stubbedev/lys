@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 // session is one browse's state, free of widgets: where it is, how
@@ -27,9 +29,10 @@ type session struct {
 	listed      string
 	listErr     error
 	loading     bool
-	// reader lists folders; pending are the changes that came while
-	// the listing was being read, applied once it lands.
-	reader  *dirReader
+	// mounts are the filesystems folders are listed on; pending are the
+	// changes that came while the listing was being read, applied once
+	// it lands.
+	mounts  *vfs.Mounts
 	pending []dirChange
 	// request reads dir's listing and hands it to setListing, at once
 	// or later (the host reads off the loop).
@@ -60,8 +63,8 @@ type session struct {
 // newSession starts at folder, else home, else /. Nothing is listed
 // until the first refresh; listings are read at once until request is
 // replaced.
-func newSession(reader *dirReader, kinds Kinds, folder string, files func(string) bool, home string, v view, cols columns) *session {
-	s := &session{reader: reader, kinds: kinds, files: files, view: v, kindCache: map[string]string{}}
+func newSession(mounts *vfs.Mounts, kinds Kinds, folder string, files func(string) bool, home string, v view, cols columns) *session {
+	s := &session{mounts: mounts, kinds: kinds, files: files, view: v, kindCache: map[string]string{}}
 	s.cols = columns{kind: func(e Entry) string { return s.kindOf(e, cols.kind) }, items: cols.items}
 	s.request = func(dir string) { s.setListing(dir, s.read(dir)) }
 	s.dir = startDir(folder, home)
@@ -140,14 +143,14 @@ type listing struct {
 func (s *session) read(dir string) listing {
 	switch dir {
 	case recentLocation:
-		entries, err := ListRecent(s.recentFile, s.kinds)
+		entries, err := ListRecent(s.mounts, s.recentFile, s.kinds)
 		return listing{entries: entries, err: err}
 	case TrashLocation:
-		entries, err := ListTrash(s.trashDirs(), s.kinds)
+		entries, err := ListTrash(s.mounts, s.trashDirs(), s.kinds)
 		return listing{entries: entries, err: err}
 	}
-	entries, _, err := s.reader.List(dir, s.kinds)
-	return listing{entries: entries, hidden: hiddenNames(dir), err: err}
+	entries, err := listDir(s.mounts, dir, s.kinds)
+	return listing{entries: entries, hidden: hiddenNames(s.mounts, dir), err: err}
 }
 
 // setListing takes dir's listing when dir is still the folder awaited;
@@ -176,13 +179,13 @@ type dirChange struct {
 
 // statChanges states the names of a change batch in dir; safe off the
 // loop.
-func statChanges(dir string, names []string, kinds Kinds) []dirChange {
+func statChanges(mounts *vfs.Mounts, dir string, names []string, kinds Kinds) []dirChange {
 	changes := make([]dirChange, len(names))
 	for i, name := range names {
-		e, ok := statEntry(filepath.Join(dir, name), kinds)
+		e, ok := statEntry(mounts, filepath.Join(dir, name), kinds)
 		changes[i] = dirChange{name: name, entry: e, present: ok}
 		if name == ".hidden" {
-			changes[i].hidden = hiddenNames(dir)
+			changes[i].hidden = hiddenNames(mounts, dir)
 		}
 	}
 	return changes
@@ -314,16 +317,16 @@ func (s *session) step(back bool) bool {
 	return true
 }
 
-// canUp reports a parent to go up to: none at the root, nor in Recent
-// or Trash.
-func (s *session) canUp() bool { return filepath.Dir(s.dir) != s.dir && !VirtualLocation(s.dir) }
+// canUp reports a parent to go up to: none at a filesystem's root, nor
+// in Recent or Trash.
+func (s *session) canUp() bool { return vfs.Dir(s.dir) != vfs.Clean(s.dir) && !VirtualLocation(s.dir) }
 
 // up goes to the parent; false where there is none (canUp).
 func (s *session) up() bool {
 	if !s.canUp() {
 		return false
 	}
-	s.goTo(filepath.Dir(s.dir))
+	s.goTo(vfs.Dir(s.dir))
 	return true
 }
 
@@ -334,7 +337,7 @@ func (s *session) dropped(path string, isDir bool) {
 		s.goTo(path)
 		return
 	}
-	s.goTo(filepath.Dir(path))
+	s.goTo(vfs.Dir(path))
 }
 
 // setFiles makes files the type filter.
@@ -353,17 +356,23 @@ func (s *session) sortBy(column SortColumn) {
 	s.refresh()
 }
 
-// ResolvePath resolves typed text to the path it names: an absolute
+// ResolvePath resolves typed text to the location it names: a
+// network location (scheme://host/path) or a file:// URI, an absolute
 // path, one under ~ (home), or one relative to dir, its . and ..
 // resolved; "" for no text.
 func ResolvePath(text, dir, home string) string {
 	switch {
 	case text == "":
 		return ""
+	case strings.Contains(text, "://"):
+		if l, err := vfs.Parse(text); err == nil {
+			return l.String()
+		}
+		return text
 	case text == "~" || strings.HasPrefix(text, "~/"):
 		text = filepath.Join(home, strings.TrimPrefix(text, "~"))
 	case !filepath.IsAbs(text):
-		text = filepath.Join(dir, text)
+		return vfs.Clean(vfs.Join(dir, text))
 	}
 	return filepath.Clean(text)
 }

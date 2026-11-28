@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stubbedev/lys/desktop/i18n"
-
 	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
@@ -30,7 +28,7 @@ func TestListTrash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entries, err := ListTrash([]string{home, filepath.Join(t.TempDir(), "none"), mount}, FilesAndFolders)
+	entries, err := ListTrash(testMounts, []string{home, filepath.Join(t.TempDir(), "none"), mount}, FilesAndFolders)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +42,7 @@ func TestListTrash(t *testing.T) {
 		t.Errorf("the report is %+v, want the trashed file typed by its original name", entries)
 	}
 
-	folders, err := ListTrash([]string{home}, FoldersOnly)
+	folders, err := ListTrash(testMounts, []string{home}, FoldersOnly)
 	if err != nil || !slices.Equal(names(folders), []string{"Old Folder"}) {
 		t.Errorf("folder mode lists %q, %v", names(folders), err)
 	}
@@ -53,51 +51,9 @@ func TestListTrash(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { _ = os.Chmod(filepath.Join(home, "files"), 0o700) })
-		if _, err := ListTrash([]string{home}, FilesAndFolders); err == nil || !strings.Contains(err.Error(), filepath.Join(home, "files")) {
+		if _, err := ListTrash(testMounts, []string{home}, FilesAndFolders); err == nil || !strings.Contains(err.Error(), filepath.Join(home, "files")) {
 			t.Errorf("an unreadable trash = %v, want an error naming it", err)
 		}
-	}
-}
-
-// gvfs's FUSE folders become network places named by share and
-// server, else user and host; without gvfs there are none.
-func TestNetworkLocations(t *testing.T) {
-	runtime := t.TempDir()
-	if got := NetworkLocations(runtime); len(got) != 0 {
-		t.Errorf("no gvfs = %v", got)
-	}
-	for _, name := range []string{"sftp:host=example.com,user=me", "smb-share:server=nas,share=media", "dav:host=cloud.example.com,ssl=true"} {
-		if err := os.MkdirAll(filepath.Join(runtime, "gvfs", name), 0o700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := os.WriteFile(filepath.Join(runtime, "gvfs", "stray"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var got []string
-	for _, p := range NetworkLocations(runtime) {
-		got = append(got, p.Label+"="+filepath.Base(p.Path)+"|"+p.Icon)
-	}
-	want := []string{
-		"cloud.example.com=dav:host=cloud.example.com,ssl=true|ld-server-symbolic",
-		"me@example.com=sftp:host=example.com,user=me|ld-server-symbolic",
-		i18n.T("file-chooser-share-on-server", i18n.Str("share", "media"), i18n.Str("server", "nas")) + "=smb-share:server=nas,share=media|ld-server-symbolic",
-	}
-	if !slices.Equal(got, want) {
-		t.Errorf("network locations =\n%q\nwant\n%q", got, want)
-	}
-	for name, want := range map[string]string{
-		"ftp:server=files.example.com":    "files.example.com",
-		"afp-volume:host=mac%20mini":      "mac mini",
-		"unknown":                         "unknown",
-		"google-drive:token=x,mode=fancy": "google-drive:token=x,mode=fancy",
-	} {
-		if got := gvfsLabel(name); got != want {
-			t.Errorf("gvfsLabel(%q) = %q, want %q", name, got, want)
-		}
-	}
-	if got := NetworkLocations(""); got != nil {
-		t.Errorf("no runtime dir = %v", got)
 	}
 }
 

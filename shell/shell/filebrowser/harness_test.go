@@ -9,6 +9,7 @@ import (
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
@@ -73,6 +74,9 @@ type harness struct {
 	cfg      WindowSpec
 	// theme is the stylesheet and palette the browser paints with.
 	theme *apptheme.Theme
+	// mounts are the filesystems the browser lists, the local disk and
+	// what a test connects.
+	mounts *vfs.Mounts
 	// forgotten are the thumbnails the renderer was told to forget.
 	forgotten []render.ImageID
 	queue     chan func()
@@ -85,7 +89,7 @@ func newHarness(t *testing.T, viewFile string) *harness {
 	t.Helper()
 	conf := config.Defaults()
 	conf.Animations.Enabled = false
-	hs := &harness{t: t, root: browsertest.Tree(t), theme: apptheme.New(conf)}
+	hs := &harness{t: t, root: browsertest.Tree(t), theme: apptheme.New(conf), mounts: vfs.NewMounts()}
 	hs.queue = make(chan func(), 256)
 	hs.drained = make(chan struct{})
 	go func() {
@@ -106,6 +110,7 @@ func newHarness(t *testing.T, viewFile string) *harness {
 		Places:     func() []Place { return []Place{{Label: "Home", Path: hs.root, Icon: "user-home-symbolic"}} },
 		Locations:  func() []Place { return []Place{{Label: "Computer", Path: "/", Icon: "drive-harddisk-symbolic"}} },
 		ViewFile:   viewFile,
+		Mounts:     hs.mounts,
 		Animations: func() config.AnimationsConfig { return conf.Animations },
 		ForgetImage: func(id render.ImageID) {
 			hs.forgotten = append(hs.forgotten, id)

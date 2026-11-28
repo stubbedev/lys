@@ -5,6 +5,7 @@ import (
 
 	"github.com/stubbedev/lys/desktop/dochelper/dochelpertest"
 	"github.com/stubbedev/lys/desktop/thumbnail/thumbnailtest"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/testhome"
 )
 
@@ -19,5 +20,6 @@ func TestMain(m *testing.M) {
 
 func TestTheTestsReachNoHostSession(t *testing.T) { testhome.RequireNoHostSession(t) }
 
-// testReader lists folders for the tests, as the host's reader does.
-var testReader = newDirReader()
+// testMounts are the filesystems the tests list folders on: the local
+// disk alone.
+var testMounts = vfs.NewMounts()

@@ -10,7 +10,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -26,6 +25,7 @@ import (
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
 	"github.com/stubbedev/lys/desktop/thumbnail"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/intconv"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/text"
@@ -170,6 +170,9 @@ type Deps struct {
 	// Documents opens a document for Quick Look to show whole
 	// (dochelper.Opener); nil shows a document's thumbnail.
 	Documents func(path string) *dochelper.Client
+	// Mounts are the filesystems the browser lists: the local disk and
+	// the locations connected; nil lists the local disk alone.
+	Mounts *vfs.Mounts
 }
 
 // Options are one browse: where it starts, what it lists and offers,
@@ -279,8 +282,9 @@ type Browser struct {
 	// that is gone.
 	navigating bool
 
-	// reader lists the folders shown; pc completes the location entry.
-	reader *dirReader
+	// mounts are the filesystems the folders shown lie on; pc completes
+	// the location entry.
+	mounts *vfs.Mounts
 	pc     pathCompletion
 	// viewFile keeps the view.
 	viewFile statefile.File
@@ -312,10 +316,13 @@ type Browser struct {
 func New(d Deps, setFocus func(widget.Widget) error) *Browser {
 	c := &Browser{
 		d: d, setFocus: setFocus, view: defaultView, columns: defaultColumns, thumbnailer: thumbnail.New(thumbnail.Config{}), thumbs: newThumbSet(),
-		reader: newDirReader(), viewFile: statefile.File{Path: d.ViewFile}, pictures: preview.NewPictures(preview.PictureBudget),
+		mounts: d.Mounts, viewFile: statefile.File{Path: d.ViewFile}, pictures: preview.NewPictures(preview.PictureBudget),
 		now: time.Now, kinds: newKindNamer(d.MIME), items: newItemSet(), countSlots: make(chan struct{}, countWorkers),
 	}
 	c.previewLoader = c.loadPreview
+	if c.mounts == nil {
+		c.mounts = vfs.NewMounts()
+	}
 	if d.ViewFile != "" {
 		if b, err := os.ReadFile(d.ViewFile); err == nil {
 			c.view = parseView(string(b))
@@ -347,7 +354,7 @@ func OffLoop[T any](c *Browser, check func() T, then func(T)) {
 func (c *Browser) Begin(o Options) {
 	c.o, c.active = o, true
 	c.thumbs, c.items = newThumbSet(), newItemSet()
-	c.s = newSession(c.reader, o.Kinds, o.Folder, o.Files, c.d.Home, c.view, columns{kind: c.kinds.kind, items: c.itemCount})
+	c.s = newSession(c.mounts, o.Kinds, o.Folder, o.Files, c.d.Home, c.view, columns{kind: c.kinds.kind, items: c.itemCount})
 	c.s.hidden, c.s.recursive, c.s.recentFile, c.s.trashDirs = c.hidden, c.recursive, c.d.RecentFile, c.d.TrashDirs
 	c.s.request = c.requestListing
 	c.build()
@@ -750,8 +757,8 @@ func (c *Browser) goToLocation(text string) {
 	if path == "" {
 		return
 	}
-	OffLoop(c, statPath(path), func(st pathStat) {
-		if st.err == nil && st.info.IsDir() {
+	OffLoop(c, statPath(c.mounts, path), func(st pathStat) {
+		if st.err == nil && st.info.IsDir {
 			c.HideLocation()
 			c.goTo(path)
 			return
@@ -763,13 +770,21 @@ func (c *Browser) goToLocation(text string) {
 }
 
 type pathStat struct {
-	info os.FileInfo
+	info vfs.Info
 	err  error
 }
 
-func statPath(path string) func() pathStat {
+// statPath states loc on whatever filesystem it lies on, for off the
+// loop.
+func statPath(mounts *vfs.Mounts, loc string) func() pathStat {
 	return func() pathStat {
-		info, err := os.Stat(path)
+		fsys, p, err := mounts.Resolve(loc)
+		if err != nil {
+			return pathStat{err: err}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+		defer cancel()
+		info, err := fsys.Stat(ctx, p)
 		return pathStat{info, err}
 	}
 }
@@ -802,10 +817,11 @@ func (c *Browser) requestListing(dir string) {
 
 // watch follows dir on disk, applying each change to its listing row
 // by row, and reading it again only when changes were lost; Recent,
-// Trash and a folder that cannot be watched are not followed.
+// Trash, a network location and a folder that cannot be watched are
+// not followed.
 func (c *Browser) watch(dir string) {
 	c.unwatch()
-	if VirtualLocation(dir) {
+	if VirtualLocation(dir) || vfs.IsRemote(dir) {
 		return
 	}
 	w, err := fswatch.NewNamed(fswatch.Changes)
@@ -823,7 +839,7 @@ func (c *Browser) watch(dir string) {
 }
 
 func (c *Browser) followWatched(w *fswatch.Watcher, dir string, s *session) {
-	followDir(w, dir, s.kinds, func(u dirUpdate) {
+	followDir(w, c.mounts, dir, s.kinds, func(u dirUpdate) {
 		c.d.Invoke(func() {
 			if c.s != s || c.watcher != w || s.dir != dir {
 				return
@@ -858,7 +874,7 @@ type dirUpdate struct {
 
 // followDir states every burst of changes src reports in dir, off the
 // loop, and hands it to apply, until src closes.
-func followDir(src changeSource, dir string, kinds Kinds, apply func(dirUpdate)) {
+func followDir(src changeSource, mounts *vfs.Mounts, dir string, kinds Kinds, apply func(dirUpdate)) {
 	for range src.Changed() {
 		b := src.Take()
 		switch {
@@ -869,7 +885,7 @@ func followDir(src changeSource, dir string, kinds Kinds, apply func(dirUpdate))
 			for i, e := range b.Events {
 				names[i] = e.Name
 			}
-			apply(dirUpdate{changes: statChanges(dir, names, kinds)})
+			apply(dirUpdate{changes: statChanges(mounts, dir, names, kinds)})
 		}
 	}
 }
@@ -1292,12 +1308,17 @@ func (c *Browser) gridCell(e Entry) widget.Widget {
 
 // entryIcon is the folder glyph, or a file's thumbnail (the cached
 // one any app made, or a raster image decoded) over its type's themed
-// icon until one is ready, or for good when there is none.
+// icon until one is ready, or for good when there is none; a file on a
+// network location shows its type's icon, as reading it to make a
+// thumbnail would fetch it whole.
 func (c *Browser) entryIcon(e Entry, px int) widget.Widget {
 	if e.IsDir {
 		return widget.NewThemeIcon("ld-folder-symbolic", px)
 	}
 	mimeType := c.d.MIME.TypeByName(e.Name())
+	if vfs.IsRemote(e.Path) {
+		return widget.NewThemeIcon(c.d.MIME.FileIcon(mimeType), px)
+	}
 	return c.thumb(e.Path, mimeType, px, widget.NewThemeIcon(c.d.MIME.FileIcon(mimeType), px))
 }
 
@@ -1364,8 +1385,12 @@ func (c *Browser) itemCount(e Entry) (int, bool) {
 // countItems counts folder e off the loop, at most countWorkers at
 // once and once per browse however often its row is rebuilt, and
 // hands the count to show (nil for none) once there is one; a folder
-// that cannot be read shows none.
+// that cannot be read shows none, and one on a network location is not
+// counted, which would list every folder shown over the network.
 func (c *Browser) countItems(e Entry, show func(int)) {
+	if vfs.IsRemote(e.Path) {
+		return
+	}
 	set, key := c.items, itemKeyOf(e)
 	if n, ok := set.found[key]; ok {
 		if n >= 0 && show != nil {
@@ -1671,9 +1696,9 @@ func (c *Browser) droppedOnMain(paths []string, how widget.Dropped) {
 // dropped opens a dropped folder, or the folder of a dropped file with
 // the file selected.
 func (c *Browser) dropped(path string) {
-	OffLoop(c, statPath(path), func(st pathStat) {
+	OffLoop(c, statPath(c.mounts, path), func(st pathStat) {
 		c.selectNext = []string{path}
-		c.s.dropped(path, st.err == nil && st.info.IsDir())
+		c.s.dropped(path, st.err == nil && st.info.IsDir)
 		c.afterNavigate()
 		if !c.s.loading {
 			c.applySelectNext()
@@ -1758,14 +1783,25 @@ func (c *Browser) createFolder() {
 		c.Warn(i18n.T("file-chooser-folder-name-invalid", i18n.Str("name", name)))
 		return
 	}
-	path := filepath.Join(c.s.dir, name)
-	if err := os.Mkdir(path, 0o755); err != nil { //nolint:gosec // a folder the user creates, as any file manager does
-		c.failed(i18n.T("file-chooser-create-failed", i18n.Str("name", name)), err)
-		return
-	}
-	c.ui.newFolder.SetVisible(false)
-	c.ClearNotice()
-	c.goTo(path)
+	path := vfs.Join(c.s.dir, name)
+	mounts := c.mounts
+	OffLoop(c, func() error {
+		fsys, p, err := mounts.Resolve(path)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+		defer cancel()
+		return fsys.Mkdir(ctx, p)
+	}, func(err error) {
+		if err != nil {
+			c.failed(i18n.T("file-chooser-create-failed", i18n.Str("name", name)), err)
+			return
+		}
+		c.ui.newFolder.SetVisible(false)
+		c.ClearNotice()
+		c.goTo(path)
+	})
 }
 
 // afterNavigate empties the search box (the session already dropped
@@ -1796,10 +1832,9 @@ func (c *Browser) setSearch(query string) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	c.stopWalk = cancel
-	s, root, hidden := c.s, c.s.dir, c.s.hidden
+	s, root, hidden, mounts := c.s, c.s.dir, c.s.hidden, c.mounts
 	c.offLoop.Go(func() {
-		WalkSearch(ctx, root, query, hidden, func(batch []string) {
-			found := searchEntries(batch, s.kinds)
+		WalkSearch(ctx, mounts, root, query, s.kinds, hidden, func(found []Entry) {
 			c.d.Invoke(func() {
 				if ctx.Err() == nil && c.s == s && s.addFound(query, found) {
 					c.relist()

@@ -65,9 +65,9 @@ func (c *Browser) completeLocation(text string) {
 			return
 		}
 		pc.loading = dir
-		reader, kinds := c.reader, c.s.kinds
+		mounts, kinds := c.mounts, c.s.kinds
 		OffLoop(c, func() []Entry {
-			entries, _, err := reader.List(dir, kinds)
+			entries, err := listDir(mounts, dir, kinds)
 			if err != nil {
 				return nil
 			}
