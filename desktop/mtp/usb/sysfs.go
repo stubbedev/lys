@@ -78,6 +78,20 @@ func (d Device) Node() string { return fmt.Sprintf("/dev/bus/usb/%03d/%03d", d.B
 // device has the first such interface in sysfs order; one unplugged while it
 // is read is left out.
 func Scan(root string) ([]Device, error) {
+	return scan(root, func(string) bool { return true })
+}
+
+// Lookup is the device named name under root, as Scan reads it; false
+// when it has no PTP, MTP or MTP-shaped vendor interface, or is gone.
+func Lookup(root, name string) (Device, bool, error) {
+	devices, err := scan(root, func(n string) bool { return n == name })
+	if err != nil || len(devices) == 0 {
+		return Device{}, false, err
+	}
+	return devices[0], true, nil
+}
+
+func scan(root string, wanted func(name string) bool) ([]Device, error) {
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return nil, fmt.Errorf("usb: list %s: %w", root, err)
@@ -85,7 +99,7 @@ func Scan(root string) ([]Device, error) {
 	var devices []Device
 	for _, e := range entries {
 		name, _, ok := strings.Cut(e.Name(), ":")
-		if !ok || (len(devices) > 0 && devices[len(devices)-1].Name == name) {
+		if !ok || !wanted(name) || (len(devices) > 0 && devices[len(devices)-1].Name == name) {
 			continue
 		}
 		iface, protocol, ok, err := readInterface(filepath.Join(root, e.Name()))

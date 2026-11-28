@@ -29,6 +29,39 @@ func TestScanFindsCamerasPhonesAndVendorCandidates(t *testing.T) {
 	}
 }
 
+func TestLookupReadsOnlyTheDeviceNamed(t *testing.T) {
+	t.Parallel()
+	all, err := Scan("testdata/devices")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range all {
+		got, ok, err := Lookup("testdata/devices", want.Name)
+		if err != nil || !ok || got != want {
+			t.Errorf("Lookup(%s) = %+v, %t, %v; want %+v", want.Name, got, ok, err, want)
+		}
+	}
+	for _, name := range []string{"1-4", "usb1", "1-0", "9-9", "1"} {
+		if got, ok, err := Lookup("testdata/devices", name); err != nil || ok {
+			t.Errorf("Lookup(%s) = %+v, %t, %v; want no device", name, got, ok, err)
+		}
+	}
+}
+
+func TestLookupFailsOnAMalformedAttributeOfTheDeviceNamedOnly(t *testing.T) {
+	t.Parallel()
+	root := copyTree(t)
+	if err := os.WriteFile(filepath.Join(root, "1-2:1.0", "bInterfaceClass"), []byte("zz\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Lookup(root, "1-2"); err == nil || !strings.Contains(err.Error(), "bInterfaceClass") {
+		t.Fatalf("Lookup of a malformed class answered %v", err)
+	}
+	if _, ok, err := Lookup(root, "1-3"); err != nil || !ok {
+		t.Fatalf("Lookup(1-3) beside a malformed 1-2 = %t, %v", ok, err)
+	}
+}
+
 func copyTree(t *testing.T) string {
 	t.Helper()
 	dst := t.TempDir()

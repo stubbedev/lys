@@ -29,6 +29,8 @@ lys-files browses folders in tabs with previews and Quick Look, copies, moves, r
 %install
 install -d %{buildroot}%{_bindir}
 install -m 0755 lys-files %{buildroot}%{_bindir}/
+install -D -m 0755 lys-mtp-probe %{buildroot}%{_prefix}/lib/udev/lys-mtp-probe
+install -D -m 0644 69-lys-mtp.rules %{buildroot}%{_prefix}/lib/udev/rules.d/69-lys-mtp.rules
 install -D -m 0644 dev.stubbe.lys.files.desktop %{buildroot}%{_datadir}/applications/dev.stubbe.lys.files.desktop
 desktop-file-validate %{buildroot}%{_datadir}/applications/dev.stubbe.lys.files.desktop
 install -D -m 0644 org.freedesktop.FileManager1.service %{buildroot}%{_datadir}/dbus-1/services/org.freedesktop.FileManager1.service
@@ -39,6 +41,8 @@ install -m 0644 icons/hicolor/scalable/actions/*.svg %{buildroot}%{_datadir}/lys
 %files
 %license LICENSE
 %{_bindir}/lys-files
+%{_prefix}/lib/udev/lys-mtp-probe
+%{_prefix}/lib/udev/rules.d/69-lys-mtp.rules
 %{_datadir}/applications/dev.stubbe.lys.files.desktop
 %{_datadir}/dbus-1/services/org.freedesktop.FileManager1.service
 %{_datadir}/icons/hicolor/scalable/apps/lys-files.svg

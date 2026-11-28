@@ -1,0 +1,8 @@
+ACTION=="remove|unbind", GOTO="lys_mtp_end"
+SUBSYSTEM!="usb", GOTO="lys_mtp_end"
+ENV{DEVTYPE}!="usb_device", GOTO="lys_mtp_end"
+IMPORT{builtin}="usb_id"
+ENV{ID_USB_INTERFACES}!="*:0601??:*|*:ff????:*", GOTO="lys_mtp_end"
+IMPORT{program}="/usr/lib/udev/lys-mtp-probe %k"
+ENV{ID_LYS_USB_PROTOCOL}=="PTP|MTP", TAG+="uaccess"
+LABEL="lys_mtp_end"

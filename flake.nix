@@ -65,6 +65,8 @@
         ./viewer/nix/shell.nix
         ./files/nix/package.nix
         ./files/nix/shell.nix
+        ./files/nix/modules.nix
+        (checks "files" ./files/nix/checks.nix)
         ./polkit/nix/package.nix
         ./polkit/nix/shell.nix
         ./polkit/nix/modules.nix

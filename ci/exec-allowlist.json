@@ -50,6 +50,7 @@
     {"package": "wm/internal/xwayland", "function": "Options.resolved", "program": "dynamic", "class": "integration", "reason": "Finds Xwayland to serve X11 clients."}
   ],
   "packaging": [
+    {"file": "files/nix/nixos-module.nix", "program": "[cfg.package]", "class": "own", "reason": "Installs lys-files."},
     {"file": "login/nix/hm-module.nix", "program": "lib.optional (cfg.enable || cfg.greeter.enable) cfg.package ++ lib.optional cfg.greeter.enable greeterSession", "class": "own", "reason": "Installs lys-login and, for the greeter, lys-greeter-session, which starts lys-login kiosk."},
     {"file": "login/nix/nixos-module.nix", "program": "[cfg.package]", "class": "own", "reason": "Installs lys-login."},
     {"file": "login/nix/nixos-module.nix", "program": "upgradeScript", "class": "own", "reason": "ExecReload upgrades lys-login in place through lys-login upgrade."},

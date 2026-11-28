@@ -146,6 +146,24 @@
       "testing"
     ]
   },
+  "desktop/cmd/lys-mtp-probe": {
+    "imports": [
+      "desktop/mtp/usb"
+    ],
+    "external": [
+      "context",
+      "fmt",
+      "io",
+      "os",
+      "strings",
+      "time"
+    ],
+    "testExternal": [
+      "bytes",
+      "errors",
+      "testing"
+    ]
+  },
   "desktop/compositor": {
     "imports": [
       "lib/wmipc"

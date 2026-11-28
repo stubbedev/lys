@@ -4,16 +4,18 @@
   lys-docthumb,
   makeWrapper,
   desktop-file-utils,
+  systemd,
   xkeyboard-config,
   libva,
   vulkan-loader,
 }: let
   libs = [libva vulkan-loader];
+  probeRules = "desktop/cmd/lys-mtp-probe/69-lys-mtp.rules";
 in
   lysGo.build {
     pname = "lys-files";
 
-    subPackages = ["files/cmd/lys-files"];
+    subPackages = ["files/cmd/lys-files" "desktop/cmd/lys-mtp-probe"];
 
     goPackages = ["desktop/cmd/install-icons"];
 
@@ -22,6 +24,7 @@ in
       "files/resources/org.freedesktop.FileManager1.service"
       "files/resources/lys-files.svg"
       "files/resources/icons.txt"
+      probeRules
     ];
 
     ldflags = [
@@ -42,6 +45,10 @@ in
       substitute files/resources/org.freedesktop.FileManager1.service \
         $out/share/dbus-1/services/org.freedesktop.FileManager1.service \
         --replace-fail /usr/bin/lys-files "$out/bin/lys-files"
+      install -d $out/lib/udev/rules.d
+      mv $out/bin/lys-mtp-probe $out/lib/udev/
+      substitute ${probeRules} $out/lib/udev/rules.d/69-lys-mtp.rules \
+        --replace-fail /usr/lib/udev/lys-mtp-probe "$out/lib/udev/lys-mtp-probe"
       go tool install-icons $out/share/lys-files/icons/hicolor/scalable/actions $(cat files/resources/icons.txt)
     '';
 
@@ -50,7 +57,7 @@ in
     '';
 
     doInstallCheck = true;
-    nativeInstallCheckInputs = [desktop-file-utils];
+    nativeInstallCheckInputs = [desktop-file-utils systemd];
     installCheckPhase = ''
       runHook preInstallCheck
       export HOME=$TMPDIR
@@ -63,6 +70,15 @@ in
       fi
       desktop-file-validate $out/share/applications/dev.stubbe.lys.files.desktop
       grep -qxF "Exec=$out/bin/lys-files --service" $out/share/dbus-1/services/org.freedesktop.FileManager1.service
+      grep -qxF "IMPORT{program}=\"$out/lib/udev/lys-mtp-probe %k\"" $out/lib/udev/rules.d/69-lys-mtp.rules
+      udevadm verify --resolve-names=never --no-style $out/lib/udev/rules.d/69-lys-mtp.rules
+      test ! -e $out/bin/lys-mtp-probe
+      status=0
+      $out/lib/udev/lys-mtp-probe > /dev/null 2>&1 || status=$?
+      if [ "$status" -ne 2 ]; then
+        echo "lys-mtp-probe without a device exited $status, want 2" >&2
+        exit 1
+      fi
       for icon in $(cat files/resources/icons.txt); do
         test -f $out/share/lys-files/icons/hicolor/scalable/actions/$icon.svg
       done

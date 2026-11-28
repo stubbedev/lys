@@ -358,7 +358,7 @@
     "x86_64": ["fmt-check", "vet", "lint", "no-fused", "build", "test-lysdebug", "atspi", "atspi-verify", "vuln", "schema-check", "dist"],
     "aarch64": ["test", "build", "test-lysdebug", "atspi", "atspi-verify", "dist"]
   },
-  "package-inputs": ["go.mod", "go.sum", "packaging/", ".github/workflows/package.yml", "{component}/packaging/", "{component}/resources/", "{component}/justfile", "{component}/LICENSE"],
+  "package-inputs": ["go.mod", "go.sum", "packaging/", ".github/workflows/package.yml", "{component}/packaging/", "{component}/resources/", "{component}/justfile", "{component}/LICENSE", "desktop/cmd/lys-mtp-probe/69-lys-mtp.rules"],
   "go-jobs": {
     "x86_64": [
       ["settings/2:race"],
