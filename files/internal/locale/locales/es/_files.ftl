@@ -67,6 +67,16 @@ files-paste-empty = No hay archivos para pegar
 files-nothing-to-undo = No hay nada que deshacer
 files-missing = { $path } no existe
 files-open-failed = No se pudo abrir { $name }
+files-sent-back = { $name } se guardó en { $server }
+files-send-back-failed = { $name } no se pudo guardar en { $server }
+files-conflict-remote-title = { $name } cambió en { $server }
+files-conflict-remote-body = Cambió allí desde que se abrió. ¿Reemplazarlo con la versión guardada aquí o conservar la del servidor?
+files-keep-server = Conservar la del servidor
+files-close-edits-title = { $count ->
+    [one] Un archivo abierto desde una ubicación de red sigue abierto
+   *[other] { $count } archivos abiertos desde ubicaciones de red siguen abiertos
+}
+files-close-edits-body = Al cerrar la ventana, los cambios guardados en ellos se quedan en este equipo y no se envían de vuelta.
 files-open-with-failed = { $count ->
     [one] { $app } no pudo abrir { $name }
    *[other] { $app } no pudo abrir los { $count } elementos

@@ -67,6 +67,16 @@ files-paste-empty = Non ci sono file da incollare
 files-nothing-to-undo = Non c’è nulla da annullare
 files-missing = { $path } non esiste
 files-open-failed = Non è stato possibile aprire { $name }
+files-sent-back = { $name } è stato salvato su { $server }
+files-send-back-failed = Impossibile salvare { $name } su { $server }
+files-conflict-remote-title = { $name } è cambiato su { $server }
+files-conflict-remote-body = È cambiato lì da quando è stato aperto. Sostituirlo con la versione salvata qui o tenere quella del server?
+files-keep-server = Tieni quella del server
+files-close-edits-title = { $count ->
+    [one] Un file aperto da un percorso di rete è ancora aperto
+   *[other] { $count } file aperti da percorsi di rete sono ancora aperti
+}
+files-close-edits-body = Chiusa la finestra, le modifiche salvate restano su questo computer e non vengono rinviate.
 files-open-with-failed = { $count ->
     [one] { $app } non è riuscito ad aprire { $name }
    *[other] { $app } non è riuscito ad aprire i { $count } elementi

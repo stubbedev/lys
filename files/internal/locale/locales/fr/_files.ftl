@@ -67,6 +67,16 @@ files-paste-empty = Il n’y a aucun fichier à coller
 files-nothing-to-undo = Il n’y a rien à annuler
 files-missing = { $path } n’existe pas
 files-open-failed = { $name } n’a pas pu être ouvert
+files-sent-back = { $name } a été enregistré sur { $server }
+files-send-back-failed = { $name } n’a pas pu être enregistré sur { $server }
+files-conflict-remote-title = { $name } a changé sur { $server }
+files-conflict-remote-body = Il a changé là-bas depuis son ouverture. Le remplacer par la version enregistrée ici, ou garder celle du serveur ?
+files-keep-server = Garder celle du serveur
+files-close-edits-title = { $count ->
+    [one] Un fichier ouvert depuis un emplacement réseau est encore ouvert
+   *[other] { $count } fichiers ouverts depuis des emplacements réseau sont encore ouverts
+}
+files-close-edits-body = Une fois la fenêtre fermée, les modifications qui y sont enregistrées restent sur cet ordinateur et ne sont pas renvoyées.
 files-open-with-failed = { $count ->
     [one] { $app } n’a pas pu ouvrir { $name }
    *[other] { $app } n’a pas pu ouvrir les { $count } éléments

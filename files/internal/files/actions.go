@@ -4,11 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"slices"
 	"strings"
 
+	"github.com/stubbedev/lys/desktop/desktopentry"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/vfs"
@@ -100,10 +99,8 @@ func (f *Files) open(t *tab, sel []filebrowser.Entry) {
 	navigated := false
 	for _, e := range sel {
 		switch {
-		case !e.IsDir && vfs.IsRemote(e.Path):
-			f.openRemote(e.Path)
 		case !e.IsDir:
-			f.cfg.Host.OpenFile(e.Path)
+			f.openFile(e.Path)
 		case !navigated:
 			navigated = true
 			t.b.GoTo(e.Path)
@@ -113,30 +110,21 @@ func (f *Files) open(t *tab, sel []filebrowser.Entry) {
 	}
 }
 
-// openRemote copies the file at the network location loc into a folder
-// of its own under the fetch folder, as a copy that shows its progress,
-// and opens the copy in its default app; changes to the copy stay on
-// the local disk.
-func (f *Files) openRemote(loc string) {
-	if f.cfg.FetchDir == "" {
-		f.cfg.Host.Toast(locale.T().Get("files-open-failed", i18n.Str("name", vfs.Base(loc))), nil)
-		return
+// launch opens paths in a: a file on a network location as a followed
+// copy (openRemote), each in a launch of its own once fetched, the
+// local files together.
+func (f *Files) launch(a desktopentry.App, paths []string) {
+	var local []string
+	for _, p := range paths {
+		if !vfs.IsRemote(p) {
+			local = append(local, p)
+			continue
+		}
+		f.openRemote(p, func(copied string) { f.cfg.Host.Launch(a, []string{copied}) })
 	}
-	if err := os.MkdirAll(f.cfg.FetchDir, 0o700); err != nil {
-		log.Printf("files: open %s: %v", loc, err)
-		f.cfg.Host.Toast(locale.T().Get("files-open-failed", i18n.Str("name", vfs.Base(loc))), nil)
-		return
+	if len(local) > 0 {
+		f.cfg.Host.Launch(a, local)
 	}
-	dir, err := os.MkdirTemp(f.cfg.FetchDir, "open-")
-	if err != nil {
-		log.Printf("files: open %s: %v", loc, err)
-		f.cfg.Host.Toast(locale.T().Get("files-open-failed", i18n.Str("name", vfs.Base(loc))), nil)
-		return
-	}
-	local := filepath.Join(dir, vfs.Base(loc))
-	f.jobs.start(copying, fileops.Copy{Sources: []string{loc}, Dest: dir, Mounts: f.mounts()}, func(*fileops.Undo) {
-		f.cfg.Host.OpenFile(local)
-	})
 }
 
 // openWith is the Open With submenu: the apps that open the type of
@@ -152,7 +140,7 @@ func (f *Files) openWith(sel []filebrowser.Entry) widget.MenuItem {
 			paths[i] = e.Path
 		}
 		for _, a := range f.cfg.Host.Apps(mimeType) {
-			apps = append(apps, widget.MenuItem{Label: a.DisplayName(), OnClick: func() { f.cfg.Host.Launch(a, paths) }})
+			apps = append(apps, widget.MenuItem{Label: a.DisplayName(), OnClick: func() { f.launch(a, paths) }})
 		}
 	}
 	if len(apps) == 0 {

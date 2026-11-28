@@ -67,6 +67,16 @@ files-paste-empty = Es gibt keine Dateien zum Einfügen
 files-nothing-to-undo = Es gibt nichts rückgängig zu machen
 files-missing = { $path } ist nicht vorhanden
 files-open-failed = { $name } konnte nicht geöffnet werden
+files-sent-back = { $name } wurde auf { $server } gespeichert
+files-send-back-failed = { $name } konnte nicht auf { $server } gespeichert werden
+files-conflict-remote-title = { $name } wurde auf { $server } geändert
+files-conflict-remote-body = Die Datei wurde dort geändert, seit sie geöffnet wurde. Durch die hier gespeicherte Fassung ersetzen oder die auf dem Server behalten?
+files-keep-server = Server-Fassung behalten
+files-close-edits-title = { $count ->
+    [one] Eine Datei von einem Netzwerkort ist noch geöffnet
+   *[other] { $count } Dateien von Netzwerkorten sind noch geöffnet
+}
+files-close-edits-body = Sobald das Fenster geschlossen ist, bleiben Änderungen daran auf diesem Rechner und werden nicht zurückgesendet.
 files-open-with-failed = { $count ->
     [one] { $app } konnte { $name } nicht öffnen
    *[other] { $app } konnte die { $count } Elemente nicht öffnen

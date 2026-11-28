@@ -2763,6 +2763,40 @@
       "testing"
     ]
   },
+  "desktop/vfs/localcopy": {
+    "imports": [
+      "desktop/fswatch",
+      "desktop/vfs"
+    ],
+    "external": [
+      "context",
+      "crypto/rand",
+      "encoding/hex",
+      "errors",
+      "fmt",
+      "golang.org/x/sys/unix",
+      "io",
+      "io/fs",
+      "os",
+      "path",
+      "path/filepath",
+      "sync",
+      "time"
+    ],
+    "testImports": [
+      "desktop/vfs/sftpfs",
+      "desktop/vfs/sftpfs/sftptest",
+      "desktop/vfs/vfstest",
+      "lib/waittest"
+    ],
+    "testExternal": [
+      "golang.org/x/crypto/ssh/knownhosts",
+      "slices",
+      "strings",
+      "sync/atomic",
+      "testing"
+    ]
+  },
   "desktop/vfs/mtpfs": {
     "imports": [
       "desktop/mtp",
@@ -2956,6 +2990,7 @@
       "desktop/spawn",
       "desktop/styling",
       "desktop/vfs",
+      "desktop/vfs/localcopy",
       "desktop/vfs/mtpfs",
       "desktop/vfs/netfs",
       "files/internal/filemanager1",

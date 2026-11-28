@@ -145,7 +145,6 @@ func Run(paths []string, service bool) error {
 			RecentFile:    filebrowser.RecentFile(),
 			TrashDirs:     filebrowser.SystemTrashDirs(home),
 			ForgetImage:   application.ForgetImage,
-			OpenFile:      h.OpenFile,
 			Animations:    func() config.AnimationsConfig { return h.svc.Config().Animations },
 			Documents:     dochelper.Opener(""),
 			Mounts:        mounts,

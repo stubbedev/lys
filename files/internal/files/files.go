@@ -105,6 +105,9 @@ type Files struct {
 	reopen []closedTab
 	jobs   *jobs
 	undos  []*fileops.Undo
+	// edits are the copies of files on network locations opened in
+	// apps, followed until Close.
+	edits []*edit
 	// asking is set while the dialog asking to close over the
 	// operations running shows.
 	asking bool
@@ -115,6 +118,7 @@ type Files struct {
 // New builds the window's tree with no tab yet; Open adds them.
 func New(cfg Config) *Files {
 	f := &Files{cfg: cfg, view: widget.NewTabView(), tabs: map[*widget.TabPage]*tab{}}
+	f.cfg.Browser.OpenFile = f.openFile
 	f.jobs = newJobs(f)
 	f.view.OnSelect = func(*widget.TabPage) { f.selected() }
 	f.view.OnPageDetached = f.detached
@@ -194,11 +198,13 @@ func (f *Files) OnPress(button uint32, _ widget.Widget) {
 }
 
 // Close ends the file manager once the loop has ended: the operations
-// running are cancelled and every browse ends.
+// running are cancelled, the copies opened from network locations are
+// no longer followed, and every browse ends.
 func (f *Files) Close() {
 	f.jobs.cancelAll()
 	f.jobs.wait()
 	f.work.Wait()
+	f.closeEdits()
 	for _, t := range f.tabs {
 		t.b.Close()
 	}
@@ -317,11 +323,13 @@ const (
 )
 
 // CloseRequest answers a request to close the window: true with no
-// operation running; with some it asks whether to cancel them, keeping
-// the window open unless told to, and says false.
+// operation running and no copy of a file on a network location
+// followed; else it asks whether to cancel the operations, or to stop
+// sending the copies' changes back, keeping the window open unless told
+// to, and says false.
 func (f *Files) CloseRequest() bool {
 	running := len(f.jobs.running)
-	if running == 0 {
+	if running == 0 && len(f.edits) == 0 {
 		return true
 	}
 	if f.asking {
@@ -329,7 +337,7 @@ func (f *Files) CloseRequest() bool {
 	}
 	f.asking = true
 	tr := locale.T()
-	f.cfg.Host.Ask(Question{
+	q := Question{
 		Title: tr.Get("files-close-running-title", i18n.Int("count", int64(running))),
 		Body:  tr.Get("files-close-running-body"),
 		Buttons: []app.DialogButton{
@@ -344,7 +352,13 @@ func (f *Files) CloseRequest() bool {
 				f.cfg.Host.Close()
 			}
 		},
-	})
+	}
+	if running == 0 {
+		q.Title = tr.Get("files-close-edits-title", i18n.Int("count", int64(len(f.edits))))
+		q.Body = tr.Get("files-close-edits-body")
+		q.Buttons[1].Label = tr.Get("files-close")
+	}
+	f.cfg.Host.Ask(q)
 	return false
 }
 

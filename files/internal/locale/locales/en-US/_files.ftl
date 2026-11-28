@@ -67,6 +67,16 @@ files-paste-empty = There are no files to paste
 files-nothing-to-undo = There is nothing to undo
 files-missing = { $path } is not there
 files-open-failed = { $name } could not be opened
+files-sent-back = { $name } was saved to { $server }
+files-send-back-failed = { $name } could not be saved to { $server }
+files-conflict-remote-title = { $name } changed on { $server }
+files-conflict-remote-body = It changed there since it was opened. Replace it with the version saved here, or keep the one on the server?
+files-keep-server = Keep the Server's
+files-close-edits-title = { $count ->
+    [one] A file opened from a network location is still open
+   *[other] { $count } files opened from network locations are still open
+}
+files-close-edits-body = Once the window closes, changes saved to them stay on this computer and are not sent back.
 files-open-with-failed = { $count ->
     [one] { $app } could not open { $name }
    *[other] { $app } could not open the { $count } items

@@ -67,6 +67,16 @@ files-paste-empty = Er zijn geen bestanden om te plakken
 files-nothing-to-undo = Er is niets om ongedaan te maken
 files-missing = { $path } bestaat niet
 files-open-failed = { $name } kon niet worden geopend
+files-sent-back = { $name } is opgeslagen op { $server }
+files-send-back-failed = { $name } kon niet op { $server } worden opgeslagen
+files-conflict-remote-title = { $name } is gewijzigd op { $server }
+files-conflict-remote-body = Het is daar gewijzigd sinds het werd geopend. Vervangen door de hier opgeslagen versie, of die op de server houden?
+files-keep-server = Die van de server houden
+files-close-edits-title = { $count ->
+    [one] Een bestand van een netwerklocatie is nog open
+   *[other] { $count } bestanden van netwerklocaties zijn nog open
+}
+files-close-edits-body = Zodra het venster sluit, blijven wijzigingen eraan op deze computer en worden ze niet teruggestuurd.
 files-open-with-failed = { $count ->
     [one] { $app } kon { $name } niet openen
    *[other] { $app } kon de { $count } items niet openen
