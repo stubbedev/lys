@@ -1,8 +1,9 @@
 // Package imagedecode opens raster images in the formats wallpapers can
 // use: PNG, JPEG, GIF, BMP, TIFF, WebP (stdlib and golang.org/x/image),
-// plus farbfeld, PNM (P1-P6), and TGA, which Go has no decoder for and
-// this package registers itself. SVG, JPEG XL, and AVIF are listed as
-// wallpaper extensions but are not decoded.
+// HEIF and JPEG XL (github.com/gen2brain/h265 and jxl, pure Go), plus
+// farbfeld, PNM (P1-P6), and TGA, which Go has no decoder for and this
+// package registers itself. SVG and AVIF are listed as wallpaper
+// extensions but are not decoded.
 package imagedecode
 
 import (
@@ -18,6 +19,8 @@ import (
 	"os"
 	"slices"
 
+	"github.com/gen2brain/h265/heic"
+	"github.com/gen2brain/jxl"
 	_ "golang.org/x/image/bmp"  // BMP decoder
 	_ "golang.org/x/image/tiff" // TIFF decoder
 	_ "golang.org/x/image/webp" // WebP decoder
@@ -36,23 +39,56 @@ const (
 	typeTGA  = "image/x-tga"
 )
 
-// formats are the formats Open decodes, by the names image.DecodeConfig
-// gives them (a PNG is "apng" where github.com/kettek/apng is linked, as
-// lib/render links it; TGA, which has no magic, has none), and their
-// MIME types.
-var formats = []struct {
-	names    []string
-	mimeType string
-}{
-	{[]string{"png", "apng"}, "image/png"},
-	{[]string{"jpeg"}, typeJPEG},
-	{[]string{"gif"}, "image/gif"},
-	{[]string{"webp"}, "image/webp"},
-	{[]string{"bmp"}, "image/bmp"},
-	{[]string{"tiff"}, "image/tiff"},
-	{nil, typeTGA},
-	{[]string{"pnm"}, "image/x-portable-anymap"},
-	{[]string{"farbfeld"}, "image/x-farbfeld"},
+// What decoding a HEIF or JPEG XL picture holds besides its pixels: a
+// HEIF decoder's own heicFixedBytes, and jxlThreadBytes for each of the
+// jxlThreads goroutines a JPEG XL picture decodes on.
+const (
+	heicFixedBytes = 4 << 20
+	jxlThreads     = 4
+	jxlThreadBytes = 2 << 20
+)
+
+// format is a format Open decodes: the names image.DecodeConfig gives
+// it, its MIME type and file extensions, the decoder lys reads it
+// through where its package's image.Decode registration does not show
+// it as lys does, and what decoding it allocates besides the raster: an
+// amount a pixel and a fixed one.
+type format struct {
+	names      []string
+	mimeType   string
+	exts       []string
+	decode     func(io.Reader) (image.Image, error)
+	workBytes  int64
+	fixedBytes int64
+}
+
+// formats are the formats Open decodes (a PNG is "apng" where
+// github.com/kettek/apng is linked, as lib/render links it; TGA, which
+// has no magic, has no name). A HEIF picture decodes turned as its
+// container says, which its registration leaves as stored; a JPEG XL
+// one decodes at any level, where its registration refuses level 10,
+// which libjxl writes for a lossless picture with more than 8 bits or
+// alpha.
+var formats = []format{
+	{names: []string{"png", "apng"}, mimeType: "image/png", exts: []string{"png"}},
+	{names: []string{"jpeg"}, mimeType: typeJPEG, exts: []string{"jpg", "jpeg"}},
+	{names: []string{"gif"}, mimeType: "image/gif", exts: []string{"gif"}},
+	{names: []string{"webp"}, mimeType: "image/webp", exts: []string{"webp"}},
+	{names: []string{"bmp"}, mimeType: "image/bmp", exts: []string{"bmp"}},
+	{names: []string{"tiff"}, mimeType: "image/tiff", exts: []string{"tiff", "tif"}},
+	{mimeType: typeTGA, exts: []string{"tga"}},
+	{names: []string{"pnm"}, mimeType: "image/x-portable-anymap", exts: []string{"pnm", "pbm", "pgm", "ppm"}},
+	{names: []string{"farbfeld"}, mimeType: "image/x-farbfeld", exts: []string{"ff", "farbfeld"}},
+	{
+		names: []string{"heic"}, mimeType: "image/heif", exts: []string{"heic", "heif", "hif"}, workBytes: 10, fixedBytes: heicFixedBytes,
+		decode: func(r io.Reader) (image.Image, error) { return heic.Decode(r, heic.Options{AutoRotate: true}) },
+	},
+	{
+		names: []string{"jxl"}, mimeType: "image/jxl", exts: []string{"jxl"}, workBytes: 38, fixedBytes: jxlThreads * jxlThreadBytes,
+		decode: func(r io.Reader) (image.Image, error) {
+			return jxl.Decode(r, jxl.Options{Level: 10, Threads: jxlThreads})
+		},
+	},
 }
 
 // Types are the MIME types of the formats Open decodes.
@@ -64,19 +100,50 @@ func Types() []string {
 	return out
 }
 
-// typeOf is the MIME type of the format image.DecodeConfig names.
-func typeOf(format string) (string, error) {
+// Extensions are the file extensions of the formats Open decodes,
+// lower case and without their dot.
+func Extensions() []string {
+	var out []string
 	for _, f := range formats {
-		if slices.Contains(f.names, format) {
-			return f.mimeType, nil
+		out = append(out, f.exts...)
+	}
+	return out
+}
+
+// formatNamed is the format image.DecodeConfig names name.
+func formatNamed(name string) (format, error) {
+	for _, f := range formats {
+		if slices.Contains(f.names, name) {
+			return f, nil
 		}
 	}
-	return "", fmt.Errorf("imagedecode: the format %q has no MIME type", format)
+	return format{}, fmt.Errorf("imagedecode: the format %q is not one lys decodes", name)
+}
+
+// decodeImage decodes the image rs holds from its start, through its
+// format's own decoder where it has one.
+func decodeImage(rs io.ReadSeeker) (image.Image, error) {
+	_, name, err := image.DecodeConfig(bufio.NewReader(rs))
+	if err != nil {
+		return nil, err
+	}
+	f, err := formatNamed(name)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := rs.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	if f.decode != nil {
+		return f.decode(bufio.NewReader(rs))
+	}
+	img, _, err := image.Decode(bufio.NewReader(rs))
+	return img, err
 }
 
 // Decode decodes image bytes, sniffed as Open sniffs a file.
 func Decode(data []byte) (image.Image, error) {
-	img, _, err := image.Decode(bytes.NewReader(data))
+	img, err := decodeImage(bytes.NewReader(data))
 	if err == nil {
 		return img, nil
 	}
@@ -107,7 +174,7 @@ func OpenContext(ctx context.Context, path string) (image.Image, error) {
 // its start, as OpenContext does.
 func decodeFile(ctx context.Context, f *os.File, path string) (image.Image, error) {
 	r := ctxReader{ctx, f}
-	img, _, err := image.Decode(bufio.NewReader(r))
+	img, err := decodeImage(r)
 	if err == nil {
 		return img, nil
 	}
@@ -129,8 +196,10 @@ func decodeFile(ctx context.Context, f *os.File, path string) (image.Image, erro
 // ctxReader reads r until ctx is done, then fails with ctx's error.
 type ctxReader struct {
 	ctx context.Context
-	r   io.Reader
+	r   io.ReadSeeker
 }
+
+func (c ctxReader) Seek(offset int64, whence int) (int64, error) { return c.r.Seek(offset, whence) }
 
 func (c ctxReader) Read(p []byte) (int, error) {
 	if err := c.ctx.Err(); err != nil {

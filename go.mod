@@ -12,6 +12,8 @@ require (
 	github.com/andybalholm/brotli v1.3.0
 	github.com/ebitengine/purego v0.11.3
 	github.com/gen2brain/folio v0.3.1
+	github.com/gen2brain/h265 v0.3.0
+	github.com/gen2brain/jxl v0.2.2
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/jlaffaye/ftp v0.2.4
 	github.com/kettek/apng v0.0.0-20250827064933-2bb5f5fcf253

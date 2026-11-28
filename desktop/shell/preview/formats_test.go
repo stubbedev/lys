@@ -32,7 +32,7 @@ import (
 func TestTheRicherTypesHaveTheirRenderers(t *testing.T) {
 	db := testDB(t)
 	for mimeType, want := range map[string]Renderer{
-		"image/svg+xml": Image, "text/markdown": Markdown, "text/csv": Table, "text/tab-separated-values": Table,
+		"image/svg+xml": Image, "image/heif": Image, "image/jxl": Image, "image/avif": Thumbnail, "text/markdown": Markdown, "text/csv": Table, "text/tab-separated-values": Table,
 		"application/zip": Archive, "application/x-tar": Archive, "application/x-compressed-tar": Archive,
 		"application/x-bzip2-compressed-tar": Archive, "application/x-xz-compressed-tar": Archive, "application/x-lzma-compressed-tar": Archive,
 		"application/x-zstd-compressed-tar": Archive, "application/x-7z-compressed": Archive, "font/ttf": Font, "font/woff": Font, "font/woff2": Font,

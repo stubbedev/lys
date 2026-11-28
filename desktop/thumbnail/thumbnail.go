@@ -63,9 +63,8 @@ var (
 	ErrNoHelper   = fmt.Errorf("%w: %s is not installed", ErrNone, dochelper.Program)
 )
 
-// rasterExts are the image types decoded in process (imagedecode's
-// formats).
-var rasterExts = []string{"png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "tif", "tga", "pnm", "pbm", "pgm", "ppm", "ff", "farbfeld"}
+// rasterExts are the extensions of the image types decoded in process.
+var rasterExts = imagedecode.Extensions()
 
 // isRaster reports an image decoded in process, by extension.
 func isRaster(path string) bool {

@@ -6,6 +6,7 @@ import (
 	"image"
 	"image/color"
 	"image/gif"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -235,5 +236,35 @@ func TestAPictureInMemoryThatCannotBeShownSaysWhy(t *testing.T) {
 	}
 	if held := h.src.Pictures.Held(); held != 0 {
 		t.Errorf("the failed pictures hold %d bytes of the budget", held)
+	}
+}
+
+// A HEIF picture shows turned as its container says and a JPEG XL one
+// at any level, each at its pixel size; an AVIF picture, which lys does
+// not decode, shows as other files do, and a HEIF picture cut short
+// cannot be shown.
+func TestHEIFAndJPEGXLPicturesShow(t *testing.T) {
+	h := newHarness(t)
+	v := h.view(nil)
+	fixture := func(name string) string { return filepath.Join("..", "..", "imagedecode", "testdata", name) }
+	for name, size := range map[string]image.Point{
+		"halves.heic": image.Pt(64, 48), "rotated.heic": image.Pt(48, 64), "halves.jxl": image.Pt(64, 48), "deep.jxl": image.Pt(64, 48),
+	} {
+		h.show(v, fixture(name))
+		if v.Renderer() != Image || v.shown.picture.size != size {
+			t.Errorf("%s shows as %v at %v, want a picture at %v", name, v.Renderer(), v.shown.picture.size, size)
+		}
+	}
+	h.show(v, fixture("halves.avif"))
+	if v.Renderer() != Icon {
+		t.Errorf("an AVIF picture shows as %v", v.Renderer())
+	}
+	data, err := os.ReadFile(fixture("halves.heic"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.show(v, writeFile(t, filepath.Join(t.TempDir(), "cut.heic"), data[:len(data)/2]))
+	if v.Renderer() != Failed || v.shown.failure != Undecodable {
+		t.Errorf("a HEIF picture cut short shows as %v (%v)", v.Renderer(), v.shown.failure)
 	}
 }

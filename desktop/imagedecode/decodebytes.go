@@ -14,8 +14,9 @@ import (
 
 // DecodeBytes is how many bytes decoding the image file at path
 // allocates for its pixels, read from its header before any pixel is:
-// the decoded raster in its own color model, and for a JPEG the
-// coefficient blocks a progressive scan keeps besides.
+// the decoded raster in its own color model, for a JPEG the coefficient
+// blocks a progressive scan keeps besides, and for a HEIF or JPEG XL
+// picture the planes its decoder works in.
 func DecodeBytes(path string) (int64, error) {
 	f, err := os.Open(path) //nolint:gosec // the caller's image path
 	if err != nil {
@@ -44,10 +45,10 @@ func measure(r io.ReadSeeker) (string, int64, error) {
 		n, err := jpegDecodeBytes(br)
 		return typeJPEG, n, err
 	}
-	cfg, format, err := image.DecodeConfig(br)
+	cfg, name, err := image.DecodeConfig(br)
 	if err == nil {
-		t, err := typeOf(format)
-		return t, int64(cfg.Width) * int64(cfg.Height) * bytesPerPixel(cfg.ColorModel), err
+		f, err := formatNamed(name)
+		return f.mimeType, int64(cfg.Width)*int64(cfg.Height)*(bytesPerPixel(cfg.ColorModel)+f.workBytes) + f.fixedBytes, err
 	}
 	if _, seekErr := r.Seek(0, io.SeekStart); seekErr != nil {
 		return "", 0, errors.Join(err, seekErr)

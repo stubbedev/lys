@@ -696,6 +696,8 @@
       "encoding/binary",
       "errors",
       "fmt",
+      "github.com/gen2brain/h265/heic",
+      "github.com/gen2brain/jxl",
       "github.com/stubbedev/memory-go",
       "golang.org/x/image/bmp",
       "golang.org/x/image/tiff",
@@ -723,6 +725,7 @@
       "path/filepath",
       "reflect",
       "runtime",
+      "strings",
       "testing"
     ]
   },

@@ -219,8 +219,8 @@ func TestSquareMatchesTheFullDecode(t *testing.T) {
 func TestDecodesRasterImagesByExtension(t *testing.T) {
 	for path, want := range map[string]bool{
 		"/x/a.png": true, "/x/a.JPG": true, "/x/photo.jpeg": true, "/x/b.webp": true,
-		"/x/c.tga": true, "/x/d.ppm": true, "/x/e.ff": true,
-		"/x/a.txt": false, "/x/a.svg": false, "/x/noext": false, "/x/a.pdf": false,
+		"/x/c.tga": true, "/x/d.ppm": true, "/x/e.ff": true, "/x/IMG_1.HEIC": true, "/x/f.heif": true, "/x/g.jxl": true,
+		"/x/a.avif": false, "/x/a.txt": false, "/x/a.svg": false, "/x/noext": false, "/x/a.pdf": false,
 	} {
 		if got := isRaster(path); got != want {
 			t.Errorf("isRaster(%s) = %v", path, got)

@@ -25,7 +25,8 @@ func testDB(t *testing.T) *mime.Database {
 	t.Helper()
 	dir := t.TempDir()
 	files := map[string]string{
-		"globs2": "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/gif:*.gif\n50:image/svg+xml:*.svg\n50:text/plain:*.txt\n50:text/x-go:*.go\n" +
+		"globs2": "50:image/png:*.png\n50:image/jpeg:*.jpg\n50:image/heif:*.heic\n50:image/jxl:*.jxl\n50:image/avif:*.avif\n" +
+			"50:image/gif:*.gif\n50:image/svg+xml:*.svg\n50:text/plain:*.txt\n50:text/x-go:*.go\n" +
 			"50:application/pdf:*.pdf\n50:video/x-y4m:*.y4m\n50:video/mp4:*.mp4\n50:audio/x-matroska:*.mka\n50:audio/mpeg:*.mp3\n50:application/x-thing:*.thing\n" +
 			"50:text/markdown:*.md\n50:text/csv:*.csv\n50:text/tab-separated-values:*.tsv\n50:application/json:*.json\n50:application/x-desktop:*.desktop\n" +
 			"50:application/zip:*.zip\n50:application/x-tar:*.tar\n50:application/x-compressed-tar:*.tar.gz\n50:application/x-bzip2-compressed-tar:*.tar.bz2\n" +
