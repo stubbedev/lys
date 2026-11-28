@@ -1787,6 +1787,9 @@ func (o *Output) BeginFrame() (backend.Frame, error) {
 }
 
 func (o *Output) AbortFrame() {
+	if o.drawing != nil {
+		o.drawing.presented = 0
+	}
 	o.drawing = nil
 }
 
