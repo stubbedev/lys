@@ -1125,6 +1125,20 @@ func (o *Output) PanelTransform() render.Transform {
 	return o.panel
 }
 
+const (
+	connectorLVDS = 7
+	connectorEDP  = 14
+	connectorDSI  = 16
+)
+
+func (o *Output) Internal() bool {
+	switch o.conn.Type {
+	case connectorLVDS, connectorEDP, connectorDSI:
+		return true
+	}
+	return false
+}
+
 func (o *Output) Name() string {
 	return o.conn.Name()
 }

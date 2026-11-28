@@ -62,7 +62,7 @@ func (c *Compositor) lidSwitched(closed bool) error {
 }
 
 func (c *Compositor) dockChanged(b backend.Output) error {
-	if !c.lidClosed || internalPanel(b.Name()) {
+	if !c.lidClosed || internalPanel(b) {
 		return nil
 	}
 	return c.reapplyOutputRules()
@@ -87,6 +87,6 @@ func (c *Compositor) lidSettled() {
 func (c *Compositor) docked() bool {
 	return slices.ContainsFunc(c.outputs, func(o *output.Output) bool {
 		b := o.Backend()
-		return !internalPanel(b.Name()) && backend.Displays(b)
+		return !internalPanel(b) && backend.Displays(b)
 	})
 }

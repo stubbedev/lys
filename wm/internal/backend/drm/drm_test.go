@@ -93,6 +93,7 @@ type fakeDevice struct {
 	splash            *splash
 	sharedPrimary     bool
 	connected         bool
+	connectorType     uint32
 	unplugged         bool
 	gone              bool
 	removed           bool
@@ -276,7 +277,7 @@ func (f *fakeDevice) Connector(id uint32) (kdrm.Connector, error) {
 	if f.unplugged {
 		return kdrm.Connector{}, unix.ENOENT
 	}
-	c := kdrm.Connector{ID: id, Type: 10, TypeID: id - 19, Encoders: []uint32{30}, Connection: kdrm.Disconnected}
+	c := kdrm.Connector{ID: id, Type: cmp.Or(f.connectorType, 10), TypeID: id - 19, Encoders: []uint32{30}, Connection: kdrm.Disconnected}
 	if f.connected {
 		c.Connection, c.Modes = kdrm.Connected, modes
 		if f.modes != nil {

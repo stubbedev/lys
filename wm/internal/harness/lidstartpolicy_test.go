@@ -22,6 +22,9 @@ func TestAStartWithTheLidClosedAppliesTheLidPolicy(t *testing.T) {
 		{"closed, undocked, on AC", true, false, []string{"eDP-1"}, 0},
 		{"closed, docked, on battery", true, true, []string{"eDP-1", "DP-1"}, 0},
 		{"open, undocked, on battery", false, true, []string{"eDP-1"}, 0},
+		{"closed, a DSI panel undocked, on battery", true, true, []string{"DSI-1"}, 1},
+		{"closed, an LVDS panel undocked, on battery", true, true, []string{"LVDS-1"}, 1},
+		{"closed, a DSI panel docked, on battery", true, true, []string{"DSI-1", "DP-1"}, 0},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

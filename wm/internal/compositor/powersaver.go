@@ -24,7 +24,7 @@ func (c *Compositor) SetPowerSaver(on bool) error {
 
 func (c *Compositor) panelLit() bool {
 	return slices.ContainsFunc(c.outputs, func(o *output.Output) bool {
-		return internalPanel(o.Backend().Name()) && o.Backend().State().Lit()
+		return internalPanel(o.Backend()) && o.Backend().State().Lit()
 	})
 }
 
@@ -39,7 +39,7 @@ func (c *Compositor) startingSaver(b backend.Output) bool {
 }
 
 func (c *Compositor) settlePanelSaver(o *output.Output) error {
-	if !internalPanel(o.Backend().Name()) || c.panelSaver == c.powerSaver {
+	if !internalPanel(o.Backend()) || c.panelSaver == c.powerSaver {
 		return nil
 	}
 	c.panelSaver = c.powerSaver
@@ -47,7 +47,7 @@ func (c *Compositor) settlePanelSaver(o *output.Output) error {
 }
 
 func (c *Compositor) lowPowerRule(b backend.Output, rule OutputRule) OutputRule {
-	if !c.panelSaver || !internalPanel(b.Name()) {
+	if !c.panelSaver || !internalPanel(b) {
 		return rule
 	}
 	if c.powerSaverRate > 0 {

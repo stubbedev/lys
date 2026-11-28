@@ -297,6 +297,7 @@ type Inheriting interface {
 
 type Panel interface {
 	PanelTransform() render.Transform
+	Internal() bool
 }
 
 type ContentTyped interface {

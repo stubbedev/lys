@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	kdrm "github.com/stubbedev/lys/lib/drm"
@@ -312,6 +313,10 @@ type Output struct {
 
 func (o *Output) PanelTransform() render.Transform {
 	return o.panel
+}
+
+func (o *Output) Internal() bool {
+	return slices.ContainsFunc([]string{"eDP-", "LVDS-", "DSI-"}, func(prefix string) bool { return strings.HasPrefix(o.name, prefix) })
 }
 
 func (o *Output) Inherited() bool {

@@ -75,8 +75,9 @@ func (r OutputRule) transform(b backend.Output) render.Transform {
 	return render.Normal
 }
 
-func internalPanel(name string) bool {
-	return strings.HasPrefix(name, "eDP")
+func internalPanel(b backend.Output) bool {
+	p, ok := b.(backend.Panel)
+	return ok && p.Internal()
 }
 
 func (c *Compositor) configuredRule(b backend.Output) OutputRule {
@@ -92,7 +93,7 @@ func (c *Compositor) configuredRule(b backend.Output) OutputRule {
 
 func (c *Compositor) outputRule(b backend.Output) OutputRule {
 	rule := c.configuredRule(b)
-	if internalPanel(b.Name()) && c.clamshell() {
+	if internalPanel(b) && c.clamshell() {
 		rule.Disabled = true
 	}
 	return c.lowPowerRule(b, rule)
@@ -379,7 +380,7 @@ func (c *Compositor) OutputAdded(b backend.Output) error {
 }
 
 func (c *Compositor) addOutput(b backend.Output) error {
-	if internalPanel(b.Name()) && !c.panelLit() {
+	if internalPanel(b) && !c.panelLit() {
 		c.panelSaver = c.startingSaver(b)
 	}
 	c.capFrameRate(b, 0)
@@ -628,7 +629,7 @@ func (c *Compositor) reapplyOutputRules() error {
 }
 
 func (c *Compositor) applyOutputRules() error {
-	external := func(b backend.Output) bool { return !internalPanel(b.Name()) }
+	external := func(b backend.Output) bool { return !internalPanel(b) }
 	errs := c.applyOutputRulesOf(external)
 	errs = append(errs, c.applyMirrorRules())
 	errs = append(errs, c.applyOutputRulesOf(func(b backend.Output) bool { return !external(b) })...)

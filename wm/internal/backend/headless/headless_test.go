@@ -748,3 +748,21 @@ func TestHowLongFramesTookOnAVirtualLoopDoesNotMoveLaterFrames(t *testing.T) {
 		t.Fatalf("after slow renders frames start %v after the last vblank, after instant ones %v", slow, fast)
 	}
 }
+
+func TestAHeadlessOutputIsAnInternalPanelByItsName(t *testing.T) {
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	b := New(l)
+	for name, internal := range map[string]bool{"eDP-1": true, "LVDS-1": true, "DSI-2": true, "DP-1": false, "HDMI-A-1": false, "headless-1": false} {
+		o, err := b.AddNamedOutput(name, backend.Mode{Size: image.Pt(64, 64), RefreshMHz: 60000})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if o.Internal() != internal {
+			t.Errorf("%s is internal: %v, want %v", name, o.Internal(), internal)
+		}
+	}
+}
