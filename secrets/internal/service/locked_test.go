@@ -44,7 +44,7 @@ func openSession(t *testing.T, conn *dbus.Conn) dbus.ObjectPath {
 	t.Helper()
 	var out dbus.Variant
 	var sess dbus.ObjectPath
-	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".OpenSession", 0, transport.AlgPlain, dbus.MakeVariant("")).Store(&out, &sess); err != nil {
+	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".OpenSession", 0, transport.AlgPlain, dbus.MakeVariant("")).Store(&out, &sess); err != nil {
 		t.Fatal(err)
 	}
 	return sess
@@ -55,7 +55,7 @@ func plainSecret(sess dbus.ObjectPath, value string) Secret {
 }
 
 func itemProps(label string) map[string]dbus.Variant {
-	return map[string]dbus.Variant{propItemLabel: dbus.MakeVariant(label), propItemAttrs: dbus.MakeVariant(map[string]string{"k": "v"})}
+	return map[string]dbus.Variant{secretbus.ItemLabel: dbus.MakeVariant(label), secretbus.ItemAttributes: dbus.MakeVariant(map[string]string{"k": "v"})}
 }
 
 func requireDBusError(t *testing.T, what string, err error, name string) {
@@ -78,7 +78,7 @@ func (f *fixture) loginFile(t *testing.T) []byte {
 func readDefaultAlias(t *testing.T, conn *dbus.Conn) dbus.ObjectPath {
 	t.Helper()
 	var got dbus.ObjectPath
-	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".ReadAlias", 0, "default").Store(&got); err != nil {
+	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".ReadAlias", 0, "default").Store(&got); err != nil {
 		t.Fatal(err)
 	}
 	return got
@@ -88,7 +88,7 @@ func (f *fixture) showPrompt(t *testing.T, conn *dbus.Conn, prompt dbus.ObjectPa
 	t.Helper()
 	f.prompter.script(answer)
 	completed := watchCompleted(t, f, prompt)
-	if err := conn.Object(BusName, prompt).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
+	if err := conn.Object(secretbus.BusName, prompt).Call(secretbus.PromptInterface+".Prompt", 0, "").Err; err != nil {
 		t.Fatal(err)
 	}
 	dismissed, _ = completed()
@@ -99,7 +99,7 @@ func (f *fixture) unlockThroughPrompt(t *testing.T, conn *dbus.Conn, path dbus.O
 	t.Helper()
 	var unlocked []dbus.ObjectPath
 	var prompt dbus.ObjectPath
-	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".Unlock", 0, []dbus.ObjectPath{path}).Store(&unlocked, &prompt); err != nil || prompt == noPrompt {
+	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".Unlock", 0, []dbus.ObjectPath{path}).Store(&unlocked, &prompt); err != nil || prompt == secretbus.NoObject {
 		t.Fatalf("Unlock(%s) = %v, %q, %v; want a prompt", path, unlocked, prompt, err)
 	}
 	return f.showPrompt(t, conn, prompt, answer)
@@ -113,7 +113,7 @@ func lockedLogin(t *testing.T, restart bool) (f *fixture, conn *dbus.Conn, item 
 	}
 	conn = f.bus.Conn(t)
 	var prompt dbus.ObjectPath
-	if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
+	if err := conn.Object(secretbus.BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
 		t.Fatal(err)
 	}
 	f.svc.Lock()
@@ -131,13 +131,13 @@ func TestDeletingALockedCollectionIsRefused(t *testing.T) {
 				f, conn, item := lockedLogin(t, state.restart)
 				before := f.loginFile(t)
 
-				err := conn.Object(BusName, target.path).Call(secretbus.CollectionInterface+".Delete", 0).Err
-				requireDBusError(t, "Delete", err, errIsLocked)
+				err := conn.Object(secretbus.BusName, target.path).Call(secretbus.CollectionInterface+".Delete", 0).Err
+				requireDBusError(t, "Delete", err, secretbus.ErrIsLocked)
 
 				if !bytes.Equal(f.loginFile(t), before) {
 					t.Error("a refused Delete changed the file")
 				}
-				if paths, _ := f.prop(t, rootPath, secretbus.ServiceInterface+".Collections").([]dbus.ObjectPath); !slices.Contains(paths, collectionPath(LoginID)) {
+				if paths, _ := f.prop(t, secretbus.ServicePath, secretbus.ServiceInterface+".Collections").([]dbus.ObjectPath); !slices.Contains(paths, collectionPath(LoginID)) {
 					t.Errorf("Collections = %v, want the login collection kept", paths)
 				}
 				if got := readDefaultAlias(t, conn); got != collectionPath(LoginID) {
@@ -150,7 +150,7 @@ func TestDeletingALockedCollectionIsRefused(t *testing.T) {
 					t.Fatal(err)
 				}
 				var secret Secret
-				if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret); err != nil || string(secret.Value) != "kept" {
+				if err := conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret); err != nil || string(secret.Value) != "kept" {
 					t.Errorf("GetSecret after the refusal = %q, %v", secret.Value, err)
 				}
 			})
@@ -162,27 +162,27 @@ func TestACollectionDeletesOnlyOnceUnlockedThroughThePrompt(t *testing.T) {
 	for _, target := range deletePaths {
 		t.Run(target.name, func(t *testing.T) {
 			f, conn, _ := lockedLogin(t, false)
-			obj := conn.Object(BusName, target.path)
+			obj := conn.Object(secretbus.BusName, target.path)
 
 			if !f.unlockThroughPrompt(t, conn, target.path, "") {
 				t.Fatal("the unlock prompt completed although dismissed")
 			}
-			requireDBusError(t, "Delete after a dismissed unlock", obj.Call(secretbus.CollectionInterface+".Delete", 0).Err, errIsLocked)
+			requireDBusError(t, "Delete after a dismissed unlock", obj.Call(secretbus.CollectionInterface+".Delete", 0).Err, secretbus.ErrIsLocked)
 
 			if f.unlockThroughPrompt(t, conn, target.path, loginPassword) {
 				t.Fatal("the unlock prompt was dismissed")
 			}
 			var prompt dbus.ObjectPath
-			if err := obj.Call(secretbus.CollectionInterface+".Delete", 0).Store(&prompt); err != nil || prompt != noPrompt {
+			if err := obj.Call(secretbus.CollectionInterface+".Delete", 0).Store(&prompt); err != nil || prompt != secretbus.NoObject {
 				t.Fatalf("Delete of an unlocked collection = %q, %v", prompt, err)
 			}
 			if _, err := os.Stat(filepath.Join(f.dir, LoginID+collectionExt)); !errors.Is(err, os.ErrNotExist) {
 				t.Errorf("the file after Delete: %v, want it gone", err)
 			}
-			if got := readDefaultAlias(t, conn); got != noPrompt {
+			if got := readDefaultAlias(t, conn); got != secretbus.NoObject {
 				t.Errorf("ReadAlias(default) = %q, want it gone with the collection", got)
 			}
-			requireDBusError(t, "Delete again", obj.Call(secretbus.CollectionInterface+".Delete", 0).Err, errNoSuchObject)
+			requireDBusError(t, "Delete again", obj.Call(secretbus.CollectionInterface+".Delete", 0).Err, secretbus.ErrNoSuchObject)
 		})
 	}
 }
@@ -193,30 +193,30 @@ func TestALockedCollectionRefusesEveryChange(t *testing.T) {
 			f, conn, item := lockedLogin(t, state.restart)
 			before := f.loginFile(t)
 			sess := openSession(t, conn)
-			itemObj := conn.Object(BusName, item)
+			itemObj := conn.Object(secretbus.BusName, item)
 			for _, change := range []struct {
 				name string
 				err  error
 			}{
 				{"Item.Delete", itemObj.Call(secretbus.ItemInterface+".Delete", 0).Err},
 				{"Item.SetSecret", itemObj.Call(secretbus.ItemInterface+".SetSecret", 0, plainSecret(sess, "changed")).Err},
-				{"Item.Label", itemObj.SetProperty(propItemLabel, dbus.MakeVariant("changed"))},
-				{"Item.Attributes", itemObj.SetProperty(propItemAttrs, dbus.MakeVariant(map[string]string{"k": "changed"}))},
-				{"Collection.Label", conn.Object(BusName, collectionPath(LoginID)).SetProperty(propCollLabel, dbus.MakeVariant("changed"))},
-				{"alias Collection.Label", conn.Object(BusName, defaultAliasPath).SetProperty(propCollLabel, dbus.MakeVariant("changed"))},
+				{"Item.Label", itemObj.SetProperty(secretbus.ItemLabel, dbus.MakeVariant("changed"))},
+				{"Item.Attributes", itemObj.SetProperty(secretbus.ItemAttributes, dbus.MakeVariant(map[string]string{"k": "changed"}))},
+				{"Collection.Label", conn.Object(secretbus.BusName, collectionPath(LoginID)).SetProperty(secretbus.CollectionLabel, dbus.MakeVariant("changed"))},
+				{"alias Collection.Label", conn.Object(secretbus.BusName, defaultAliasPath).SetProperty(secretbus.CollectionLabel, dbus.MakeVariant("changed"))},
 			} {
-				requireDBusError(t, change.name, change.err, errIsLocked)
+				requireDBusError(t, change.name, change.err, secretbus.ErrIsLocked)
 			}
 
 			var created, prompt dbus.ObjectPath
-			if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("changed"), plainSecret(sess, "changed"), true).Store(&created, &prompt); err != nil || prompt == noPrompt {
+			if err := conn.Object(secretbus.BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("changed"), plainSecret(sess, "changed"), true).Store(&created, &prompt); err != nil || prompt == secretbus.NoObject {
 				t.Fatalf("CreateItem = %q, %q, %v; want a prompt", created, prompt, err)
 			}
 			if !f.showPrompt(t, conn, prompt, "") {
 				t.Error("CreateItem's dismissed prompt completed")
 			}
 
-			if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".ChangeLock", 0, collectionPath(LoginID)).Store(&prompt); err != nil {
+			if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".ChangeLock", 0, collectionPath(LoginID)).Store(&prompt); err != nil {
 				t.Fatalf("ChangeLock = %v", err)
 			}
 			if !f.showPrompt(t, conn, prompt, "") {
@@ -242,7 +242,7 @@ func TestDeletingACollectionDestroysItsKey(t *testing.T) {
 	kr := f.svc.colls[LoginID].kr
 	f.svc.mu.Unlock()
 	conn := f.bus.Conn(t)
-	if err := conn.Object(BusName, collectionPath(LoginID)).Call(secretbus.CollectionInterface+".Delete", 0).Err; err != nil {
+	if err := conn.Object(secretbus.BusName, collectionPath(LoginID)).Call(secretbus.CollectionInterface+".Delete", 0).Err; err != nil {
 		t.Fatal(err)
 	}
 	f.svc.mu.Lock()
@@ -312,8 +312,8 @@ func aliasesFileBytes(t *testing.T, f *fixture) []byte {
 func (f *fixture) createCollection(t *testing.T, conn *dbus.Conn, label string) {
 	t.Helper()
 	var coll, prompt dbus.ObjectPath
-	props := map[string]dbus.Variant{propCollLabel: dbus.MakeVariant(label)}
-	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".CreateCollection", 0, props, "").Store(&coll, &prompt); err != nil || prompt == noPrompt {
+	props := map[string]dbus.Variant{secretbus.CollectionLabel: dbus.MakeVariant(label)}
+	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".CreateCollection", 0, props, "").Store(&coll, &prompt); err != nil || prompt == secretbus.NoObject {
 		t.Fatalf("CreateCollection = %q, %q, %v; want a prompt", coll, prompt, err)
 	}
 	if f.showPrompt(t, conn, prompt, "other-pw") {
@@ -322,7 +322,7 @@ func (f *fixture) createCollection(t *testing.T, conn *dbus.Conn, label string) 
 }
 
 func setAlias(conn *dbus.Conn, name string, target dbus.ObjectPath) error {
-	return conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".SetAlias", 0, name, target).Err
+	return conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".SetAlias", 0, name, target).Err
 }
 
 func TestTheAliasOfALockedCollectionCannotMove(t *testing.T) {
@@ -330,13 +330,13 @@ func TestTheAliasOfALockedCollectionCannotMove(t *testing.T) {
 		for _, target := range []struct {
 			name string
 			path dbus.ObjectPath
-		}{{"removed", noPrompt}, {"moved to another", collectionPath("other")}} {
+		}{{"removed", secretbus.NoObject}, {"moved to another", collectionPath("other")}} {
 			t.Run(state.name+"/"+target.name, func(t *testing.T) {
 				f, conn, _ := lockedLogin(t, state.restart)
 				f.createCollection(t, conn, "other")
 				before := aliasesFileBytes(t, f)
 
-				requireDBusError(t, "SetAlias", setAlias(conn, "default", target.path), errIsLocked)
+				requireDBusError(t, "SetAlias", setAlias(conn, "default", target.path), secretbus.ErrIsLocked)
 
 				if got := readDefaultAlias(t, conn); got != collectionPath(LoginID) {
 					t.Errorf("default = %s, want it still on the login collection", got)
@@ -351,9 +351,9 @@ func TestTheAliasOfALockedCollectionCannotMove(t *testing.T) {
 
 func TestAnAliasCannotMoveOntoALockedCollection(t *testing.T) {
 	_, conn, _ := lockedLogin(t, false)
-	requireDBusError(t, "SetAlias", setAlias(conn, "mine", collectionPath(LoginID)), errIsLocked)
+	requireDBusError(t, "SetAlias", setAlias(conn, "mine", collectionPath(LoginID)), secretbus.ErrIsLocked)
 	var got dbus.ObjectPath
-	if err := conn.Object(BusName, rootPath).Call(secretbus.ServiceInterface+".ReadAlias", 0, "mine").Store(&got); err != nil || got != noPrompt {
+	if err := conn.Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".ReadAlias", 0, "mine").Store(&got); err != nil || got != secretbus.NoObject {
 		t.Errorf("ReadAlias(mine) = %s, %v; want none", got, err)
 	}
 }
@@ -374,14 +374,14 @@ func TestAnAliasMovesBetweenUnlockedCollections(t *testing.T) {
 
 func TestUnlockingLetsTheAliasMove(t *testing.T) {
 	f, conn, _ := lockedLogin(t, true)
-	requireDBusError(t, "SetAlias", setAlias(conn, "default", noPrompt), errIsLocked)
+	requireDBusError(t, "SetAlias", setAlias(conn, "default", secretbus.NoObject), secretbus.ErrIsLocked)
 	if f.unlockThroughPrompt(t, conn, collectionPath(LoginID), loginPassword) {
 		t.Fatal("the unlock prompt was dismissed")
 	}
-	if err := setAlias(conn, "default", noPrompt); err != nil {
+	if err := setAlias(conn, "default", secretbus.NoObject); err != nil {
 		t.Fatalf("SetAlias after unlocking = %v", err)
 	}
-	if got := readDefaultAlias(t, conn); got != noPrompt {
+	if got := readDefaultAlias(t, conn); got != secretbus.NoObject {
 		t.Errorf("default = %s after removing it", got)
 	}
 }
@@ -402,10 +402,10 @@ func idleFixture(t *testing.T, after time.Duration, now func() time.Time) (*fixt
 			t.Fatal(err)
 		}
 		var prompt dbus.ObjectPath
-		if err := conn.Object(BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
+		if err := conn.Object(secretbus.BusName, defaultAliasPath).Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(openSession(t, conn), "kept"), false).Store(&item, &prompt); err != nil {
 			t.Fatal(err)
 		}
-		return prompt == noPrompt
+		return prompt == secretbus.NoObject
 	}, "an item created before the collection locked again")
 	return f, conn, item
 }
@@ -431,7 +431,7 @@ func TestIdleCollectionsLockOnlyOnceUnused(t *testing.T) {
 		t.Fatal("locked before its idle time")
 	}
 	var secret Secret
-	if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret); err != nil {
+	if err := conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret); err != nil {
 		t.Fatal(err)
 	}
 	advance(after - time.Minute)
@@ -439,7 +439,7 @@ func TestIdleCollectionsLockOnlyOnceUnused(t *testing.T) {
 	if f.loginLocked() {
 		t.Fatal("reading a secret did not restart the idle clock")
 	}
-	if err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".SetSecret", 0, plainSecret(sess, "changed")).Err; err != nil {
+	if err := conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".SetSecret", 0, plainSecret(sess, "changed")).Err; err != nil {
 		t.Fatal(err)
 	}
 	advance(after - time.Minute)
@@ -448,7 +448,7 @@ func TestIdleCollectionsLockOnlyOnceUnused(t *testing.T) {
 		t.Fatal("a change did not restart the idle clock")
 	}
 	var found []dbus.ObjectPath
-	if err := conn.Object(BusName, collectionPath(LoginID)).Call(secretbus.CollectionInterface+".SearchItems", 0, map[string]string{"k": "v"}).Store(&found); err != nil {
+	if err := conn.Object(secretbus.BusName, collectionPath(LoginID)).Call(secretbus.CollectionInterface+".SearchItems", 0, map[string]string{"k": "v"}).Store(&found); err != nil {
 		t.Fatal(err)
 	}
 	advance(time.Minute)
@@ -476,8 +476,8 @@ func TestAnIdleCollectionLocksByItself(t *testing.T) {
 	f, conn, item := idleFixture(t, 50*time.Millisecond, nil)
 	waittest.Until(t, f.loginLocked, "the idle collection to lock")
 	var secret Secret
-	err := conn.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret)
-	requireDBusError(t, "GetSecret", err, errIsLocked)
+	err := conn.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, openSession(t, conn)).Store(&secret)
+	requireDBusError(t, "GetSecret", err, secretbus.ErrIsLocked)
 }
 
 func TestANewEmptyCollectionLocksWhenIdleToo(t *testing.T) {

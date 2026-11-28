@@ -366,7 +366,7 @@ func TestRestartKeepsItemsBehindThePassword(t *testing.T) {
 func TestStartLeavesAnotherProviderAlone(t *testing.T) {
 	bus := dbustest.Session(t)
 	other := bus.Conn(t)
-	if _, err := other.RequestName(BusName, dbus.NameFlagDoNotQueue); err != nil {
+	if _, err := other.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
 	_, err := Start(bus.Conn(t), Config{Dir: t.TempDir(), KDF: testKDF, Stretch: keyring.Argon2id, Prompter: &fakePrompter{}})
@@ -374,7 +374,7 @@ func TestStartLeavesAnotherProviderAlone(t *testing.T) {
 		t.Fatalf("Start = %v, want dbusx.ErrNameTaken", err)
 	}
 	var owner string
-	if err := other.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, BusName).Store(&owner); err != nil || owner != other.Names()[0] {
+	if err := other.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, secretbus.BusName).Store(&owner); err != nil || owner != other.Names()[0] {
 		t.Errorf("owner = %q, %v; want the first provider kept", owner, err)
 	}
 }
@@ -389,17 +389,17 @@ func TestSessionsBelongToTheirClient(t *testing.T) {
 	alice, mallory := f.bus.Conn(t), f.bus.Conn(t)
 	sess := openSession(t, alice)
 	var item, prompt dbus.ObjectPath
-	coll := alice.Object(BusName, defaultAliasPath)
+	coll := alice.Object(secretbus.BusName, defaultAliasPath)
 	if err := coll.Call(secretbus.CollectionInterface+".CreateItem", 0, itemProps("a"), plainSecret(sess, "x"), false).Store(&item, &prompt); err != nil {
 		t.Fatal(err)
 	}
 	var secret Secret
-	err := mallory.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret)
+	err := mallory.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret)
 	var de dbus.Error
-	if !errors.As(err, &de) || de.Name != errNoSession {
+	if !errors.As(err, &de) || de.Name != secretbus.ErrNoSession {
 		t.Errorf("another client's session = %v, want NoSession", err)
 	}
-	if err := alice.Object(BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret); err != nil || string(secret.Value) != "x" {
+	if err := alice.Object(secretbus.BusName, item).Call(secretbus.ItemInterface+".GetSecret", 0, sess).Store(&secret); err != nil || string(secret.Value) != "x" {
 		t.Fatalf("owner's GetSecret = %q, %v", secret.Value, err)
 	}
 	_ = alice.Close()
@@ -408,7 +408,7 @@ func TestSessionsBelongToTheirClient(t *testing.T) {
 
 func TestUnknownAlgorithmIsNotSupported(t *testing.T) {
 	f := newFixture(t)
-	err := f.bus.Conn(t).Object(BusName, rootPath).Call(secretbus.ServiceInterface+".OpenSession", 0, "rot13", dbus.MakeVariant("")).Err
+	err := f.bus.Conn(t).Object(secretbus.BusName, secretbus.ServicePath).Call(secretbus.ServiceInterface+".OpenSession", 0, "rot13", dbus.MakeVariant("")).Err
 	var de dbus.Error
 	if !errors.As(err, &de) || de.Name != errNotSupported {
 		t.Errorf("OpenSession(rot13) = %v, want NotSupported", err)
@@ -435,7 +435,7 @@ func TestFailedStartLeavesNothingExported(t *testing.T) {
 	}
 	f.svc.Close()
 	other := f.bus.Conn(t)
-	if _, err := other.RequestName(BusName, dbus.NameFlagDoNotQueue); err != nil {
+	if _, err := other.RequestName(secretbus.BusName, dbus.NameFlagDoNotQueue); err != nil {
 		t.Fatal(err)
 	}
 	conn := f.bus.Conn(t)
@@ -443,12 +443,12 @@ func TestFailedStartLeavesNothingExported(t *testing.T) {
 		t.Fatalf("Start = %v, want dbusx.ErrNameTaken", err)
 	}
 	client := f.bus.Conn(t)
-	requireGone(t, client, conn, rootPath, secretbus.ServiceInterface+".OpenSession", transport.AlgPlain, dbus.MakeVariant(""))
+	requireGone(t, client, conn, secretbus.ServicePath, secretbus.ServiceInterface+".OpenSession", transport.AlgPlain, dbus.MakeVariant(""))
 	requireGone(t, client, conn, collectionPath(LoginID), "org.freedesktop.DBus.Properties.Get", secretbus.CollectionInterface, "Label")
 	requireGone(t, client, conn, defaultAliasPath, secretbus.CollectionInterface+".SearchItems", map[string]string{})
 	requireGone(t, client, conn, collectionPath("nothing"), secretbus.CollectionInterface+".SearchItems", map[string]string{})
 	requireGone(t, client, conn, collectionPath(VaultID), "org.freedesktop.DBus.Properties.Get", secretbus.CollectionInterface, "Label")
-	if _, err := other.ReleaseName(BusName); err != nil {
+	if _, err := other.ReleaseName(secretbus.BusName); err != nil {
 		t.Fatal(err)
 	}
 	svc, err := Start(conn, Config{Dir: f.dir, KDF: testKDF, Stretch: keyring.Argon2id, Prompter: f.prompter})
@@ -464,21 +464,21 @@ func TestCloseUnexportsTheService(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := f.bus.Conn(t)
-	root := client.Object(BusName, rootPath)
+	root := client.Object(secretbus.BusName, secretbus.ServicePath)
 	sess := openSession(t, client)
 	var coll, prompt dbus.ObjectPath
-	if err := root.Call(secretbus.ServiceInterface+".CreateCollection", 0, map[string]dbus.Variant{}, "").Store(&coll, &prompt); err != nil || prompt == noPrompt {
+	if err := root.Call(secretbus.ServiceInterface+".CreateCollection", 0, map[string]dbus.Variant{}, "").Store(&coll, &prompt); err != nil || prompt == secretbus.NoObject {
 		t.Fatalf("CreateCollection = %q, %q, %v; want a prompt", coll, prompt, err)
 	}
 	f.svc.Close()
 	conn := f.svc.conn
-	requireGone(t, client, conn, rootPath, secretbus.ServiceInterface+".OpenSession", transport.AlgPlain, dbus.MakeVariant(""))
+	requireGone(t, client, conn, secretbus.ServicePath, secretbus.ServiceInterface+".OpenSession", transport.AlgPlain, dbus.MakeVariant(""))
 	requireGone(t, client, conn, collectionPath(LoginID), "org.freedesktop.DBus.Properties.Get", secretbus.CollectionInterface, "Label")
 	requireGone(t, client, conn, defaultAliasPath, secretbus.CollectionInterface+".SearchItems", map[string]string{})
 	requireGone(t, client, conn, sess, secretbus.SessionInterface+".Close")
 	requireGone(t, client, conn, prompt, secretbus.PromptInterface+".Dismiss")
 	var owner string
-	if err := client.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, BusName).Store(&owner); err == nil {
-		t.Errorf("%s is still owned by %s after Close", BusName, owner)
+	if err := client.BusObject().Call("org.freedesktop.DBus.GetNameOwner", 0, secretbus.BusName).Store(&owner); err == nil {
+		t.Errorf("%s is still owned by %s after Close", secretbus.BusName, owner)
 	}
 }

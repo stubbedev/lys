@@ -60,16 +60,16 @@ func (m serviceMethods) CreateCollection(props map[string]dbus.Variant, alias st
 		return "", "", dbusx.InvalidArgs("invalid alias " + alias)
 	}
 	label := ""
-	if v, ok := props[propCollLabel]; ok {
+	if v, ok := props[secretbus.CollectionLabel]; ok {
 		if label, ok = v.Value().(string); !ok {
-			return "", "", dbusx.InvalidArgs(propCollLabel + " is a string")
+			return "", "", dbusx.InvalidArgs(secretbus.CollectionLabel + " is a string")
 		}
 	}
 	s.mu.Lock()
 	if id, ok := s.aliases[alias]; ok && alias != "" {
 		if _, exists := s.colls[id]; exists {
 			s.mu.Unlock()
-			return collectionPath(id), noPrompt, nil
+			return collectionPath(id), secretbus.NoObject, nil
 		}
 	}
 	s.mu.Unlock()
@@ -80,18 +80,18 @@ func (m serviceMethods) CreateCollection(props map[string]dbus.Variant, alias st
 		password, ok, err := s.cfg.Prompter.NewPassword(ctx, label)
 		if err != nil || !ok {
 			logPromptErr("create collection", err)
-			return true, dbus.MakeVariant(noPrompt)
+			return true, dbus.MakeVariant(secretbus.NoObject)
 		}
 		defer clear(password)
 		kr, err := keyring.New(label, password, s.cfg.KDF, s.cfg.Stretch, s.now())
 		if err != nil {
 			log.Printf("secrets: create collection %q: %v", label, err)
-			return true, dbus.MakeVariant(noPrompt)
+			return true, dbus.MakeVariant(secretbus.NoObject)
 		}
 		id, err := s.addCollection(func(taken func(string) bool) string { return idFor(label, taken) }, kr)
 		if err != nil {
 			log.Printf("secrets: create collection %q: %v", label, err)
-			return true, dbus.MakeVariant(noPrompt)
+			return true, dbus.MakeVariant(secretbus.NoObject)
 		}
 		if alias != "" {
 			if err := s.setAlias(alias, id); err != nil {
@@ -103,7 +103,7 @@ func (m serviceMethods) CreateCollection(props map[string]dbus.Variant, alias st
 	if derr != nil {
 		return "", "", derr
 	}
-	return noPrompt, prompt, nil
+	return secretbus.NoObject, prompt, nil
 }
 
 // SearchItems is every item matching attrs, unlocked and locked apart. When
@@ -161,7 +161,7 @@ func (m serviceMethods) Unlock(sender dbus.Sender, objects []dbus.ObjectPath) ([
 	}
 	s.mu.Unlock()
 	if len(pending) == 0 && len(pendingVault) == 0 && len(pendingReads) == 0 {
-		return unlocked, noPrompt, nil
+		return unlocked, secretbus.NoObject, nil
 	}
 	prompt, derr := s.newPrompt(func(ctx context.Context) (bool, dbus.Variant) {
 		done := []dbus.ObjectPath{}
@@ -254,7 +254,7 @@ func (m serviceMethods) Lock(objects []dbus.ObjectPath) ([]dbus.ObjectPath, dbus
 	if lockVault {
 		s.cfg.Vault.Lock()
 	}
-	return locked, noPrompt, nil
+	return locked, secretbus.NoObject, nil
 }
 
 // LockService locks every collection and the vault.
@@ -354,7 +354,7 @@ func (m serviceMethods) ReadAlias(name string) (dbus.ObjectPath, *dbus.Error) {
 			return collectionPath(id), nil
 		}
 	}
-	return noPrompt, nil
+	return secretbus.NoObject, nil
 }
 
 // SetAlias points an alias at a collection, or removes it with "/". The
@@ -372,7 +372,7 @@ func (m serviceMethods) SetAlias(name string, collection dbus.ObjectPath) *dbus.
 		return lockedErr(keyring.ErrLocked)
 	}
 	id := ""
-	if collection != noPrompt {
+	if collection != secretbus.NoObject {
 		c, item, ok := s.resolveLocked(collection)
 		if !ok || item != 0 {
 			s.mu.Unlock()
@@ -428,7 +428,7 @@ func (m collectionMethods) Delete() (dbus.ObjectPath, *dbus.Error) {
 	s.mu.Lock()
 	if s.colls[c.id] != c {
 		s.mu.Unlock()
-		return noPrompt, nil
+		return secretbus.NoObject, nil
 	}
 	c.kr.Destroy()
 	c.unexport()
@@ -452,8 +452,8 @@ func (m collectionMethods) Delete() (dbus.ObjectPath, *dbus.Error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	emit(s, secretbus.CollectionDeleted, rootPath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
-	return noPrompt, nil
+	emit(s, secretbus.CollectionDeleted, secretbus.ServicePath, secretbus.CollectionEvent{Collection: collectionPath(c.id)})
+	return secretbus.NoObject, nil
 }
 
 // SearchItems is the collection's items matching attrs.
@@ -478,14 +478,14 @@ func (m collectionMethods) CreateItem(sender dbus.Sender, props map[string]dbus.
 	s := m.s
 	owner := s.peers.identify(string(sender)).program
 	label, attrs := "", map[string]string{}
-	if v, ok := props[propItemLabel]; ok {
+	if v, ok := props[secretbus.ItemLabel]; ok {
 		if label, ok = v.Value().(string); !ok {
-			return "", "", dbusx.InvalidArgs(propItemLabel + " is a string")
+			return "", "", dbusx.InvalidArgs(secretbus.ItemLabel + " is a string")
 		}
 	}
-	if v, ok := props[propItemAttrs]; ok {
+	if v, ok := props[secretbus.ItemAttributes]; ok {
 		if attrs, ok = v.Value().(map[string]string); !ok {
-			return "", "", dbusx.InvalidArgs(propItemAttrs + " is a{ss}")
+			return "", "", dbusx.InvalidArgs(secretbus.ItemAttributes + " is a{ss}")
 		}
 	}
 	s.mu.Lock()
@@ -516,17 +516,17 @@ func (m collectionMethods) CreateItem(sender dbus.Sender, props map[string]dbus.
 	s.mu.Unlock()
 	if !locked {
 		path, derr := create()
-		return path, noPrompt, derr
+		return path, secretbus.NoObject, derr
 	}
 	prompt, derr := s.newPrompt(func(ctx context.Context) (bool, dbus.Variant) {
 		if !s.promptUnlock(ctx, c.id) {
 			clear(value)
-			return true, dbus.MakeVariant(noPrompt)
+			return true, dbus.MakeVariant(secretbus.NoObject)
 		}
 		path, derr := create()
 		if derr != nil {
 			log.Printf("secrets: create an item in %s: %v", c.id, derr)
-			return true, dbus.MakeVariant(noPrompt)
+			return true, dbus.MakeVariant(secretbus.NoObject)
 		}
 		return false, dbus.MakeVariant(path)
 	})
@@ -534,7 +534,7 @@ func (m collectionMethods) CreateItem(sender dbus.Sender, props map[string]dbus.
 		clear(value)
 		return "", "", derr
 	}
-	return noPrompt, prompt, nil
+	return secretbus.NoObject, prompt, nil
 }
 
 // createItem stores a secret in the unlocked c and announces the item.
@@ -590,7 +590,7 @@ func (m itemMethods) Delete() (dbus.ObjectPath, *dbus.Error) {
 	if err != nil {
 		return "", lockedErr(err)
 	}
-	return noPrompt, nil
+	return secretbus.NoObject, nil
 }
 
 // GetSecret returns the secret, encoded for the caller's session. When reads

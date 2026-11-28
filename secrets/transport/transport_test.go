@@ -3,6 +3,8 @@ package transport
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/rand"
+	"math/big"
 	"runtime"
 	"strconv"
 	"strings"
@@ -90,4 +92,39 @@ func FuzzAESDecode(f *testing.F) {
 	f.Fuzz(func(t *testing.T, params, value []byte) {
 		_, _ = a.Decode(params, value)
 	})
+}
+
+func TestTheSharedSecretRefusesAPeerKeyThatFixesIt(t *testing.T) {
+	p := Prime()
+	priv, public, err := KeyPair(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, peer := range map[string][]byte{"0": {}, "1": {1}, "p-1": new(big.Int).Sub(p, big.NewInt(1)).Bytes(), "p": p.Bytes(), "p+1": new(big.Int).Add(p, big.NewInt(1)).Bytes()} {
+		if shared, err := Shared(peer, priv); err == nil {
+			t.Errorf("peer %s gave the secret %x", name, shared)
+		}
+	}
+	otherPriv, otherPublic, err := KeyPair(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mine, err := Shared(otherPublic, priv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	theirs, err := Shared(public, otherPriv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mine) != PrimeLen || !bytes.Equal(mine, theirs) {
+		t.Fatalf("the ends disagree: %x and %x", mine, theirs)
+	}
+}
+
+func TestPrimeIsACopy(t *testing.T) {
+	Prime().SetInt64(5)
+	if Prime().BitLen() != 8*PrimeLen {
+		t.Fatal("changing a returned prime changed the group")
+	}
 }

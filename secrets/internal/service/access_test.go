@@ -134,7 +134,7 @@ func TestADeniedReadDismissesThePromptAndReturnsNoSecret(t *testing.T) {
 	attrs := map[string]string{"service": "mail"}
 	store(t, f.bus.Conn(t), "Mail", "m41l", attrs)
 
-	root := foreign.Object(BusName, rootPath)
+	root := foreign.Object(secretbus.BusName, secretbus.ServicePath)
 	var unlocked, locked []dbus.ObjectPath
 	if err := root.Call(secretbus.ServiceInterface+".SearchItems", 0, attrs).Store(&unlocked, &locked); err != nil || len(unlocked) != 0 || len(locked) != 1 {
 		t.Fatalf("a foreign search = %v, %v, %v; want the item locked to it", unlocked, locked, err)
@@ -149,14 +149,14 @@ func TestADeniedReadDismissesThePromptAndReturnsNoSecret(t *testing.T) {
 		t.Errorf("a foreign GetSecrets before the dialog = %v, %v", secrets, err)
 	}
 	var secret Secret
-	err := foreign.Object(BusName, locked[0]).Call(secretbus.ItemInterface+".GetSecret", 0, session).Store(&secret)
+	err := foreign.Object(secretbus.BusName, locked[0]).Call(secretbus.ItemInterface+".GetSecret", 0, session).Store(&secret)
 	var de dbus.Error
-	if !errors.As(err, &de) || de.Name != errIsLocked {
+	if !errors.As(err, &de) || de.Name != secretbus.ErrIsLocked {
 		t.Errorf("a foreign GetSecret before the dialog = %v, want IsLocked", err)
 	}
 	var done []dbus.ObjectPath
 	var prompt dbus.ObjectPath
-	if err := root.Call(secretbus.ServiceInterface+".Unlock", 0, locked).Store(&done, &prompt); err != nil || len(done) != 0 || prompt == noPrompt {
+	if err := root.Call(secretbus.ServiceInterface+".Unlock", 0, locked).Store(&done, &prompt); err != nil || len(done) != 0 || prompt == secretbus.NoObject {
 		t.Fatalf("a foreign Unlock = %v, %q, %v; want a prompt", done, prompt, err)
 	}
 	if dismissed := f.showPrompt(t, foreign, prompt, ""); !dismissed {
@@ -166,7 +166,7 @@ func TestADeniedReadDismissesThePromptAndReturnsNoSecret(t *testing.T) {
 		t.Errorf("a foreign GetSecrets after Deny = %v, %v", secrets, err)
 	}
 
-	if err := root.Call(secretbus.ServiceInterface+".Unlock", 0, locked).Store(&done, &prompt); err != nil || prompt == noPrompt {
+	if err := root.Call(secretbus.ServiceInterface+".Unlock", 0, locked).Store(&done, &prompt); err != nil || prompt == secretbus.NoObject {
 		t.Fatalf("a foreign Unlock = %v, %q, %v; want a prompt", done, prompt, err)
 	}
 	if dismissed := f.showPrompt(t, foreign, prompt, "allow"); dismissed {
@@ -276,7 +276,7 @@ func TestWithoutConfirmationAReadAsksTheBusNothing(t *testing.T) {
 	if got, err := lookup(t, reader, attrs); err != nil || got != "y" {
 		t.Fatalf("lookup = %q, %v", got, err)
 	}
-	root := reader.Object(BusName, rootPath)
+	root := reader.Object(secretbus.BusName, secretbus.ServicePath)
 	var unlocked, locked []dbus.ObjectPath
 	if err := root.Call(secretbus.ServiceInterface+".SearchItems", 0, attrs).Store(&unlocked, &locked); err != nil {
 		t.Fatal(err)
@@ -287,7 +287,7 @@ func TestWithoutConfirmationAReadAsksTheBusNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	var secret Secret
-	if err := reader.Object(BusName, unlocked[0]).Call(secretbus.ItemInterface+".GetSecret", 0, session).Store(&secret); err != nil {
+	if err := reader.Object(secretbus.BusName, unlocked[0]).Call(secretbus.ItemInterface+".GetSecret", 0, session).Store(&secret); err != nil {
 		t.Fatal(err)
 	}
 	if got := calls.Load(); got != 0 {
