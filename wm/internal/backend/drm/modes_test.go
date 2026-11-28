@@ -314,3 +314,22 @@ func TestAnOutputLitInItsModeTestsNoModeset(t *testing.T) {
 		t.Fatal("the output does not report the frame it inherited")
 	}
 }
+
+func TestACommitFindsItsModeWhetherOrNotItSaysPreferred(t *testing.T) {
+	r := start(t)
+	o := r.lit()
+	for _, m := range o.Modes() {
+		state := o.State()
+		state.Mode = m
+		state.Mode.Preferred = !m.Preferred
+		if err := o.Commit(state); err != nil {
+			t.Fatalf("committing %+v with the preferred flag flipped: %v", m, err)
+		}
+		r.settle()
+	}
+	state := o.State()
+	state.Mode.RefreshMHz++
+	if err := o.Commit(state); err == nil || !strings.Contains(err.Error(), "has no mode") {
+		t.Fatalf("committing a mode the connector lacks gave %v", err)
+	}
+}

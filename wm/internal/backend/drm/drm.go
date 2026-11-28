@@ -1466,7 +1466,7 @@ func (o *Output) Commit(s backend.OutputState) error {
 		}
 		return o.b.lightStarved()
 	}
-	i := slices.IndexFunc(o.conn.Modes, func(m kdrm.Mode) bool { return modeOf(m) == s.Mode })
+	i := backend.IndexMode(o.Modes(), s.Mode)
 	if i < 0 {
 		return fmt.Errorf("drm: %s has no mode %+v", o.Name(), s.Mode)
 	}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/lib/edid"
@@ -26,6 +27,10 @@ func NextVblank(last, now, interval time.Duration) (at time.Duration, ticks uint
 }
 
 const DefaultRefreshMHz = 60000
+
+func IndexMode(modes []Mode, m Mode) int {
+	return slices.IndexFunc(modes, func(o Mode) bool { return o.Size == m.Size && o.RefreshMHz == m.RefreshMHz })
+}
 
 type Pacing struct {
 	Vblank   time.Duration

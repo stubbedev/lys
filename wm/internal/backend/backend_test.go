@@ -115,3 +115,21 @@ func TestAPacedIntervalIsAWholeNumberOfRefreshesUnderTheCap(t *testing.T) {
 		t.Errorf("under VRR a cap above the mode's refresh paces at %v, want the mode's interval", got)
 	}
 }
+
+func TestAModeIsFoundByItsSizeAndRefreshAlone(t *testing.T) {
+	modes := []Mode{{Size: image.Pt(1920, 1080), RefreshMHz: 60000, Preferred: true}, {Size: image.Pt(1920, 1080), RefreshMHz: 144000}, {Size: image.Pt(1280, 720), RefreshMHz: 60000}}
+	for _, c := range []struct {
+		m    Mode
+		want int
+	}{
+		{Mode{Size: image.Pt(1920, 1080), RefreshMHz: 60000}, 0},
+		{Mode{Size: image.Pt(1920, 1080), RefreshMHz: 144000, Preferred: true}, 1},
+		{Mode{Size: image.Pt(1280, 720), RefreshMHz: 60000}, 2},
+		{Mode{Size: image.Pt(1280, 720), RefreshMHz: 59940}, -1},
+		{Mode{Size: image.Pt(800, 600), RefreshMHz: 60000}, -1},
+	} {
+		if got := IndexMode(modes, c.m); got != c.want {
+			t.Errorf("%+v is at %d, want %d", c.m, got, c.want)
+		}
+	}
+}

@@ -498,8 +498,8 @@ func (o *Output) Commit(s backend.OutputState) error {
 		return fmt.Errorf("headless: %s: %w", o.name, backend.ErrHDRUnsupported)
 	}
 	if s.Enabled() {
-		if err := s.Mode.Valid(); err != nil {
-			return fmt.Errorf("headless: %s: %w", o.name, err)
+		if backend.IndexMode(o.modes, s.Mode) < 0 {
+			return fmt.Errorf("headless: %s has no mode %+v", o.name, s.Mode)
 		}
 		if s.Mode.Size != o.slots[0].buffer.Size() {
 			if err := o.resize(s.Mode.Size); err != nil {

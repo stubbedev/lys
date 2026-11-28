@@ -766,3 +766,24 @@ func TestAHeadlessOutputIsAnInternalPanelByItsName(t *testing.T) {
 		}
 	}
 }
+
+func TestAHeadlessOutputRefusesAModeItDoesNotHave(t *testing.T) {
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	o, err := New(l).AddOutput(backend.Mode{Size: image.Pt(64, 64), RefreshMHz: 60000}, backend.Mode{Size: image.Pt(32, 32), RefreshMHz: 30000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := o.State()
+	state.Mode = backend.Mode{Size: image.Pt(32, 32), RefreshMHz: 30000}
+	if err := o.Commit(state); err != nil {
+		t.Fatalf("committing a listed mode: %v", err)
+	}
+	state.Mode = backend.Mode{Size: image.Pt(48, 48), RefreshMHz: 60000}
+	if err := o.Commit(state); err == nil || !strings.Contains(err.Error(), "has no mode") {
+		t.Fatalf("committing an unlisted mode gave %v", err)
+	}
+}

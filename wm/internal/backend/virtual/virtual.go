@@ -135,7 +135,7 @@ func (o *Output) Commit(s backend.OutputState) error {
 		o.pending = false
 		o.state = s
 		return o.freeTarget()
-	case s.Mode.Size != o.mode.Size || s.Mode.RefreshMHz != o.mode.RefreshMHz:
+	case backend.IndexMode(o.Modes(), s.Mode) < 0:
 		return fmt.Errorf("virtual: %s has only the mode %dx%d@%dmHz, not %dx%d@%dmHz", o.name, o.mode.Size.X, o.mode.Size.Y, o.mode.RefreshMHz, s.Mode.Size.X, s.Mode.Size.Y, s.Mode.RefreshMHz)
 	case s.Depth != backend.Depth8:
 		return fmt.Errorf("virtual: %s: %w", o.name, backend.ErrDepthUnsupported)
