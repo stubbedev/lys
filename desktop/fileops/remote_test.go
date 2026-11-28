@@ -10,7 +10,11 @@ import (
 	"sync"
 	"testing"
 
+	"golang.org/x/crypto/ssh/knownhosts"
+
 	"github.com/stubbedev/lys/desktop/vfs"
+	"github.com/stubbedev/lys/desktop/vfs/sftpfs"
+	"github.com/stubbedev/lys/desktop/vfs/sftpfs/sftptest"
 	"github.com/stubbedev/lys/desktop/vfs/vfstest"
 )
 
@@ -60,8 +64,8 @@ func TestACopyGoesFromTheLocalDiskToANetworkLocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if undo != nil {
-		t.Error("a copy onto a network location offers an undo")
+	if undo == nil {
+		t.Error("a copy onto a network location offers no undo")
 	}
 	if got := memNames(t, mem, "/up"); !slices.Equal(got, []string{"dir"}) {
 		t.Errorf("the destination holds %v, want dir alone", got)
@@ -237,5 +241,154 @@ func TestACancelledRemoteCopyLeavesNothing(t *testing.T) {
 	}
 	if got := memNames(t, mem, "/up"); len(got) != 0 {
 		t.Errorf("the cancelled copy left %v", got)
+	}
+}
+
+// The undo of a copy onto a network location removes exactly what the
+// copy made there and counts it; a second undo finds nothing to
+// remove; a copy that only replaced what was there offers none.
+func TestARemoteCopyIsUndone(t *testing.T) {
+	mounts := vfs.NewMounts()
+	mem := connected(t, mounts, "sftp://h/")
+	mem.WriteFile("/up/before.txt", []byte("b"))
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "dir", "a.txt"), "alpha", 0o644)
+	writeFile(t, filepath.Join(src, "dir", "sub", "b.txt"), "beta", 0o644)
+	writeFile(t, filepath.Join(src, "single.txt"), "one", 0o644)
+	undo, err := run(Copy{Sources: []string{filepath.Join(src, "dir"), filepath.Join(src, "single.txt")}, Dest: "sftp://h/up", Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy = %v, %v, want an undo", undo, err)
+	}
+	w := &watcher{}
+	if _, err := run(undo, w); err != nil {
+		t.Fatal(err)
+	}
+	if got := memNames(t, mem, "/up"); !slices.Equal(got, []string{"before.txt"}) {
+		t.Errorf("after the undo /up holds %v, want only what was there before", got)
+	}
+	if w.last.Files != 5 || w.last.TotalFiles != 5 {
+		t.Errorf("the undo counted %+v, want 5 of 5", w.last)
+	}
+	if _, err := run(undo, &watcher{}); err != nil {
+		t.Errorf("a second undo: %v, want nothing left to remove", err)
+	}
+	undo, err = run(Copy{Sources: []string{filepath.Join(src, "single.txt")}, Dest: "sftp://h/up", Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy = %v, %v", undo, err)
+	}
+	undo, err = run(Copy{Sources: []string{filepath.Join(src, "single.txt")}, Dest: "sftp://h/up", Mounts: mounts}, &watcher{answers: []Resolution{{Action: Replace}}})
+	if err != nil || undo != nil {
+		t.Errorf("a remote copy that only replaced = %+v, %v, want no undo", undo, err)
+	}
+}
+
+// The undo of a remote copy leaves a file rewritten since and a folder
+// holding what the copy did not put there, each an error naming it,
+// and removes the rest; with the location disconnected it removes
+// nothing and says so.
+func TestARemoteCopyUndoLeavesWhatChanged(t *testing.T) {
+	mounts := vfs.NewMounts()
+	mem := connected(t, mounts, "sftp://h/")
+	mem.MkdirAll("/up")
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "dir", "a.txt"), "alpha", 0o644)
+	writeFile(t, filepath.Join(src, "dir", "b.txt"), "beta", 0o644)
+	writeFile(t, filepath.Join(src, "dir", "sub", "c.txt"), "gamma", 0o644)
+	undo, err := run(Copy{Sources: []string{filepath.Join(src, "dir")}, Dest: "sftp://h/up", Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy = %v, %v", undo, err)
+	}
+	mem.WriteFile("/up/dir/a.txt", []byte("rewritten"))
+	mem.WriteFile("/up/dir/sub/added.txt", []byte("new"))
+	_, err = run(undo, &watcher{})
+	for _, want := range []string{"sftp://h/up/dir/a.txt changed since the copy made it", "sftp://h/up/dir/sub"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("the undo: %v, want an error naming %q", err, want)
+		}
+	}
+	if got := memNames(t, mem, "/up/dir"); !slices.Equal(got, []string{"a.txt", "sub"}) {
+		t.Errorf("after the undo /up/dir holds %v, want the rewritten file and the folder holding more", got)
+	}
+	if got := memNames(t, mem, "/up/dir/sub"); !slices.Equal(got, []string{"added.txt"}) {
+		t.Errorf("after the undo /up/dir/sub holds %v, want only what was added", got)
+	}
+
+	undo, err = run(Copy{Sources: []string{filepath.Join(src, "dir", "b.txt")}, Dest: "sftp://h/up", Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy = %v, %v", undo, err)
+	}
+	if err := mounts.Remove(vfs.Server{Scheme: vfs.SFTP, Host: "h"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(undo, &watcher{}); !errors.Is(err, vfs.ErrNotMounted) {
+		t.Errorf("the undo with the location disconnected: %v, want %v", err, vfs.ErrNotMounted)
+	}
+}
+
+// sftpMount connects mounts to a real SFTP server serving the local
+// disk and returns the location of dir on it.
+func sftpMount(t *testing.T, mounts *vfs.Mounts, dir string) string {
+	t.Helper()
+	s := sftptest.Start(t, "bob", "pw")
+	known := filepath.Join(t.TempDir(), "known_hosts")
+	if err := os.WriteFile(known, []byte(knownhosts.Line([]string{knownhosts.Normalize(s.Addr)}, s.Key)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	srv := s.Server("bob")
+	c, err := sftpfs.Dial(context.Background(), srv, vfs.Credentials{Password: "pw"}, &vfs.Trust{KnownHosts: known}, sftpfs.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := mounts.Add(vfs.Mount{Server: srv, Label: srv.String(), Home: "/", Conn: c}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = mounts.Close() })
+	return vfs.Location{Server: srv, Path: dir}.String()
+}
+
+// Over a real SFTP server, the undo of a copy onto it removes the
+// copy, a copy rewritten there since stays, and the undo of a copy
+// from it onto the local disk removes the local copy.
+func TestARemoteCopyUndoOverSFTP(t *testing.T) {
+	mounts := vfs.NewMounts()
+	served := t.TempDir()
+	remote := sftpMount(t, mounts, served)
+	src := t.TempDir()
+	writeFile(t, filepath.Join(src, "f.txt"), "file", 0o644)
+	undo, err := run(Copy{Sources: []string{filepath.Join(src, "f.txt")}, Dest: remote, Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy onto SFTP = %v, %v", undo, err)
+	}
+	if _, err := run(undo, &watcher{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(t, served); len(got) != 0 {
+		t.Errorf("after the undo the server holds %q", got)
+	}
+	undo, err = run(Copy{Sources: []string{filepath.Join(src, "f.txt")}, Dest: remote, Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy onto SFTP = %v, %v", undo, err)
+	}
+	writeFile(t, filepath.Join(served, "f.txt"), "rewritten on the server", 0o644)
+	if _, err := run(undo, &watcher{}); err == nil || !strings.Contains(err.Error(), vfs.Join(remote, "f.txt")+" changed since the copy made it") {
+		t.Errorf("the undo of a copy rewritten since: %v", err)
+	}
+	if got := content(t, filepath.Join(served, "f.txt")); got != "rewritten on the server" {
+		t.Errorf("the rewritten copy holds %q after the undo", got)
+	}
+
+	dst := t.TempDir()
+	undo, err = run(Copy{Sources: []string{vfs.Join(remote, "f.txt")}, Dest: dst, Mounts: mounts}, &watcher{})
+	if err != nil || undo == nil {
+		t.Fatalf("the copy from SFTP = %v, %v", undo, err)
+	}
+	if got := content(t, filepath.Join(dst, "f.txt")); got != "rewritten on the server" {
+		t.Errorf("the copy from SFTP holds %q", got)
+	}
+	if _, err := run(undo, &watcher{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := names(t, dst); len(got) != 0 {
+		t.Errorf("after the undo the local folder holds %q", got)
 	}
 }

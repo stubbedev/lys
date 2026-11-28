@@ -449,9 +449,12 @@
       "time"
     ],
     "testImports": [
+      "desktop/vfs/sftpfs",
+      "desktop/vfs/sftpfs/sftptest",
       "desktop/vfs/vfstest"
     ],
     "testExternal": [
+      "golang.org/x/crypto/ssh/knownhosts",
       "sync",
       "testing"
     ]

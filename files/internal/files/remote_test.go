@@ -13,6 +13,7 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
+	"github.com/stubbedev/lys/ui/app"
 
 	"github.com/stubbedev/lys/files/internal/locale"
 )
@@ -130,5 +131,39 @@ func TestAFileOnANetworkLocationOpensAsAFetchedCopy(t *testing.T) {
 	hs.menu(t, msg("files-open"))
 	if !slices.Contains(hs.toasts, locale.T().Get("files-open-failed", i18n.Str("name", "remote.txt"))) {
 		t.Errorf("opening without a fetch folder said %v", hs.toasts)
+	}
+}
+
+// Ctrl+Z after a copy onto a network location removes the copy there;
+// a copy rewritten there since stays.
+func TestACopyOntoANetworkLocationIsUndone(t *testing.T) {
+	hs := newHarness(t)
+	mem := hs.connect(t)
+	hs.open(hs.root)
+	hs.goTo("sftp://bob@nas/share")
+	undoable := func() bool {
+		var n int
+		hs.run(func() { n = len(hs.f.undos) })
+		return n == 1
+	}
+	for _, rewrite := range []bool{false, true} {
+		hs.clip.content = filebrowser.FilesContent([]string{hs.path("b.txt")}, false)
+		hs.backgroundMenu(t, msg("files-paste"))
+		hs.settle()
+		if !undoable() {
+			t.Fatal("the copy onto the network location left nothing to undo")
+		}
+		if rewrite {
+			mem.WriteFile("/share/b.txt", []byte("rewritten on the server"))
+		}
+		hs.key('z', app.ModCtrl, nil)
+		hs.settle()
+		got, ok := mem.ReadFile("/share/b.txt")
+		if rewrite && (!ok || string(got) != "rewritten on the server") {
+			t.Errorf("the undo of a copy rewritten since left %q, %v", got, ok)
+		}
+		if !rewrite && ok {
+			t.Error("the undo left the copy on the network location")
+		}
 	}
 }

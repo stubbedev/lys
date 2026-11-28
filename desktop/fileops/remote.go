@@ -23,8 +23,9 @@ import (
 // renamed into place, so the destination holds the whole copy or
 // nothing of it. Links are copied as what they lead to, since a network
 // filesystem keeps none. A move within one server is a rename on it.
-// What such a copy made is not undone (no stamp says it is unchanged);
-// a move is, by moving it back.
+// What such a copy made is stamped as it is built, each file by its
+// size and modification time, so an undo removes it only while it is
+// unchanged; a move is undone by moving it back.
 
 // remoteDepth bounds how deep a scan over a network location goes: past
 // it a folder is a loop the server did not mark as a link.
@@ -137,7 +138,7 @@ func (r *runner) listAny(mounts *vfs.Mounts, dir string) (listing, error) {
 
 // transferRemote scans, plans and carries out a transfer that touches
 // a network location.
-func (r *runner) transferRemote(mounts *vfs.Mounts, op transfer, reqs []request) ([]placed, error) {
+func (r *runner) transferRemote(mounts *vfs.Mounts, op transfer, reqs []request) ([]placed[vfsStamp], error) {
 	dirs := make(map[string]listing)
 	for i := range reqs {
 		n, err := r.scanAny(mounts, reqs[i].src)
@@ -160,7 +161,7 @@ func (r *runner) transferRemote(mounts *vfs.Mounts, op transfer, reqs []request)
 		return nil, err
 	}
 	r.begin(p.files, p.bytes)
-	var done []placed
+	var done []placed[vfsStamp]
 	for _, it := range p.items {
 		if err := r.ctx.Err(); err != nil {
 			return done, fmt.Errorf("%s %s: %w", p.op.verb(), it.src, err)
@@ -179,7 +180,7 @@ func (r *runner) transferRemote(mounts *vfs.Mounts, op transfer, reqs []request)
 // transferItemRemote carries out one item of a transfer through the
 // filesystems: false when it was skipped or failed before anything was
 // put in place.
-func (r *runner) transferItemRemote(mounts *vfs.Mounts, p plan, it item) (placed, bool, error) {
+func (r *runner) transferItemRemote(mounts *vfs.Mounts, p plan, it item) (placed[vfsStamp], bool, error) {
 	files, bytes := it.node.count()
 	if it.rename {
 		bytes = 0
@@ -187,43 +188,47 @@ func (r *runner) transferItemRemote(mounts *vfs.Mounts, p plan, it item) (placed
 	if it.conflict {
 		a, err := r.decide(Conflict{Source: it.src, Target: it.dst, SourceIsDir: it.node.isDir(), TargetIsDir: it.targetIsDir})
 		if err != nil {
-			return placed{}, false, err
+			return placed[vfsStamp]{}, false, err
 		}
 		taken := p.taken[vfs.Dir(it.dst)]
 		resolved, ok, err := resolve(it, a, taken)
 		if err != nil {
-			return placed{}, false, err
+			return placed[vfsStamp]{}, false, err
 		}
 		if !ok {
 			r.advance(it.src, files, bytes)
-			return placed{}, false, nil
+			return placed[vfsStamp]{}, false, nil
 		}
 		it = resolved
 		taken[vfs.Base(it.dst)] = it.node.isDir()
 	}
 	dstFS, dstPath, err := reach(mounts, it.dst)
 	if err != nil {
-		return placed{}, false, err
+		return placed[vfsStamp]{}, false, err
 	}
-	done := placed{src: it.src, dst: it.dst, replaced: it.replace}
+	done := placed[vfsStamp]{src: it.src, dst: it.dst, replaced: it.replace}
 	if it.rename {
 		srcFS, srcPath, err := reach(mounts, it.src)
 		if err != nil {
-			return placed{}, false, err
+			return placed[vfsStamp]{}, false, err
 		}
 		if it.replace {
 			if err := removeTree(r.ctx, dstFS, dstPath, nil); err != nil {
-				return placed{}, false, fmt.Errorf("remove the replaced %s: %w", it.dst, err)
+				return placed[vfsStamp]{}, false, fmt.Errorf("remove the replaced %s: %w", it.dst, err)
 			}
 		}
 		if err := srcFS.Rename(r.ctx, srcPath, dstPath); err != nil {
-			return placed{}, false, err
+			return placed[vfsStamp]{}, false, err
 		}
 		r.advance(it.dst, files, 0)
 		return done, true, nil
 	}
-	if err := r.copyIntoRemote(mounts, it, dstFS, dstPath); err != nil {
-		return placed{}, false, err
+	m, err := r.copyIntoRemote(mounts, it, dstFS, dstPath)
+	if err != nil {
+		return placed[vfsStamp]{}, false, err
+	}
+	if p.op == copying {
+		done.made = m
 	}
 	if p.op == moving {
 		srcFS, srcPath, err := reach(mounts, it.src)
@@ -238,15 +243,16 @@ func (r *runner) transferItemRemote(mounts *vfs.Mounts, p plan, it item) (placed
 }
 
 // copyIntoRemote builds the item's tree in a private folder beside its
-// destination and renames it into place.
-func (r *runner) copyIntoRemote(mounts *vfs.Mounts, it item, dstFS vfs.FS, dstPath string) (err error) {
+// destination, renames it into place and returns what it built, its
+// top stamped where it was put.
+func (r *runner) copyIntoRemote(mounts *vfs.Mounts, it item, dstFS vfs.FS, dstPath string) (m made[vfsStamp], err error) {
 	srcFS, srcPath, err := reach(mounts, it.src)
 	if err != nil {
-		return err
+		return made[vfsStamp]{}, err
 	}
 	stage := vfs.Join(vfs.Dir(dstPath), stageName())
 	if err := dstFS.Mkdir(r.ctx, stage); err != nil {
-		return err
+		return made[vfsStamp]{}, err
 	}
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.ctx), cleanupTimeout)
@@ -256,15 +262,23 @@ func (r *runner) copyIntoRemote(mounts *vfs.Mounts, it item, dstFS vfs.FS, dstPa
 		}
 	}()
 	built := vfs.Join(stage, it.node.name)
-	if err := r.buildRemote(srcFS, srcPath, it.node, dstFS, built); err != nil {
-		return err
+	if m, err = r.buildRemote(srcFS, srcPath, it.node, dstFS, built); err != nil {
+		return made[vfsStamp]{}, err
 	}
 	if it.replace {
 		if err := removeTree(r.ctx, dstFS, dstPath, nil); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("remove the replaced %s: %w", it.dst, err)
+			return made[vfsStamp]{}, fmt.Errorf("remove the replaced %s: %w", it.dst, err)
 		}
 	}
-	return dstFS.Rename(r.ctx, built, dstPath)
+	if err := dstFS.Rename(r.ctx, built, dstPath); err != nil {
+		return made[vfsStamp]{}, err
+	}
+	info, err := dstFS.Stat(r.ctx, dstPath)
+	if err != nil {
+		return made[vfsStamp]{}, err
+	}
+	m.stamp = stampOf(info)
+	return m, nil
 }
 
 // stageName is a private folder's name, unlike any other.
@@ -274,23 +288,69 @@ func stageName() string {
 	return ".fileops-" + hex.EncodeToString(b[:])
 }
 
-// buildRemote copies the tree n at src on srcFS to at on dstFS.
-func (r *runner) buildRemote(srcFS vfs.FS, src string, n node, dstFS vfs.FS, at string) error {
+// buildRemote copies the tree n at src on srcFS to at on dstFS and
+// returns what it built, each file stamped once written.
+func (r *runner) buildRemote(srcFS vfs.FS, src string, n node, dstFS vfs.FS, at string) (made[vfsStamp], error) {
 	if err := r.ctx.Err(); err != nil {
-		return err
+		return made[vfsStamp]{}, err
 	}
 	if n.kind != directory {
-		return r.copyStream(srcFS, src, dstFS, at)
+		if err := r.copyStream(srcFS, src, dstFS, at); err != nil {
+			return made[vfsStamp]{}, err
+		}
+		info, err := dstFS.Stat(r.ctx, at)
+		if err != nil {
+			return made[vfsStamp]{}, err
+		}
+		return made[vfsStamp]{name: n.name, kind: regular, stamp: stampOf(info)}, nil
 	}
 	if err := dstFS.Mkdir(r.ctx, at); err != nil {
-		return err
+		return made[vfsStamp]{}, err
 	}
+	m := made[vfsStamp]{name: n.name, kind: directory, stamp: vfsStamp{dir: true}, children: make([]made[vfsStamp], 0, len(n.children))}
 	for _, c := range n.children {
-		if err := r.buildRemote(srcFS, vfs.Join(src, c.name), c, dstFS, vfs.Join(at, c.name)); err != nil {
-			return err
+		cm, err := r.buildRemote(srcFS, vfs.Join(src, c.name), c, dstFS, vfs.Join(at, c.name))
+		if err != nil {
+			return made[vfsStamp]{}, err
 		}
+		m.children = append(m.children, cm)
 	}
 	r.advance(src, 1, 0)
+	return m, nil
+}
+
+// removeBuiltRemote removes what a copy built at the location loc, p
+// on fsys, as [Undo] says: what is gone since is nothing to remove, and
+// what is not as the copy built it stays, as an error naming it.
+func (r *runner) removeBuiltRemote(fsys vfs.FS, loc, p string, m made[vfsStamp]) error {
+	info, err := fsys.Stat(r.ctx, p)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		r.advance(loc, m.count(), 0)
+		return nil
+	case err != nil:
+		return err
+	case stampOf(info) != m.stamp:
+		r.advance(loc, m.count(), 0)
+		return changedSince(loc)
+	}
+	var errs []error
+	for _, c := range m.children {
+		if err := r.ctx.Err(); err != nil {
+			return errors.Join(append(errs, err)...)
+		}
+		if err := r.removeBuiltRemote(fsys, vfs.Join(loc, c.name), vfs.Join(p, c.name), c); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		r.advance(loc, 1, 0)
+		return errors.Join(errs...)
+	}
+	if err := fsys.Remove(r.ctx, p); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("remove %s: %w", loc, err)
+	}
+	r.advance(loc, 1, 0)
 	return nil
 }
 

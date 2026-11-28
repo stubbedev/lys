@@ -47,23 +47,24 @@ type Delete struct {
 type move struct{ from, to string }
 
 // copied is a copy put at a name that was free and what it built
-// there.
-type copied struct {
+// there, each entry stamped as S: a [stamp] on the local disk, a
+// [vfsStamp] through the filesystems.
+type copied[S comparable] struct {
 	path string
-	made made
+	made made[S]
 }
 
 // made is an entry a copy built: its name, its kind, its stamp, and
 // for a folder what the copy put in it.
-type made struct {
+type made[S comparable] struct {
 	name     string
 	kind     kind
-	stamp    stamp
-	children []made
+	stamp    S
+	children []made[S]
 }
 
 // count is the entries m holds, itself included.
-func (m made) count() int64 {
+func (m made[S]) count() int64 {
 	n := int64(1)
 	for _, c := range m.children {
 		n += c.count()
@@ -92,6 +93,24 @@ func stampAt(path string) (stamp, error) {
 	return s, nil
 }
 
+// vfsStamp is what an entry a copy built through the filesystems is: a
+// file its size and modification time, which a write to it moves, a
+// folder only that it is one, since a network filesystem keeps no
+// inode or change time. A folder is only ever removed once empty.
+type vfsStamp struct {
+	dir      bool
+	size     int64
+	modified int64
+}
+
+// stampOf is the stamp of the entry info states.
+func stampOf(info vfs.Info) vfsStamp {
+	if info.IsDir {
+		return vfsStamp{dir: true}
+	}
+	return vfsStamp{size: info.Size, modified: info.Modified.UnixNano()}
+}
+
 // Undo reverses the last move, rename, trash or copy: run as an [Op],
 // it moves each thing back, restores it from the trash, or removes
 // what the copy made.
@@ -107,12 +126,16 @@ func stampAt(path string) (stamp, error) {
 // already removed is nothing to undo. A file or a link changed,
 // replaced or recreated since, which is the user's work now, and a
 // folder that holds anything the copy did not put there, stay as they
-// are, each an error naming it, while the rest is removed.
+// are, each an error naming it, while the rest is removed. A copy made
+// through the filesystems, to or from a network location, is undone
+// the same way through them, a file there unchanged while its size and
+// modification time are.
 type Undo struct {
-	moves   []move
-	trashed []Item
-	copies  []copied
-	mounts  *vfs.Mounts
+	moves        []move
+	trashed      []Item
+	copies       []copied[stamp]
+	remoteCopies []copied[vfsStamp]
+	mounts       *vfs.Mounts
 }
 
 func undoMoves(moves []move, mounts *vfs.Mounts) *Undo {
@@ -122,17 +145,22 @@ func undoMoves(moves []move, mounts *vfs.Mounts) *Undo {
 	return &Undo{moves: moves, mounts: mounts}
 }
 
-func undoCopies(done []placed) *Undo {
-	var copies []copied
+// copiesOf is what the copies done put at a free name built.
+func copiesOf[S comparable](done []placed[S]) []copied[S] {
+	var copies []copied[S]
 	for _, p := range done {
 		if !p.replaced {
-			copies = append(copies, copied{path: p.dst, made: p.made})
+			copies = append(copies, copied[S]{path: p.dst, made: p.made})
 		}
 	}
-	if len(copies) == 0 {
+	return copies
+}
+
+func undoCopies(local []copied[stamp], remote []copied[vfsStamp], mounts *vfs.Mounts) *Undo {
+	if len(local) == 0 && len(remote) == 0 {
 		return nil
 	}
-	return &Undo{copies: copies}
+	return &Undo{copies: local, remoteCopies: remote, mounts: mounts}
 }
 
 func (c Copy) run(r *runner) (*Undo, error) {
@@ -141,11 +169,11 @@ func (c Copy) run(r *runner) (*Undo, error) {
 		reqs = append(reqs, request{src: src, target: vfs.Join(c.Dest, vfs.Base(src))})
 	}
 	if anyRemote(append(slices.Clone(c.Sources), c.Dest)...) {
-		_, err := r.transferRemote(c.Mounts, copying, reqs)
-		return nil, err
+		done, err := r.transferRemote(c.Mounts, copying, reqs)
+		return undoCopies(nil, copiesOf(done), c.Mounts), err
 	}
 	done, err := r.transferAll(copying, reqs, c.FollowLinks)
-	return undoCopies(done), err
+	return undoCopies(copiesOf(done), nil, nil), err
 }
 
 func (m Move) run(r *runner) (*Undo, error) {
@@ -153,23 +181,30 @@ func (m Move) run(r *runner) (*Undo, error) {
 	for _, src := range m.Sources {
 		reqs = append(reqs, request{src: src, target: vfs.Join(m.Dest, vfs.Base(src))})
 	}
-	done, err := r.transferMoves(m.Mounts, reqs)
-	moves := make([]move, 0, len(done))
-	for _, p := range done {
-		moves = append(moves, move{from: p.src, to: p.dst})
-	}
+	moves, err := r.transferMoves(m.Mounts, reqs)
 	return undoMoves(moves, m.Mounts), err
 }
 
 // transferMoves moves reqs, through the filesystems when any touches a
-// network location.
-func (r *runner) transferMoves(mounts *vfs.Mounts, reqs []request) ([]placed, error) {
+// network location, and returns what it moved.
+func (r *runner) transferMoves(mounts *vfs.Mounts, reqs []request) ([]move, error) {
 	for _, req := range reqs {
 		if anyRemote(req.src, req.target) {
-			return r.transferRemote(mounts, moving, reqs)
+			done, err := r.transferRemote(mounts, moving, reqs)
+			return movesOf(done), err
 		}
 	}
-	return r.transferAll(moving, reqs, false)
+	done, err := r.transferAll(moving, reqs, false)
+	return movesOf(done), err
+}
+
+// movesOf is what the transfers done moved.
+func movesOf[S comparable](done []placed[S]) []move {
+	moves := make([]move, 0, len(done))
+	for _, p := range done {
+		moves = append(moves, move{from: p.src, to: p.dst})
+	}
+	return moves
 }
 
 func (u *Undo) run(r *runner) (*Undo, error) {
@@ -182,7 +217,15 @@ func (u *Undo) run(r *runner) (*Undo, error) {
 		_, err := r.transferMoves(u.mounts, reqs)
 		return nil, err
 	case len(u.copies) > 0:
-		return nil, r.removeCopies(u.copies)
+		return nil, removeCopies(r, u.copies, r.removeBuilt)
+	case len(u.remoteCopies) > 0:
+		return nil, removeCopies(r, u.remoteCopies, func(loc string, m made[vfsStamp]) error {
+			fsys, p, err := reach(u.mounts, loc)
+			if err != nil {
+				return err
+			}
+			return r.removeBuiltRemote(fsys, loc, p, m)
+		})
 	}
 	r.begin(int64(len(u.trashed)), 0)
 	for _, it := range slices.Backward(u.trashed) {
@@ -197,9 +240,9 @@ func (u *Undo) run(r *runner) (*Undo, error) {
 	return nil, nil
 }
 
-// removeCopies removes what each copy made, going on past what cannot
-// be removed and reporting all of it.
-func (r *runner) removeCopies(copies []copied) error {
+// removeCopies removes what each copy made through remove, going on
+// past what cannot be removed and reporting all of it.
+func removeCopies[S comparable](r *runner, copies []copied[S], remove func(string, made[S]) error) error {
 	var files int64
 	for _, c := range copies {
 		files += c.made.count()
@@ -210,7 +253,7 @@ func (r *runner) removeCopies(copies []copied) error {
 		if err := r.ctx.Err(); err != nil {
 			return errors.Join(append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))...)
 		}
-		if err := r.removeBuilt(c.path, c.made); err != nil {
+		if err := remove(c.path, c.made); err != nil {
 			errs = append(errs, fmt.Errorf("undo the copy %s: %w", c.path, err))
 		}
 	}
@@ -220,7 +263,7 @@ func (r *runner) removeCopies(copies []copied) error {
 // removeBuilt removes what a copy built at path, as [Undo] says: what
 // is gone since is nothing to remove, and what is not as the copy
 // built it stays, as an error naming it.
-func (r *runner) removeBuilt(path string, m made) error {
+func (r *runner) removeBuilt(path string, m made[stamp]) error {
 	s, err := stampAt(path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -230,7 +273,7 @@ func (r *runner) removeBuilt(path string, m made) error {
 		return err
 	case s != m.stamp:
 		r.advance(path, m.count(), 0)
-		return fmt.Errorf("%s changed since the copy made it", path)
+		return changedSince(path)
 	}
 	if m.kind != directory {
 		return r.removed(path, unix.Unlink(path))
@@ -251,6 +294,10 @@ func (r *runner) removeBuilt(path string, m made) error {
 	return r.removed(path, unix.Rmdir(path))
 }
 
+// changedSince is the error of an entry at path an undo leaves, as it
+// is not what the copy made there.
+func changedSince(path string) error { return fmt.Errorf("%s changed since the copy made it", path) }
+
 // removed counts path as undone once err, its removal's outcome, says
 // it is gone.
 func (r *runner) removed(path string, err error) error {
@@ -263,7 +310,7 @@ func (r *runner) removed(path string, err error) error {
 
 // transferAll scans each request's source and its target's folder,
 // plans the transfer and carries it out.
-func (r *runner) transferAll(op transfer, reqs []request, follow bool) ([]placed, error) {
+func (r *runner) transferAll(op transfer, reqs []request, follow bool) ([]placed[stamp], error) {
 	dirs := make(map[string]listing)
 	for i := range reqs {
 		n, err := scan(reqs[i].src, follow)
