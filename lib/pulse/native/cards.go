@@ -36,7 +36,7 @@ type CardPort struct {
 
 // CardInfo is one card (protocol-native.c's card_fill_tagstruct).
 type CardInfo struct {
-	Index         uint32
+	Index         CardIndex
 	Name          string
 	OwnerModule   ModuleIndex
 	Driver        string
@@ -53,7 +53,7 @@ const (
 
 func decodeCard(version uint32) func(r *Reader) CardInfo {
 	return func(r *Reader) CardInfo {
-		c := CardInfo{Index: r.U32(), Name: r.Str(), OwnerModule: ModuleIndex(r.U32()), Driver: r.Str()}
+		c := CardInfo{Index: CardIndex(r.U32()), Name: r.Str(), OwnerModule: ModuleIndex(r.U32()), Driver: r.Str()}
 		n := r.U32()
 		for i := uint32(0); i < n && r.Err() == nil; i++ {
 			p := CardProfile{Name: r.Str(), Description: r.Str(), Sinks: r.U32(), Sources: r.U32(), Priority: r.U32(), Available: true}
@@ -84,7 +84,7 @@ func decodeCard(version uint32) func(r *Reader) CardInfo {
 // EncodeCard writes a card as decodeCard reads it at version, for
 // test servers.
 func EncodeCard(w *Writer, c CardInfo, version uint32) {
-	w.U32(c.Index)
+	w.U32(uint32(c.Index))
 	w.String(c.Name)
 	w.U32(uint32(c.OwnerModule))
 	w.String(c.Driver)

@@ -11,42 +11,42 @@ func (c *Conn) ServerInfo(ctx context.Context) (ServerInfo, error) {
 }
 
 // Sinks lists every sink.
-func (c *Conn) Sinks(ctx context.Context) ([]DeviceInfo, error) {
-	return list(ctx, c, CmdGetSinkInfoList, decodeDevice)
+func (c *Conn) Sinks(ctx context.Context) ([]SinkInfo, error) {
+	return list(ctx, c, CmdGetSinkInfoList, decodeDevice[SinkIndex, SourceIndex])
 }
 
 // Sources lists every source, monitors included.
-func (c *Conn) Sources(ctx context.Context) ([]DeviceInfo, error) {
-	return list(ctx, c, CmdGetSourceInfoList, decodeDevice)
+func (c *Conn) Sources(ctx context.Context) ([]SourceInfo, error) {
+	return list(ctx, c, CmdGetSourceInfoList, decodeDevice[SourceIndex, SinkIndex])
 }
 
 // SinkInputs lists every playback stream.
-func (c *Conn) SinkInputs(ctx context.Context) ([]StreamInfo, error) {
+func (c *Conn) SinkInputs(ctx context.Context) ([]SinkInputInfo, error) {
 	return list(ctx, c, CmdGetSinkInputInfoList, decodeSinkInput)
 }
 
 // SourceOutputs lists every recording stream.
-func (c *Conn) SourceOutputs(ctx context.Context) ([]StreamInfo, error) {
+func (c *Conn) SourceOutputs(ctx context.Context) ([]SourceOutputInfo, error) {
 	return list(ctx, c, CmdGetSourceOutputList, decodeSourceOutput)
 }
 
 // Sink queries one sink by index.
-func (c *Conn) Sink(ctx context.Context, index SinkIndex) (DeviceInfo, error) {
-	return one(ctx, c, CmdGetSinkInfo, byIndexAndName(index), decodeDevice)
+func (c *Conn) Sink(ctx context.Context, index SinkIndex) (SinkInfo, error) {
+	return one(ctx, c, CmdGetSinkInfo, byIndexAndName(index), decodeDevice[SinkIndex, SourceIndex])
 }
 
 // Source queries one source by index.
-func (c *Conn) Source(ctx context.Context, index SourceIndex) (DeviceInfo, error) {
-	return one(ctx, c, CmdGetSourceInfo, byIndexAndName(index), decodeDevice)
+func (c *Conn) Source(ctx context.Context, index SourceIndex) (SourceInfo, error) {
+	return one(ctx, c, CmdGetSourceInfo, byIndexAndName(index), decodeDevice[SourceIndex, SinkIndex])
 }
 
 // SinkInput queries one playback stream by index.
-func (c *Conn) SinkInput(ctx context.Context, index SinkInputIndex) (StreamInfo, error) {
+func (c *Conn) SinkInput(ctx context.Context, index SinkInputIndex) (SinkInputInfo, error) {
 	return one(ctx, c, CmdGetSinkInputInfo, byIndex(index), decodeSinkInput)
 }
 
 // SourceOutput queries one recording stream by index.
-func (c *Conn) SourceOutput(ctx context.Context, index SourceOutputIndex) (StreamInfo, error) {
+func (c *Conn) SourceOutput(ctx context.Context, index SourceOutputIndex) (SourceOutputInfo, error) {
 	return one(ctx, c, CmdGetSourceOutputInfo, byIndex(index), decodeSourceOutput)
 }
 

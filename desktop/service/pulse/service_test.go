@@ -14,9 +14,9 @@ import (
 
 const quietWindow = 50 * time.Millisecond
 
-func playback(index, sinkIndex uint32) native.StreamInfo {
-	return native.StreamInfo{
-		Index: index, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: sinkIndex,
+func stream[I, D ~uint32](index I, device D) native.StreamInfo[I, D] {
+	return native.StreamInfo[I, D]{
+		Index: index, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: device,
 		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(), Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
 		BufferLatency: 2000, DeviceLatency: 3000, ResampleMethod: "speex-float-1", Driver: "protocol-native.c",
 		Props: native.PropList{
@@ -27,6 +27,10 @@ func playback(index, sinkIndex uint32) native.StreamInfo {
 		HasVolume: true, VolumeWritable: true,
 		Format: native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}},
 	}
+}
+
+func playback(index native.SinkInputIndex, sink native.SinkIndex) native.SinkInputInfo {
+	return stream(index, sink)
 }
 
 // fixture is a server with two sinks, their monitors, a microphone,
@@ -40,7 +44,7 @@ func fixture(t *testing.T) *pulsetest.Server {
 	srv.PutSource(pulsetest.Source(4, "headphones.monitor", "Monitor of Headphones", 3, "headphones"))
 	srv.PutSource(pulsetest.Source(10, "mic", "Microphone", native.InvalidIndex, ""))
 	srv.PutSinkInput(playback(40, 1))
-	rec := playback(50, 10)
+	rec := stream[native.SourceOutputIndex, native.SourceIndex](50, 10)
 	rec.Props = native.PropList{"application.name": "OBS", "application.process.id": "not-a-pid"}
 	rec.Corked = true
 	srv.PutSourceOutput(rec)

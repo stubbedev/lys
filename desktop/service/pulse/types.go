@@ -271,7 +271,7 @@ func (e *StreamNotFoundError) Error() string {
 
 func usec(v uint64) time.Duration { return intconv.Duration(v, time.Microsecond) }
 
-func fromDevice(d native.DeviceInfo, t DeviceType) Device {
+func fromDevice[I, M ~uint32](d native.DeviceInfo[I, M], t DeviceType) Device {
 	ports := make([]DevicePort, len(d.Ports))
 	for i, p := range d.Ports {
 		ports[i] = DevicePort{
@@ -286,7 +286,7 @@ func fromDevice(d native.DeviceInfo, t DeviceType) Device {
 		formats[i] = AudioFormat{Encoding: f.Encoding.String(), Properties: f.Props}
 	}
 	return Device{
-		Key:               DeviceKey{Index: d.Index, Type: t},
+		Key:               DeviceKey{Index: uint32(d.Index), Type: t},
 		Name:              d.Name,
 		Description:       d.Description,
 		Card:              optIndex(d.Card),
@@ -310,17 +310,17 @@ func fromDevice(d native.DeviceInfo, t DeviceType) Device {
 }
 
 // fromSink converts a sink's info.
-func fromSink(d native.DeviceInfo) OutputDevice {
+func fromSink(d native.SinkInfo) OutputDevice {
 	return OutputDevice{
 		Device:            fromDevice(d, DeviceOutput),
-		MonitorSource:     d.Monitor,
+		MonitorSource:     uint32(d.Monitor),
 		MonitorSourceName: d.MonitorName,
 	}
 }
 
 // fromSource converts a source's info: a source is a monitor exactly when it
 // names the sink it monitors.
-func fromSource(d native.DeviceInfo) InputDevice {
+func fromSource(d native.SourceInfo) InputDevice {
 	in := InputDevice{Device: fromDevice(d, DeviceInput), MonitorOfSink: optIndex(d.Monitor)}
 	if in.IsMonitor() {
 		in.MonitorOfSinkName = d.MonitorName
@@ -329,7 +329,7 @@ func fromSource(d native.DeviceInfo) InputDevice {
 }
 
 // fromStream converts a sink input's or source output's info.
-func fromStream(s native.StreamInfo, t StreamType) AudioStream {
+func fromStream[I, D ~uint32](s native.StreamInfo[I, D], t StreamType) AudioStream {
 	state := StreamRunning
 	if s.Corked {
 		state = StreamCorked
@@ -341,7 +341,7 @@ func fromStream(s native.StreamInfo, t StreamType) AudioStream {
 		}
 	}
 	return AudioStream{
-		Key:             StreamKey{Index: s.Index, Type: t},
+		Key:             StreamKey{Index: uint32(s.Index), Type: t},
 		Name:            s.Name,
 		ApplicationName: s.Props["application.name"],
 		Binary:          s.Props["application.process.binary"],
@@ -354,7 +354,7 @@ func fromStream(s native.StreamInfo, t StreamType) AudioStream {
 		Corked:          s.Corked,
 		HasVolume:       s.HasVolume,
 		VolumeWritable:  s.VolumeWritable,
-		DeviceIndex:     s.Device,
+		DeviceIndex:     uint32(s.Device),
 		SampleSpec:      s.SampleSpec,
 		ChannelMap:      s.ChannelMap,
 		Properties:      s.Props,

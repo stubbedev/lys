@@ -18,13 +18,13 @@ func audioServer(t *testing.T) (*pulsetest.Server, *pulse.Service) {
 	srv := pulsetest.New(t)
 	spec := native.SampleSpec{Format: native.SampleS16LE, Channels: 2, Rate: 48000}
 	channels := native.ChannelMap{native.ChannelFrontLeft, native.ChannelFrontRight}
-	srv.PutSink(native.DeviceInfo{
+	srv.PutSink(native.SinkInfo{
 		Index: 1, Name: "speakers", Description: "Speakers", SampleSpec: spec, ChannelMap: channels,
 		Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm}, Monitor: 2, MonitorName: "speakers.monitor",
 		Props: native.PropList{}, BaseVolume: native.VolumeNorm, Card: native.InvalidIndex,
 		Formats: []native.FormatInfo{{Encoding: native.EncodingPCM, Props: native.PropList{}}},
 	})
-	srv.PutSource(native.DeviceInfo{
+	srv.PutSource(native.SourceInfo{
 		Index: 2, Name: "speakers.monitor", Description: "Monitor of Speakers", SampleSpec: spec, ChannelMap: channels,
 		OwnerModule: native.InvalidIndex, Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
 		Monitor: 1, MonitorName: "speakers", Props: native.PropList{}, BaseVolume: native.VolumeNorm, Card: native.InvalidIndex,

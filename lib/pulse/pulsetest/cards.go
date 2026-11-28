@@ -8,11 +8,8 @@ func (s *Server) PutCard(c native.CardInfo) {
 }
 
 // Card is the card at index as the server holds it.
-func (s *Server) Card(index uint32) (native.CardInfo, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	c, ok := s.cards[index]
-	return c, ok
+func (s *Server) Card(index native.CardIndex) (native.CardInfo, bool) {
+	return lookup(s, s.cards, index)
 }
 
 func (c *conn) cardList(tag uint32, r *native.Reader, failed func() bool) bool {
@@ -34,7 +31,7 @@ func (c *conn) cardList(tag uint32, r *native.Reader, failed func() bool) bool {
 }
 
 func (c *conn) cardInfo(tag uint32, r *native.Reader, failed func() bool) bool {
-	index := r.U32()
+	index := native.CardIndex(r.U32())
 	_, _ = r.String()
 	if r.Err() != nil || !r.EOF() {
 		return false
@@ -54,7 +51,7 @@ func (c *conn) cardInfo(tag uint32, r *native.Reader, failed func() bool) bool {
 }
 
 func (c *conn) setCardProfile(tag uint32, r *native.Reader, failed func() bool) bool {
-	index := r.U32()
+	index := native.CardIndex(r.U32())
 	_, _ = r.String()
 	profile := r.Str()
 	if r.Err() != nil || !r.EOF() {
@@ -79,6 +76,6 @@ func (c *conn) setCardProfile(tag uint32, r *native.Reader, failed func() bool) 
 		return true
 	}
 	c.reply(tag, &native.Writer{})
-	c.s.Emit(native.SubscribeEvent{Facility: native.FacilityCard, Operation: native.OpChange, Index: index})
+	c.s.Emit(native.SubscribeEvent{Facility: native.FacilityCard, Operation: native.OpChange, Index: uint32(index)})
 	return true
 }

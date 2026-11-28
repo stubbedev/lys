@@ -50,10 +50,10 @@ func TestPlaybackStreamWritesAsTheServerRequests(t *testing.T) {
 		t.Errorf("server saw %+v", p)
 	}
 	info := stream.Info()
-	if info.SinkInput != native.SinkInputIndex(p.SinkInput) || info.SinkName != "alsa_output.speakers" || info.TargetLength != 480*4 {
+	if info.SinkInput != p.SinkInput || info.SinkName != "alsa_output.speakers" || info.TargetLength != 480*4 {
 		t.Errorf("granted %+v", info)
 	}
-	if st, ok := srv.SinkInput(uint32(info.SinkInput)); !ok || st.Name != "clip" || st.Device != 1 {
+	if st, ok := srv.SinkInput(info.SinkInput); !ok || st.Name != "clip" || st.Device != 1 {
 		t.Errorf("sink input %+v %v", st, ok)
 	}
 
@@ -105,7 +105,7 @@ func TestPlaybackStreamCorksAndTakesSinkInputControls(t *testing.T) {
 	if err := c.SetSinkInputMute(context.Background(), index, true); err != nil {
 		t.Fatal(err)
 	}
-	if st, _ := srv.SinkInput(uint32(index)); st.Volume[1] != 0x4000 || !st.Mute {
+	if st, _ := srv.SinkInput(index); st.Volume[1] != 0x4000 || !st.Mute {
 		t.Errorf("sink input after the controls: %+v", st)
 	}
 }

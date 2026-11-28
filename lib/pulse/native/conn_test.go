@@ -16,31 +16,32 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 )
 
-func speakers() native.DeviceInfo {
-	return native.DeviceInfo{
-		Index: 1, Name: "alsa_output.speakers", Description: "Speakers",
+func device[I, M ~uint32](index I, name, desc string, monitor M, monitorName string) native.DeviceInfo[I, M] {
+	return native.DeviceInfo[I, M]{
+		Index: index, Name: name, Description: desc,
 		SampleSpec:  native.SampleSpec{Format: native.SampleS16LE, Channels: 2, Rate: 48000},
 		ChannelMap:  native.ChannelMap{native.ChannelFrontLeft, native.ChannelFrontRight},
-		OwnerModule: 4, Volume: native.CVolume{0x8000, 0x10000}, Monitor: 2,
-		MonitorName: "alsa_output.speakers.monitor", Driver: "alsa", Flags: 3,
+		OwnerModule: 4, Volume: native.CVolume{0x8000, 0x10000}, Monitor: monitor,
+		MonitorName: monitorName, Driver: "alsa", Flags: 3,
 		Props:      native.PropList{"device.description": "Speakers"},
 		BaseVolume: native.VolumeNorm, State: native.StateIdle, VolumeSteps: 65537,
-		Card: native.InvalidIndex,
-		Ports: []native.Port{
-			{Name: "analog-output-speaker", Description: "Speaker", Priority: 100, Available: native.PortAvailableYes},
-			{Name: "analog-output-headphones", Description: "Headphones", Priority: 200, Available: native.PortAvailableNo},
-		},
-		ActivePort: "analog-output-speaker",
-		Formats:    []native.FormatInfo{{Encoding: native.EncodingPCM, Props: native.PropList{}}},
+		Card:    native.InvalidIndex,
+		Formats: []native.FormatInfo{{Encoding: native.EncodingPCM, Props: native.PropList{}}},
 	}
 }
 
-func monitor() native.DeviceInfo {
-	d := speakers()
-	d.Index, d.Name, d.Description = 2, "alsa_output.speakers.monitor", "Monitor of Speakers"
-	d.Monitor, d.MonitorName = 1, "alsa_output.speakers"
-	d.Ports, d.ActivePort = nil, ""
+func speakers() native.SinkInfo {
+	d := device[native.SinkIndex, native.SourceIndex](1, "alsa_output.speakers", "Speakers", 2, "alsa_output.speakers.monitor")
+	d.Ports = []native.Port{
+		{Name: "analog-output-speaker", Description: "Speaker", Priority: 100, Available: native.PortAvailableYes},
+		{Name: "analog-output-headphones", Description: "Headphones", Priority: 200, Available: native.PortAvailableNo},
+	}
+	d.ActivePort = "analog-output-speaker"
 	return d
+}
+
+func monitor() native.SourceInfo {
+	return device[native.SourceIndex, native.SinkIndex](2, "alsa_output.speakers.monitor", "Monitor of Speakers", 1, "alsa_output.speakers")
 }
 
 func dial(t *testing.T, srv *pulsetest.Server, opts native.Options) *native.Conn {
@@ -82,6 +83,34 @@ func TestDialNegotiatesVersionAndIntrospects(t *testing.T) {
 	src, err := c.Source(context.Background(), 2)
 	if err != nil || src.Monitor != 1 || src.MonitorName != "alsa_output.speakers" {
 		t.Errorf("Source(2) = %+v, %v", src, err)
+	}
+}
+
+func TestADevicesMonitorIndexQueriesTheDeviceOnItsOtherSide(t *testing.T) {
+	srv := pulsetest.New(t)
+	srv.PutSink(speakers())
+	srv.PutSource(monitor())
+	srv.PutSource(device[native.SourceIndex, native.SinkIndex](3, "mic", "Microphone", native.InvalidIndex, ""))
+	c := dial(t, srv, native.Options{})
+	ctx := t.Context()
+	sinks, err := c.Sinks(ctx)
+	if err != nil || len(sinks) != 1 {
+		t.Fatalf("Sinks = %v, %v", sinks, err)
+	}
+	src, err := c.Source(ctx, sinks[0].Monitor)
+	if err != nil || src.Name != sinks[0].MonitorName {
+		t.Fatalf("the sink's monitor %d is %+v, %v, want %q", sinks[0].Monitor, src, err, sinks[0].MonitorName)
+	}
+	sink, err := c.Sink(ctx, src.Monitor)
+	if err != nil || sink.Index != sinks[0].Index {
+		t.Fatalf("the monitor's sink %d is %+v, %v, want sink %d", src.Monitor, sink, err, sinks[0].Index)
+	}
+	mic, err := c.Source(ctx, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Sink(ctx, mic.Monitor); !errors.Is(err, native.ErrNoEntity) {
+		t.Errorf("a real input's monitor %d queried a sink: %v, want ErrNoEntity", mic.Monitor, err)
 	}
 }
 
@@ -155,7 +184,7 @@ func TestControlCommandsReachTheServer(t *testing.T) {
 	other := speakers()
 	other.Index, other.Name = 5, "bt_headset"
 	srv.PutSink(other)
-	srv.PutSinkInput(native.StreamInfo{Index: 40, Name: "music", Device: 1, Volume: native.CVolume{1, 1}})
+	srv.PutSinkInput(native.SinkInputInfo{Index: 40, Name: "music", Device: 1, Volume: native.CVolume{1, 1}})
 	c := dial(t, srv, native.Options{})
 	ctx := context.Background()
 

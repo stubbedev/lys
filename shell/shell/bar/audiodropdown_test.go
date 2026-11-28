@@ -195,8 +195,8 @@ func TestAnAppRowWritesEveryStreamOfItsProcess(t *testing.T) {
 	}
 }
 
-func playback(index uint32, app string, pid int) native.StreamInfo {
-	return native.StreamInfo{
+func playback(index native.SinkInputIndex, app string, pid int) native.SinkInputInfo {
+	return native.SinkInputInfo{
 		Index: index, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: 1,
 		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(),
 		Volume:    native.CVolume{native.VolumeNorm, native.VolumeNorm},

@@ -198,11 +198,13 @@ type Port struct {
 }
 
 // DeviceInfo is one sink or source (protocol-native.c's
-// sink_fill_tagstruct / source_fill_tagstruct share the layout). For a
-// sink, Monitor/MonitorName name its monitor source; for a source they
-// name the sink it monitors, InvalidIndex/"" when it is not a monitor.
-type DeviceInfo struct {
-	Index             uint32
+// sink_fill_tagstruct / source_fill_tagstruct share the layout), I
+// numbering the device and M the device on the other side of its
+// monitor. For a sink, Monitor/MonitorName name its monitor source; for
+// a source they name the sink it monitors, InvalidIndex/"" when it is
+// not a monitor.
+type DeviceInfo[I, M objectIndex] struct {
+	Index             I
 	Name              string
 	Description       string
 	SampleSpec        SampleSpec
@@ -210,7 +212,7 @@ type DeviceInfo struct {
 	OwnerModule       ModuleIndex
 	Volume            CVolume
 	Mute              bool
-	Monitor           uint32
+	Monitor           M
 	MonitorName       string
 	Latency           uint64
 	Driver            string
@@ -234,9 +236,15 @@ const (
 	StateSuspended = 2
 )
 
-func decodeDevice(r *Reader) DeviceInfo {
-	d := DeviceInfo{
-		Index:       r.U32(),
+// SinkInfo is one sink.
+type SinkInfo = DeviceInfo[SinkIndex, SourceIndex]
+
+// SourceInfo is one source.
+type SourceInfo = DeviceInfo[SourceIndex, SinkIndex]
+
+func decodeDevice[I, M objectIndex](r *Reader) DeviceInfo[I, M] {
+	d := DeviceInfo[I, M]{
+		Index:       I(r.U32()),
 		Name:        r.Str(),
 		Description: r.Str(),
 		SampleSpec:  r.SampleSpec(),
@@ -244,7 +252,7 @@ func decodeDevice(r *Reader) DeviceInfo {
 		OwnerModule: ModuleIndex(r.U32()),
 		Volume:      r.CVolume(),
 		Mute:        r.Bool(),
-		Monitor:     r.U32(),
+		Monitor:     M(r.U32()),
 		MonitorName: r.Str(),
 		Latency:     r.Usec(),
 		Driver:      r.Str(),
@@ -273,14 +281,15 @@ func decodeDevice(r *Reader) DeviceInfo {
 	return d
 }
 
-// StreamInfo is one sink input or source output. Device is the sink
-// or source it is connected to.
-type StreamInfo struct {
-	Index          uint32
+// StreamInfo is one sink input or source output, I numbering the
+// stream and D the device it is connected to. Device is the sink or
+// source it is connected to.
+type StreamInfo[I, D objectIndex] struct {
+	Index          I
 	Name           string
 	OwnerModule    ModuleIndex
 	Client         ClientIndex
-	Device         uint32
+	Device         D
 	SampleSpec     SampleSpec
 	ChannelMap     ChannelMap
 	Volume         CVolume
@@ -296,14 +305,20 @@ type StreamInfo struct {
 	Format         FormatInfo
 }
 
+// SinkInputInfo is one playback stream.
+type SinkInputInfo = StreamInfo[SinkInputIndex, SinkIndex]
+
+// SourceOutputInfo is one recording stream.
+type SourceOutputInfo = StreamInfo[SourceOutputIndex, SourceIndex]
+
 // decodeSinkInput is sink_input_fill_tagstruct's layout.
-func decodeSinkInput(r *Reader) StreamInfo {
-	s := StreamInfo{
-		Index:       r.U32(),
+func decodeSinkInput(r *Reader) SinkInputInfo {
+	s := SinkInputInfo{
+		Index:       SinkInputIndex(r.U32()),
 		Name:        r.Str(),
 		OwnerModule: ModuleIndex(r.U32()),
 		Client:      ClientIndex(r.U32()),
-		Device:      r.U32(),
+		Device:      SinkIndex(r.U32()),
 		SampleSpec:  r.SampleSpec(),
 		ChannelMap:  r.ChannelMap(),
 		Volume:      r.CVolume(),
@@ -323,13 +338,13 @@ func decodeSinkInput(r *Reader) StreamInfo {
 
 // decodeSourceOutput is source_output_fill_tagstruct's layout: the
 // volume and mute trail the proplist (protocol 22).
-func decodeSourceOutput(r *Reader) StreamInfo {
-	s := StreamInfo{
-		Index:       r.U32(),
+func decodeSourceOutput(r *Reader) SourceOutputInfo {
+	s := SourceOutputInfo{
+		Index:       SourceOutputIndex(r.U32()),
 		Name:        r.Str(),
 		OwnerModule: ModuleIndex(r.U32()),
 		Client:      ClientIndex(r.U32()),
-		Device:      r.U32(),
+		Device:      SourceIndex(r.U32()),
 		SampleSpec:  r.SampleSpec(),
 		ChannelMap:  r.ChannelMap(),
 	}

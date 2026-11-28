@@ -11,7 +11,7 @@ import (
 
 func TestARecordStreamReportsItsClientsPropertiesUnderItsOwn(t *testing.T) {
 	srv := pulsetest.New(t)
-	srv.PutSource(device(2, "microphone"))
+	srv.PutSource(source(2, "microphone"))
 	srv.SetDefaults("", "microphone")
 	client := dial(t, srv, native.Options{ClientName: "recorder"})
 	spec := native.SampleSpec{Format: native.SampleS16LE, Channels: 2, Rate: 48000}
@@ -21,7 +21,7 @@ func TestARecordStreamReportsItsClientsPropertiesUnderItsOwn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, ok := srv.SourceOutput(uint32(record.Info().SourceOutput))
+	st, ok := srv.SourceOutput(record.Info().SourceOutput)
 	if !ok {
 		t.Fatal("the record stream is not a source output")
 	}

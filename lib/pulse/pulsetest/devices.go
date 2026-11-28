@@ -14,8 +14,8 @@ func StereoMap() native.ChannelMap {
 
 // Sink is a running ALSA sink at 50% volume with two ports, whose
 // monitor source has index monitor.
-func Sink(index uint32, name, desc string, monitor uint32) native.DeviceInfo {
-	return native.DeviceInfo{
+func Sink(index native.SinkIndex, name, desc string, monitor native.SourceIndex) native.SinkInfo {
+	return native.SinkInfo{
 		Index: index, Name: name, Description: desc, SampleSpec: StereoSpec(), ChannelMap: StereoMap(),
 		OwnerModule: 4, Volume: native.CVolume{0x8000, 0x8000}, Monitor: monitor, MonitorName: name + ".monitor",
 		Driver: "alsa", Props: native.PropList{"device.description": desc}, BaseVolume: native.VolumeNorm,
@@ -32,8 +32,8 @@ func Sink(index uint32, name, desc string, monitor uint32) native.DeviceInfo {
 // Source is a suspended ALSA source at full volume; monitorOf and
 // monitorName name the sink it monitors (InvalidIndex and "" for a
 // real input).
-func Source(index uint32, name, desc string, monitorOf uint32, monitorName string) native.DeviceInfo {
-	return native.DeviceInfo{
+func Source(index native.SourceIndex, name, desc string, monitorOf native.SinkIndex, monitorName string) native.SourceInfo {
+	return native.SourceInfo{
 		Index: index, Name: name, Description: desc, SampleSpec: StereoSpec(), ChannelMap: StereoMap(),
 		OwnerModule: native.InvalidIndex, Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
 		Monitor: monitorOf, MonitorName: monitorName, Driver: "alsa", Props: native.PropList{},

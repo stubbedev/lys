@@ -17,9 +17,9 @@ const defaultTargetLength = 8192
 type Playback struct {
 	c             *conn
 	Channel       uint32
-	SinkInput     uint32
+	SinkInput     native.SinkInputIndex
 	Sink          string
-	SinkIndex     uint32
+	SinkIndex     native.SinkIndex
 	SampleSpec    native.SampleSpec
 	ChannelMap    native.ChannelMap
 	TargetLength  uint32
@@ -183,11 +183,11 @@ func (c *conn) createPlayback(tag uint32, r *native.Reader, failed func() bool) 
 	if found {
 		p.Channel = s.nextChannel
 		s.nextChannel++
-		p.SinkInput = s.nextIndex
+		p.SinkInput = native.SinkInputIndex(s.nextIndex)
 		s.nextIndex++
 		p.SinkIndex = sink.Index
 		s.playbacks = append(s.playbacks, p)
-		s.sinkInputs[p.SinkInput] = native.StreamInfo{
+		s.sinkInputs[p.SinkInput] = native.SinkInputInfo{
 			Index: p.SinkInput, Name: p.Props["media.name"], OwnerModule: native.InvalidIndex,
 			Client: 7, Device: sink.Index, SampleSpec: p.SampleSpec, ChannelMap: p.ChannelMap,
 			Volume: vol, Props: p.Props, Corked: p.corked, HasVolume: true, VolumeWritable: true,
@@ -201,7 +201,7 @@ func (c *conn) createPlayback(tag uint32, r *native.Reader, failed func() bool) 
 	}
 	var w native.Writer
 	w.U32(p.Channel)
-	w.U32(p.SinkInput)
+	w.U32(uint32(p.SinkInput))
 	w.U32(p.TargetLength)
 	w.U32(4 << 20)
 	w.U32(p.TargetLength)
@@ -210,7 +210,7 @@ func (c *conn) createPlayback(tag uint32, r *native.Reader, failed func() bool) 
 	if v >= 12 {
 		w.SampleSpec(p.SampleSpec)
 		w.ChannelMap(p.ChannelMap)
-		w.U32(sink.Index)
+		w.U32(uint32(sink.Index))
 		w.String(sink.Name)
 		w.Bool(sink.State == native.StateSuspended)
 	}
@@ -221,7 +221,7 @@ func (c *conn) createPlayback(tag uint32, r *native.Reader, failed func() bool) 
 		w.FormatInfo(native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}})
 	}
 	c.reply(tag, &w)
-	s.Emit(native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: p.SinkInput})
+	s.Emit(native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpNew, Index: uint32(p.SinkInput)})
 	return true
 }
 
@@ -259,7 +259,7 @@ func (c *conn) corkPlayback(tag uint32, r *native.Reader, failed func() bool) bo
 		return true
 	}
 	c.reply(tag, nil)
-	s.Emit(native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpChange, Index: p.SinkInput})
+	s.Emit(native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpChange, Index: uint32(p.SinkInput)})
 	return true
 }
 

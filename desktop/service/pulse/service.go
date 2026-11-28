@@ -63,7 +63,7 @@ type Service struct {
 	outputs       map[uint32]OutputDevice
 	inputs        map[uint32]InputDevice
 	streams       map[StreamKey]AudioStream
-	cards         map[uint32]native.CardInfo
+	cards         map[native.CardIndex]native.CardInfo
 	defaultSink   string
 	defaultSource string
 	subs          map[int]chan struct{}
@@ -82,11 +82,12 @@ type session struct {
 }
 
 type snapshot struct {
-	sinks, sources []native.DeviceInfo
-	inputs         []native.StreamInfo
-	outputs        []native.StreamInfo
-	cards          []native.CardInfo
-	info           native.ServerInfo
+	sinks   []native.SinkInfo
+	sources []native.SourceInfo
+	inputs  []native.SinkInputInfo
+	outputs []native.SourceOutputInfo
+	cards   []native.CardInfo
+	info    native.ServerInfo
 }
 
 func newService(server string) *Service {
@@ -99,7 +100,7 @@ func newService(server string) *Service {
 		outputs: map[uint32]OutputDevice{},
 		inputs:  map[uint32]InputDevice{},
 		streams: map[StreamKey]AudioStream{},
-		cards:   map[uint32]native.CardInfo{},
+		cards:   map[native.CardIndex]native.CardInfo{},
 		subs:    map[int]chan struct{}{},
 	}
 }
@@ -183,16 +184,16 @@ func (s *Service) install(sess *session, snap snapshot) {
 	s.sess = sess
 	s.clearLocked()
 	for _, d := range snap.sinks {
-		s.outputs[d.Index] = fromSink(d)
+		s.outputs[uint32(d.Index)] = fromSink(d)
 	}
 	for _, d := range snap.sources {
-		s.inputs[d.Index] = fromSource(d)
+		s.inputs[uint32(d.Index)] = fromSource(d)
 	}
 	for _, st := range snap.inputs {
-		s.streams[StreamKey{Index: st.Index, Type: StreamPlayback}] = fromStream(st, StreamPlayback)
+		s.streams[StreamKey{Index: uint32(st.Index), Type: StreamPlayback}] = fromStream(st, StreamPlayback)
 	}
 	for _, st := range snap.outputs {
-		s.streams[StreamKey{Index: st.Index, Type: StreamRecord}] = fromStream(st, StreamRecord)
+		s.streams[StreamKey{Index: uint32(st.Index), Type: StreamRecord}] = fromStream(st, StreamRecord)
 	}
 	for _, c := range snap.cards {
 		s.cards[c.Index] = c
@@ -339,7 +340,7 @@ func (s *Service) handleEvent(sess *session, ev native.SubscribeEvent) {
 	}
 }
 
-func foldObject[X ~uint32, I, T any](s *Service, sess *session, ev native.SubscribeEvent, m map[uint32]T,
+func foldObject[X, K ~uint32, I, T any](s *Service, sess *session, ev native.SubscribeEvent, m map[K]T,
 	query func(context.Context, X) (I, error), convert func(I) T,
 ) (bool, error) {
 	if ev.Operation == native.OpRemove {
@@ -348,8 +349,8 @@ func foldObject[X ~uint32, I, T any](s *Service, sess *session, ev native.Subscr
 		if s.sess != sess {
 			return false, nil
 		}
-		_, had := m[ev.Index]
-		delete(m, ev.Index)
+		_, had := m[K(ev.Index)]
+		delete(m, K(ev.Index))
 		return had, nil
 	}
 	info, err := query(context.Background(), X(ev.Index))
@@ -361,12 +362,12 @@ func foldObject[X ~uint32, I, T any](s *Service, sess *session, ev native.Subscr
 	if s.sess != sess {
 		return false, nil
 	}
-	m[ev.Index] = convert(info)
+	m[K(ev.Index)] = convert(info)
 	return true, nil
 }
 
-func foldStream[X ~uint32](ctx context.Context, s *Service, sess *session, ev native.SubscribeEvent, t StreamType,
-	query func(context.Context, X) (native.StreamInfo, error),
+func foldStream[X, D ~uint32](ctx context.Context, s *Service, sess *session, ev native.SubscribeEvent, t StreamType,
+	query func(context.Context, X) (native.StreamInfo[X, D], error),
 ) (bool, error) {
 	key := StreamKey{Index: ev.Index, Type: t}
 	if ev.Operation == native.OpRemove {
@@ -746,10 +747,10 @@ func (s *Service) Cards() []Card {
 
 // SetCardProfile switches the card at index to profile (A2DP and
 // HFP on a headset, analog and HDMI on a card).
-func (s *Service) SetCardProfile(ctx context.Context, index uint32, profile string) error {
+func (s *Service) SetCardProfile(ctx context.Context, index native.CardIndex, profile string) error {
 	conn, err := s.current()
 	if err != nil {
 		return err
 	}
-	return conn.SetCardProfile(ctx, native.CardIndex(index), profile)
+	return conn.SetCardProfile(ctx, index, profile)
 }

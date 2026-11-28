@@ -40,15 +40,17 @@ func headsetCard(active string) native.CardInfo {
 	}
 }
 
-func firefox() native.StreamInfo {
-	return native.StreamInfo{
-		Index: 40, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: 1,
+func appStream[I, D ~uint32](index I, device D) native.StreamInfo[I, D] {
+	return native.StreamInfo[I, D]{
+		Index: index, Name: "Playback", OwnerModule: native.InvalidIndex, Client: 12, Device: device,
 		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(), Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
 		Props:     native.PropList{"application.name": "Firefox", "media.title": "Song", "application.icon_name": "firefox"},
 		HasVolume: true, VolumeWritable: true,
 		Format: native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}},
 	}
 }
+
+func firefox() native.SinkInputInfo { return appStream[native.SinkInputIndex, native.SinkIndex](40, 1) }
 
 func soundServer(t *testing.T) *pulsetest.Server {
 	t.Helper()
@@ -445,9 +447,9 @@ func TestAnAppWithoutAnIconShowsTheGenericAppIcon(t *testing.T) {
 	}
 }
 
-func recorder(index, source uint32, name string) native.StreamInfo {
-	st := firefox()
-	st.Index, st.Device, st.Name = index, source, "Recording"
+func recorder(index native.SourceOutputIndex, source native.SourceIndex, name string) native.SourceOutputInfo {
+	st := appStream(index, source)
+	st.Name = "Recording"
 	st.Props = native.PropList{"application.name": name, "application.process.id": "1", "application.icon_name": "audio-recorder"}
 	return st
 }

@@ -33,11 +33,11 @@ type Server struct {
 	mu            sync.Mutex
 	version       uint32
 	info          native.ServerInfo
-	sinks         map[uint32]native.DeviceInfo
-	sources       map[uint32]native.DeviceInfo
-	sinkInputs    map[uint32]native.StreamInfo
-	sourceOutputs map[uint32]native.StreamInfo
-	cards         map[uint32]native.CardInfo
+	sinks         map[native.SinkIndex]native.SinkInfo
+	sources       map[native.SourceIndex]native.SourceInfo
+	sinkInputs    map[native.SinkInputIndex]native.SinkInputInfo
+	sourceOutputs map[native.SourceOutputIndex]native.SourceOutputInfo
+	cards         map[native.CardIndex]native.CardInfo
 	failures      map[uint32]native.Error
 	conns         map[*conn]struct{}
 	records       []*Record
@@ -66,11 +66,11 @@ func New(t testing.TB) *Server {
 		ln:            ln,
 		path:          path,
 		version:       DefaultVersion,
-		sinks:         map[uint32]native.DeviceInfo{},
-		sources:       map[uint32]native.DeviceInfo{},
-		sinkInputs:    map[uint32]native.StreamInfo{},
-		sourceOutputs: map[uint32]native.StreamInfo{},
-		cards:         map[uint32]native.CardInfo{},
+		sinks:         map[native.SinkIndex]native.SinkInfo{},
+		sources:       map[native.SourceIndex]native.SourceInfo{},
+		sinkInputs:    map[native.SinkInputIndex]native.SinkInputInfo{},
+		sourceOutputs: map[native.SourceOutputIndex]native.SourceOutputInfo{},
+		cards:         map[native.CardIndex]native.CardInfo{},
 		failures:      map[uint32]native.Error{},
 		conns:         map[*conn]struct{}{},
 		nextIndex:     1000,
@@ -141,26 +141,26 @@ func (s *Server) Calls() []uint32 {
 }
 
 // PutSink adds or replaces a sink, announcing it to subscribers.
-func (s *Server) PutSink(d native.DeviceInfo) {
+func (s *Server) PutSink(d native.SinkInfo) {
 	put(s, s.sinks, d.Index, d, native.FacilitySink)
 }
 
 // PutSource adds or replaces a source.
-func (s *Server) PutSource(d native.DeviceInfo) {
+func (s *Server) PutSource(d native.SourceInfo) {
 	put(s, s.sources, d.Index, d, native.FacilitySource)
 }
 
 // PutSinkInput adds or replaces a playback stream.
-func (s *Server) PutSinkInput(st native.StreamInfo) {
+func (s *Server) PutSinkInput(st native.SinkInputInfo) {
 	put(s, s.sinkInputs, st.Index, st, native.FacilitySinkInput)
 }
 
 // PutSourceOutput adds or replaces a recording stream.
-func (s *Server) PutSourceOutput(st native.StreamInfo) {
+func (s *Server) PutSourceOutput(st native.SourceOutputInfo) {
 	put(s, s.sourceOutputs, st.Index, st, native.FacilitySourceOutput)
 }
 
-func put[T any](s *Server, m map[uint32]T, index uint32, v T, f native.Facility) {
+func put[K ~uint32, T any](s *Server, m map[K]T, index K, v T, f native.Facility) {
 	s.mu.Lock()
 	_, exists := m[index]
 	m[index] = v
@@ -169,35 +169,32 @@ func put[T any](s *Server, m map[uint32]T, index uint32, v T, f native.Facility)
 	if exists {
 		op = native.OpChange
 	}
-	s.Emit(native.SubscribeEvent{Facility: f, Operation: op, Index: index})
+	s.Emit(native.SubscribeEvent{Facility: f, Operation: op, Index: uint32(index)})
 }
 
 // RemoveSink drops a sink and announces the removal.
-func (s *Server) RemoveSink(index uint32) { s.remove(native.FacilitySink, index) }
+func (s *Server) RemoveSink(index native.SinkIndex) { remove(s, s.sinks, index, native.FacilitySink) }
 
 // RemoveSource drops a source.
-func (s *Server) RemoveSource(index uint32) { s.remove(native.FacilitySource, index) }
+func (s *Server) RemoveSource(index native.SourceIndex) {
+	remove(s, s.sources, index, native.FacilitySource)
+}
 
 // RemoveSinkInput drops a playback stream.
-func (s *Server) RemoveSinkInput(index uint32) { s.remove(native.FacilitySinkInput, index) }
+func (s *Server) RemoveSinkInput(index native.SinkInputIndex) {
+	remove(s, s.sinkInputs, index, native.FacilitySinkInput)
+}
 
 // RemoveSourceOutput drops a recording stream.
-func (s *Server) RemoveSourceOutput(index uint32) { s.remove(native.FacilitySourceOutput, index) }
+func (s *Server) RemoveSourceOutput(index native.SourceOutputIndex) {
+	remove(s, s.sourceOutputs, index, native.FacilitySourceOutput)
+}
 
-func (s *Server) remove(f native.Facility, index uint32) {
+func remove[K ~uint32, T any](s *Server, m map[K]T, index K, f native.Facility) {
 	s.mu.Lock()
-	switch f {
-	case native.FacilitySink:
-		delete(s.sinks, index)
-	case native.FacilitySource:
-		delete(s.sources, index)
-	case native.FacilitySinkInput:
-		delete(s.sinkInputs, index)
-	case native.FacilitySourceOutput:
-		delete(s.sourceOutputs, index)
-	}
+	delete(m, index)
 	s.mu.Unlock()
-	s.Emit(native.SubscribeEvent{Facility: f, Operation: native.OpRemove, Index: index})
+	s.Emit(native.SubscribeEvent{Facility: f, Operation: native.OpRemove, Index: uint32(index)})
 }
 
 // SetDefaults names the default sink and source (empty for none) and
@@ -217,35 +214,30 @@ func (s *Server) Defaults() (sink, source string) {
 }
 
 // Sink snapshots one sink.
-func (s *Server) Sink(index uint32) (native.DeviceInfo, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	d, ok := s.sinks[index]
-	return d, ok
+func (s *Server) Sink(index native.SinkIndex) (native.SinkInfo, bool) {
+	return lookup(s, s.sinks, index)
 }
 
 // Source snapshots one source.
-func (s *Server) Source(index uint32) (native.DeviceInfo, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	d, ok := s.sources[index]
-	return d, ok
+func (s *Server) Source(index native.SourceIndex) (native.SourceInfo, bool) {
+	return lookup(s, s.sources, index)
 }
 
 // SinkInput snapshots one playback stream.
-func (s *Server) SinkInput(index uint32) (native.StreamInfo, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	st, ok := s.sinkInputs[index]
-	return st, ok
+func (s *Server) SinkInput(index native.SinkInputIndex) (native.SinkInputInfo, bool) {
+	return lookup(s, s.sinkInputs, index)
 }
 
 // SourceOutput snapshots one recording stream.
-func (s *Server) SourceOutput(index uint32) (native.StreamInfo, bool) {
+func (s *Server) SourceOutput(index native.SourceOutputIndex) (native.SourceOutputInfo, bool) {
+	return lookup(s, s.sourceOutputs, index)
+}
+
+func lookup[K comparable, T any](s *Server, m map[K]T, index K) (T, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	st, ok := s.sourceOutputs[index]
-	return st, ok
+	v, ok := m[index]
+	return v, ok
 }
 
 // Emit sends a subscription event to every client subscribed to its
@@ -328,9 +320,9 @@ func (s *Server) WaitRecords(t testing.TB, n int) []*Record {
 type Record struct {
 	c             *conn
 	Channel       uint32
-	SourceOutput  uint32
+	SourceOutput  native.SourceOutputIndex
 	Source        string
-	SourceIndex   uint32
+	SourceIndex   native.SourceIndex
 	SampleSpec    native.SampleSpec
 	ChannelMap    native.ChannelMap
 	FragSize      uint32
@@ -461,14 +453,14 @@ func (s *Server) drop(c *conn) []native.SubscribeEvent {
 		if r.c == c && !r.deleted {
 			r.deleted = true
 			delete(s.sourceOutputs, r.SourceOutput)
-			removed = append(removed, native.SubscribeEvent{Facility: native.FacilitySourceOutput, Operation: native.OpRemove, Index: r.SourceOutput})
+			removed = append(removed, native.SubscribeEvent{Facility: native.FacilitySourceOutput, Operation: native.OpRemove, Index: uint32(r.SourceOutput)})
 		}
 	}
 	for _, p := range s.playbacks {
 		if p.c == c && !p.deleted {
 			p.deleted = true
 			delete(s.sinkInputs, p.SinkInput)
-			removed = append(removed, native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpRemove, Index: p.SinkInput})
+			removed = append(removed, native.SubscribeEvent{Facility: native.FacilitySinkInput, Operation: native.OpRemove, Index: uint32(p.SinkInput)})
 		}
 	}
 	return removed
@@ -511,51 +503,51 @@ func handlerFor(cmd uint32) (handler, bool) {
 	case native.CmdGetServerInfo:
 		return (*conn).serverInfo, true
 	case native.CmdGetSinkInfoList:
-		return (*conn).sinkList, true
+		return listDevices(sinks), true
 	case native.CmdGetSourceInfoList:
-		return (*conn).sourceList, true
+		return listDevices(sources), true
 	case native.CmdGetSinkInputInfoList:
-		return (*conn).sinkInputList, true
+		return listStreams(sinkInputs), true
 	case native.CmdGetSourceOutputList:
-		return (*conn).sourceOutputList, true
+		return listStreams(sourceOutputs), true
 	case native.CmdGetSinkInfo:
-		return (*conn).sinkInfo, true
+		return deviceInfo(sinks), true
 	case native.CmdGetSourceInfo:
-		return (*conn).sourceInfo, true
+		return deviceInfo(sources), true
 	case native.CmdGetSinkInputInfo:
-		return (*conn).sinkInputInfo, true
+		return streamInfo(sinkInputs), true
 	case native.CmdGetSourceOutputInfo:
-		return (*conn).sourceOutputInfo, true
+		return streamInfo(sourceOutputs), true
 	case native.CmdSubscribe:
 		return (*conn).subscribe, true
 	case native.CmdSetSinkVolume:
-		return deviceSetter(native.FacilitySink, setVolume), true
+		return deviceSetter(sinks, setVolume), true
 	case native.CmdSetSourceVolume:
-		return deviceSetter(native.FacilitySource, setVolume), true
+		return deviceSetter(sources, setVolume), true
 	case native.CmdSetSinkMute:
-		return deviceSetter(native.FacilitySink, setMute), true
+		return deviceSetter(sinks, setMute), true
 	case native.CmdSetSourceMute:
-		return deviceSetter(native.FacilitySource, setMute), true
+		return deviceSetter(sources, setMute), true
 	case native.CmdSetSinkPort:
-		return deviceSetter(native.FacilitySink, setPort), true
+		return deviceSetter(sinks, setPort), true
 	case native.CmdSetSourcePort:
-		return deviceSetter(native.FacilitySource, setPort), true
+		return deviceSetter(sources, setPort), true
 	case native.CmdSetSinkInputVolume:
-		return streamSetter(native.FacilitySinkInput, setStreamVolume), true
+		return streamSetter(sinkInputs, setStreamVolume), true
 	case native.CmdSetSourceOutputVolume:
-		return streamSetter(native.FacilitySourceOutput, setStreamVolume), true
+		return streamSetter(sourceOutputs, setStreamVolume), true
 	case native.CmdSetSinkInputMute:
-		return streamSetter(native.FacilitySinkInput, setStreamMute), true
+		return streamSetter(sinkInputs, setStreamMute), true
 	case native.CmdSetSourceOutputMute:
-		return streamSetter(native.FacilitySourceOutput, setStreamMute), true
+		return streamSetter(sourceOutputs, setStreamMute), true
 	case native.CmdMoveSinkInput:
-		return moveHandler(native.FacilitySinkInput), true
+		return moveHandler(sinkInputs), true
 	case native.CmdMoveSourceOutput:
-		return moveHandler(native.FacilitySourceOutput), true
+		return moveHandler(sourceOutputs), true
 	case native.CmdSetDefaultSink:
-		return setDefaultHandler(true), true
+		return setDefaultHandler(sinks, func(info *native.ServerInfo) *string { return &info.DefaultSink }), true
 	case native.CmdSetDefaultSource:
-		return setDefaultHandler(false), true
+		return setDefaultHandler(sources, func(info *native.ServerInfo) *string { return &info.DefaultSource }), true
 	case native.CmdCreatePlaybackStream:
 		return (*conn).createPlayback, true
 	case native.CmdDeletePlaybackStream:
@@ -644,155 +636,147 @@ func (c *conn) serverInfo(tag uint32, r *native.Reader, failed func() bool) bool
 }
 
 // sorted lists a map's values by index, like pulsecore's idxset walk.
-func sorted[T any](m map[uint32]T) []T {
-	keys := make([]uint32, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	out := make([]T, 0, len(keys))
-	for _, k := range keys {
+func sorted[K ~uint32, T any](m map[K]T) []T {
+	out := make([]T, 0, len(m))
+	for _, k := range slices.Sorted(maps.Keys(m)) {
 		out = append(out, m[k])
 	}
 	return out
 }
 
-func (c *conn) sinkList(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.listDevices(tag, r, failed, true)
+// deviceKind is one of the two device tables, sinks or sources, with
+// what tells them apart on the wire.
+type deviceKind[I, M ~uint32] struct {
+	facility native.Facility
+	table    func(*Server) map[I]native.DeviceInfo[I, M]
+	isSink   bool
 }
 
-func (c *conn) sourceList(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.listDevices(tag, r, failed, false)
+var (
+	sinks = deviceKind[native.SinkIndex, native.SourceIndex]{
+		facility: native.FacilitySink,
+		table:    func(s *Server) map[native.SinkIndex]native.SinkInfo { return s.sinks },
+		isSink:   true,
+	}
+	sources = deviceKind[native.SourceIndex, native.SinkIndex]{
+		facility: native.FacilitySource,
+		table:    func(s *Server) map[native.SourceIndex]native.SourceInfo { return s.sources },
+	}
+)
+
+// streamKind is one of the two stream tables, sink inputs or source
+// outputs, with its wire layout and the device table it connects to.
+type streamKind[I, D ~uint32] struct {
+	facility native.Facility
+	table    func(*Server) map[I]native.StreamInfo[I, D]
+	device   func(*Server, D) bool
+	fill     func(*native.Writer, uint32, native.StreamInfo[I, D])
 }
 
-func (c *conn) listDevices(tag uint32, r *native.Reader, failed func() bool, sinks bool) bool {
-	if !r.EOF() {
-		return false
+var (
+	sinkInputs = streamKind[native.SinkInputIndex, native.SinkIndex]{
+		facility: native.FacilitySinkInput,
+		table:    func(s *Server) map[native.SinkInputIndex]native.SinkInputInfo { return s.sinkInputs },
+		device:   func(s *Server, d native.SinkIndex) bool { _, ok := s.sinks[d]; return ok },
+		fill:     fillSinkInput,
 	}
-	if failed() {
-		return true
+	sourceOutputs = streamKind[native.SourceOutputIndex, native.SourceIndex]{
+		facility: native.FacilitySourceOutput,
+		table:    func(s *Server) map[native.SourceOutputIndex]native.SourceOutputInfo { return s.sourceOutputs },
+		device:   func(s *Server, d native.SourceIndex) bool { _, ok := s.sources[d]; return ok },
+		fill:     fillSourceOutput,
 	}
-	c.s.mu.Lock()
-	m := c.s.sources
-	if sinks {
-		m = c.s.sinks
-	}
-	all := sorted(m)
-	c.s.mu.Unlock()
-	var w native.Writer
-	for _, d := range all {
-		fillDevice(&w, c.negotiated(), d, sinks)
-	}
-	c.reply(tag, &w)
-	return true
-}
+)
 
-func (c *conn) sinkInputList(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.listStreams(tag, r, failed, true)
-}
-
-func (c *conn) sourceOutputList(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.listStreams(tag, r, failed, false)
-}
-
-func (c *conn) listStreams(tag uint32, r *native.Reader, failed func() bool, playback bool) bool {
-	if !r.EOF() {
-		return false
-	}
-	if failed() {
-		return true
-	}
-	c.s.mu.Lock()
-	m := c.s.sourceOutputs
-	if playback {
-		m = c.s.sinkInputs
-	}
-	all := sorted(m)
-	c.s.mu.Unlock()
-	var w native.Writer
-	for _, st := range all {
-		if playback {
-			fillSinkInput(&w, c.negotiated(), st)
-		} else {
-			fillSourceOutput(&w, c.negotiated(), st)
+func listDevices[I, M ~uint32](k deviceKind[I, M]) handler {
+	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
+		if !r.EOF() {
+			return false
 		}
-	}
-	c.reply(tag, &w)
-	return true
-}
-
-func (c *conn) sinkInfo(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.deviceInfo(tag, r, failed, true)
-}
-
-func (c *conn) sourceInfo(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.deviceInfo(tag, r, failed, false)
-}
-
-func (c *conn) deviceInfo(tag uint32, r *native.Reader, failed func() bool, sink bool) bool {
-	index := r.U32()
-	name, _ := r.String()
-	if r.Err() != nil || !r.EOF() {
-		return false
-	}
-	if failed() {
+		if failed() {
+			return true
+		}
+		c.s.mu.Lock()
+		all := sorted(k.table(c.s))
+		c.s.mu.Unlock()
+		var w native.Writer
+		for _, d := range all {
+			fillDevice(&w, c.negotiated(), d, k.isSink)
+		}
+		c.reply(tag, &w)
 		return true
 	}
-	c.s.mu.Lock()
-	m := c.s.sources
-	if sink {
-		m = c.s.sinks
-	}
-	d, ok := m[index]
-	if name != "" {
-		d, ok = named(m, name)
-	}
-	c.s.mu.Unlock()
-	if !ok {
-		c.fail(tag, native.ErrNoEntity)
-		return true
-	}
-	var w native.Writer
-	fillDevice(&w, c.negotiated(), d, sink)
-	c.reply(tag, &w)
-	return true
 }
 
-func (c *conn) sinkInputInfo(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.streamInfo(tag, r, failed, true)
-}
-
-func (c *conn) sourceOutputInfo(tag uint32, r *native.Reader, failed func() bool) bool {
-	return c.streamInfo(tag, r, failed, false)
-}
-
-func (c *conn) streamInfo(tag uint32, r *native.Reader, failed func() bool, playback bool) bool {
-	index := r.U32()
-	if r.Err() != nil || !r.EOF() {
-		return false
-	}
-	if failed() {
+func listStreams[I, D ~uint32](k streamKind[I, D]) handler {
+	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
+		if !r.EOF() {
+			return false
+		}
+		if failed() {
+			return true
+		}
+		c.s.mu.Lock()
+		all := sorted(k.table(c.s))
+		c.s.mu.Unlock()
+		var w native.Writer
+		for _, st := range all {
+			k.fill(&w, c.negotiated(), st)
+		}
+		c.reply(tag, &w)
 		return true
 	}
-	c.s.mu.Lock()
-	m := c.s.sourceOutputs
-	if playback {
-		m = c.s.sinkInputs
-	}
-	st, ok := m[index]
-	c.s.mu.Unlock()
-	if !ok {
-		c.fail(tag, native.ErrNoEntity)
+}
+
+func deviceInfo[I, M ~uint32](k deviceKind[I, M]) handler {
+	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
+		index := I(r.U32())
+		name, _ := r.String()
+		if r.Err() != nil || !r.EOF() {
+			return false
+		}
+		if failed() {
+			return true
+		}
+		c.s.mu.Lock()
+		m := k.table(c.s)
+		d, ok := m[index]
+		if name != "" {
+			d, ok = named(m, name)
+		}
+		c.s.mu.Unlock()
+		if !ok {
+			c.fail(tag, native.ErrNoEntity)
+			return true
+		}
+		var w native.Writer
+		fillDevice(&w, c.negotiated(), d, k.isSink)
+		c.reply(tag, &w)
 		return true
 	}
-	var w native.Writer
-	if playback {
-		fillSinkInput(&w, c.negotiated(), st)
-	} else {
-		fillSourceOutput(&w, c.negotiated(), st)
+}
+
+func streamInfo[I, D ~uint32](k streamKind[I, D]) handler {
+	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
+		index := I(r.U32())
+		if r.Err() != nil || !r.EOF() {
+			return false
+		}
+		if failed() {
+			return true
+		}
+		c.s.mu.Lock()
+		st, ok := k.table(c.s)[index]
+		c.s.mu.Unlock()
+		if !ok {
+			c.fail(tag, native.ErrNoEntity)
+			return true
+		}
+		var w native.Writer
+		k.fill(&w, c.negotiated(), st)
+		c.reply(tag, &w)
+		return true
 	}
-	c.reply(tag, &w)
-	return true
 }
 
 func (c *conn) subscribe(tag uint32, r *native.Reader, failed func() bool) bool {
@@ -810,29 +794,36 @@ func (c *conn) subscribe(tag uint32, r *native.Reader, failed func() bool) bool 
 	return true
 }
 
-// deviceArg parses a device setter's argument after "index, name".
-type deviceArg func(r *native.Reader) func(*native.DeviceInfo)
-
-func setVolume(r *native.Reader) func(*native.DeviceInfo) {
+func setVolume[I, M ~uint32](r *native.Reader) func(*native.DeviceInfo[I, M]) {
 	v := r.CVolume()
-	return func(d *native.DeviceInfo) { d.Volume = v }
+	return func(d *native.DeviceInfo[I, M]) { d.Volume = v }
 }
 
-func setMute(r *native.Reader) func(*native.DeviceInfo) {
+func setMute[I, M ~uint32](r *native.Reader) func(*native.DeviceInfo[I, M]) {
 	m := r.Bool()
-	return func(d *native.DeviceInfo) { d.Mute = m }
+	return func(d *native.DeviceInfo[I, M]) { d.Mute = m }
 }
 
-func setPort(r *native.Reader) func(*native.DeviceInfo) {
+func setPort[I, M ~uint32](r *native.Reader) func(*native.DeviceInfo[I, M]) {
 	p, _ := r.String()
-	return func(d *native.DeviceInfo) { d.ActivePort = p }
+	return func(d *native.DeviceInfo[I, M]) { d.ActivePort = p }
+}
+
+func setStreamVolume[I, D ~uint32](r *native.Reader) func(*native.StreamInfo[I, D]) {
+	v := r.CVolume()
+	return func(st *native.StreamInfo[I, D]) { st.Volume = v }
+}
+
+func setStreamMute[I, D ~uint32](r *native.Reader) func(*native.StreamInfo[I, D]) {
+	m := r.Bool()
+	return func(st *native.StreamInfo[I, D]) { st.Mute = m }
 }
 
 // deviceSetter applies a sink/source setter by index and emits the
 // change, as pulsecore does after the volume/mute/port hooks.
-func deviceSetter(f native.Facility, arg deviceArg) handler {
+func deviceSetter[I, M ~uint32](k deviceKind[I, M], arg func(r *native.Reader) func(*native.DeviceInfo[I, M])) handler {
 	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
-		index := r.U32()
+		index := I(r.U32())
 		_, named := r.String()
 		apply := arg(r)
 		if r.Err() != nil || !r.EOF() || named {
@@ -841,43 +832,14 @@ func deviceSetter(f native.Facility, arg deviceArg) handler {
 		if failed() {
 			return true
 		}
-		s := c.s
-		s.mu.Lock()
-		m := s.sources
-		if f == native.FacilitySink {
-			m = s.sinks
-		}
-		d, ok := m[index]
-		if ok {
-			apply(&d)
-			m[index] = d
-		}
-		s.mu.Unlock()
-		if !ok {
-			c.fail(tag, native.ErrNoEntity)
-			return true
-		}
-		c.reply(tag, nil)
-		s.Emit(native.SubscribeEvent{Facility: f, Operation: native.OpChange, Index: index})
+		update(c, tag, k.facility, k.table(c.s), index, apply)
 		return true
 	}
 }
 
-type streamArg func(r *native.Reader) func(*native.StreamInfo)
-
-func setStreamVolume(r *native.Reader) func(*native.StreamInfo) {
-	v := r.CVolume()
-	return func(st *native.StreamInfo) { st.Volume = v }
-}
-
-func setStreamMute(r *native.Reader) func(*native.StreamInfo) {
-	m := r.Bool()
-	return func(st *native.StreamInfo) { st.Mute = m }
-}
-
-func streamSetter(f native.Facility, arg streamArg) handler {
+func streamSetter[I, D ~uint32](k streamKind[I, D], arg func(r *native.Reader) func(*native.StreamInfo[I, D])) handler {
 	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
-		index := r.U32()
+		index := I(r.U32())
 		apply := arg(r)
 		if r.Err() != nil || !r.EOF() {
 			return false
@@ -885,22 +847,20 @@ func streamSetter(f native.Facility, arg streamArg) handler {
 		if failed() {
 			return true
 		}
-		c.updateStream(tag, f, index, apply)
+		update(c, tag, k.facility, k.table(c.s), index, apply)
 		return true
 	}
 }
 
-func (c *conn) updateStream(tag uint32, f native.Facility, index uint32, apply func(*native.StreamInfo)) {
+// update applies a setter to the object at index of m and emits the
+// change, or fails the request when there is none.
+func update[K ~uint32, T any](c *conn, tag uint32, f native.Facility, m map[K]T, index K, apply func(*T)) {
 	s := c.s
 	s.mu.Lock()
-	m := s.sourceOutputs
-	if f == native.FacilitySinkInput {
-		m = s.sinkInputs
-	}
-	st, ok := m[index]
+	v, ok := m[index]
 	if ok {
-		apply(&st)
-		m[index] = st
+		apply(&v)
+		m[index] = v
 	}
 	s.mu.Unlock()
 	if !ok {
@@ -908,13 +868,13 @@ func (c *conn) updateStream(tag uint32, f native.Facility, index uint32, apply f
 		return
 	}
 	c.reply(tag, nil)
-	s.Emit(native.SubscribeEvent{Facility: f, Operation: native.OpChange, Index: index})
+	s.Emit(native.SubscribeEvent{Facility: f, Operation: native.OpChange, Index: uint32(index)})
 }
 
-func moveHandler(f native.Facility) handler {
+func moveHandler[I, D ~uint32](k streamKind[I, D]) handler {
 	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
-		index := r.U32()
-		device := r.U32()
+		index := I(r.U32())
+		device := D(r.U32())
 		_, named := r.String()
 		if r.Err() != nil || !r.EOF() || named {
 			return false
@@ -924,22 +884,18 @@ func moveHandler(f native.Facility) handler {
 		}
 		s := c.s
 		s.mu.Lock()
-		devices := s.sources
-		if f == native.FacilitySinkInput {
-			devices = s.sinks
-		}
-		_, exists := devices[device]
+		exists := k.device(s, device)
 		s.mu.Unlock()
 		if !exists {
 			c.fail(tag, native.ErrNoEntity)
 			return true
 		}
-		c.updateStream(tag, f, index, func(st *native.StreamInfo) { st.Device = device })
+		update(c, tag, k.facility, k.table(s), index, func(st *native.StreamInfo[I, D]) { st.Device = device })
 		return true
 	}
 }
 
-func setDefaultHandler(sink bool) handler {
+func setDefaultHandler[I, M ~uint32](k deviceKind[I, M], slot func(*native.ServerInfo) *string) handler {
 	return func(c *conn, tag uint32, r *native.Reader, failed func() bool) bool {
 		name, ok := r.String()
 		if r.Err() != nil || !r.EOF() || !ok {
@@ -950,17 +906,9 @@ func setDefaultHandler(sink bool) handler {
 		}
 		s := c.s
 		s.mu.Lock()
-		m := s.sources
-		if sink {
-			m = s.sinks
-		}
-		_, found := named(m, name)
+		_, found := named(k.table(s), name)
 		if found {
-			if sink {
-				s.info.DefaultSink = name
-			} else {
-				s.info.DefaultSource = name
-			}
+			*slot(&s.info) = name
 		}
 		s.mu.Unlock()
 		if !found {
@@ -1050,11 +998,11 @@ func (c *conn) createRecord(tag uint32, r *native.Reader, failed func() bool) bo
 	if found {
 		rec.Channel = s.nextChannel
 		s.nextChannel++
-		rec.SourceOutput = s.nextIndex
+		rec.SourceOutput = native.SourceOutputIndex(s.nextIndex)
 		s.nextIndex++
 		rec.SourceIndex = source.Index
 		s.records = append(s.records, rec)
-		s.sourceOutputs[rec.SourceOutput] = native.StreamInfo{
+		s.sourceOutputs[rec.SourceOutput] = native.SourceOutputInfo{
 			Index: rec.SourceOutput, Name: rec.Props["media.name"], OwnerModule: native.InvalidIndex,
 			Client: 7, Device: source.Index, SampleSpec: rec.SampleSpec, ChannelMap: rec.ChannelMap,
 			Volume: vol, Props: props, HasVolume: true, VolumeWritable: true,
@@ -1068,12 +1016,12 @@ func (c *conn) createRecord(tag uint32, r *native.Reader, failed func() bool) bo
 	}
 	var w native.Writer
 	w.U32(rec.Channel)
-	w.U32(rec.SourceOutput)
+	w.U32(uint32(rec.SourceOutput))
 	w.U32(4 << 20)
 	w.U32(rec.FragSize)
 	w.SampleSpec(rec.SampleSpec)
 	w.ChannelMap(rec.ChannelMap)
-	w.U32(source.Index)
+	w.U32(uint32(source.Index))
 	w.String(source.Name)
 	w.Bool(source.State == native.StateSuspended)
 	w.Usec(11000)
@@ -1081,7 +1029,7 @@ func (c *conn) createRecord(tag uint32, r *native.Reader, failed func() bool) bo
 		w.FormatInfo(native.FormatInfo{Encoding: native.EncodingPCM, Props: native.PropList{}})
 	}
 	c.reply(tag, &w)
-	s.Emit(native.SubscribeEvent{Facility: native.FacilitySourceOutput, Operation: native.OpNew, Index: rec.SourceOutput})
+	s.Emit(native.SubscribeEvent{Facility: native.FacilitySourceOutput, Operation: native.OpNew, Index: uint32(rec.SourceOutput)})
 	return true
 }
 
@@ -1114,11 +1062,11 @@ func (c *conn) deleteRecord(tag uint32, r *native.Reader, failed func() bool) bo
 	return true
 }
 
-func named(m map[uint32]native.DeviceInfo, name string) (native.DeviceInfo, bool) {
+func named[I, M ~uint32](m map[I]native.DeviceInfo[I, M], name string) (native.DeviceInfo[I, M], bool) {
 	for _, d := range m {
 		if d.Name == name {
 			return d, true
 		}
 	}
-	return native.DeviceInfo{}, false
+	return native.DeviceInfo[I, M]{}, false
 }

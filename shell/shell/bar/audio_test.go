@@ -93,8 +93,8 @@ func micServer(t *testing.T) (*pulsetest.Server, *pulse.Service) {
 	return srv, svc
 }
 
-func recording(index, source uint32, app string, pid int) native.StreamInfo {
-	return native.StreamInfo{
+func recording(index native.SourceOutputIndex, source native.SourceIndex, app string, pid int) native.SourceOutputInfo {
+	return native.SourceOutputInfo{
 		Index: index, Name: "capture", Device: source, OwnerModule: native.InvalidIndex, Client: native.InvalidIndex,
 		SampleSpec: pulsetest.StereoSpec(), ChannelMap: pulsetest.StereoMap(),
 		Volume: native.CVolume{native.VolumeNorm, native.VolumeNorm},
@@ -384,14 +384,14 @@ func TestAudioThresholdsReadTheSpeaker(t *testing.T) {
 }
 
 // volumeOf is a device's first channel.
-func volumeOf(d native.DeviceInfo) native.Volume { return d.Volume[0] }
+func volumeOf[I, M ~uint32](d native.DeviceInfo[I, M]) native.Volume { return d.Volume[0] }
 
 func TestAudioActionsTargetTheirDevice(t *testing.T) {
 	srv, svc := micServer(t)
 	ctx := newTestContext(t, config.Defaults())
 	ctx.Pulse = svc
-	sink := func() native.DeviceInfo { d, _ := srv.Sink(1); return d }
-	mic := func() native.DeviceInfo { d, _ := srv.Source(3); return d }
+	sink := func() native.SinkInfo { d, _ := srv.Sink(1); return d }
+	mic := func() native.SourceInfo { d, _ := srv.Source(3); return d }
 	await := func(what string, cond func() bool) {
 		t.Helper()
 		waitHeadless(t, what, cond)

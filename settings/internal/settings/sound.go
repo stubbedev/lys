@@ -318,7 +318,7 @@ type deviceControls struct {
 	port       string
 	profiles   []deviceOption
 	profile    string
-	card       uint32
+	card       native.CardIndex
 	volume     *widgets.DebouncedSlider
 	mute       *muteToggle
 	balance    *widgets.DebouncedSlider
@@ -442,7 +442,7 @@ func (c *deviceControls) showProfiles(current pulse.Device, cards []pulse.Card) 
 	if !ok {
 		return
 	}
-	i := slices.IndexFunc(cards, func(card pulse.Card) bool { return card.Index == index })
+	i := slices.IndexFunc(cards, func(card pulse.Card) bool { return uint32(card.Index) == index })
 	if i < 0 {
 		return
 	}

@@ -37,7 +37,7 @@ func openTestPulse(t *testing.T, pcm io.Reader) pulseHarness {
 func openTestPulseAs(t *testing.T, pcm io.Reader, format AudioFormat) pulseHarness {
 	t.Helper()
 	srv := pulsetest.New(t)
-	srv.PutSink(native.DeviceInfo{
+	srv.PutSink(native.SinkInfo{
 		Index: 1, Name: "speakers", Description: "Speakers",
 		SampleSpec: native.SampleSpec{Format: native.SampleS16LE, Channels: 2, Rate: testRate},
 		ChannelMap: native.ChannelMap{native.ChannelFrontLeft, native.ChannelFrontRight},

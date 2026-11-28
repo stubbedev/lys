@@ -10,8 +10,8 @@ import (
 // version gates, independently of the client's decoders so a layout
 // mistake on either side shows up as a test failure.
 
-func fillDevice(w *native.Writer, v uint32, d native.DeviceInfo, isSink bool) {
-	w.U32(d.Index)
+func fillDevice[I, M ~uint32](w *native.Writer, v uint32, d native.DeviceInfo[I, M], isSink bool) {
+	w.U32(uint32(d.Index))
 	w.String(d.Name)
 	w.OptString(d.Description)
 	w.SampleSpec(d.SampleSpec)
@@ -19,7 +19,7 @@ func fillDevice(w *native.Writer, v uint32, d native.DeviceInfo, isSink bool) {
 	w.U32(uint32(d.OwnerModule))
 	w.CVolume(d.Volume)
 	w.Bool(d.Mute)
-	w.U32(d.Monitor)
+	w.U32(uint32(d.Monitor))
 	w.OptString(d.MonitorName)
 	w.Usec(d.Latency)
 	w.OptString(d.Driver)
@@ -62,12 +62,12 @@ func fillDevice(w *native.Writer, v uint32, d native.DeviceInfo, isSink bool) {
 	}
 }
 
-func fillSinkInput(w *native.Writer, v uint32, s native.StreamInfo) {
-	w.U32(s.Index)
+func fillSinkInput(w *native.Writer, v uint32, s native.SinkInputInfo) {
+	w.U32(uint32(s.Index))
 	w.OptString(s.Name)
 	w.U32(uint32(s.OwnerModule))
 	w.U32(uint32(s.Client))
-	w.U32(s.Device)
+	w.U32(uint32(s.Device))
 	w.SampleSpec(s.SampleSpec)
 	w.ChannelMap(s.ChannelMap)
 	w.CVolume(s.Volume)
@@ -93,12 +93,12 @@ func fillSinkInput(w *native.Writer, v uint32, s native.StreamInfo) {
 	}
 }
 
-func fillSourceOutput(w *native.Writer, v uint32, s native.StreamInfo) {
-	w.U32(s.Index)
+func fillSourceOutput(w *native.Writer, v uint32, s native.SourceOutputInfo) {
+	w.U32(uint32(s.Index))
 	w.OptString(s.Name)
 	w.U32(uint32(s.OwnerModule))
 	w.U32(uint32(s.Client))
-	w.U32(s.Device)
+	w.U32(uint32(s.Device))
 	w.SampleSpec(s.SampleSpec)
 	w.ChannelMap(s.ChannelMap)
 	w.Usec(s.BufferLatency)

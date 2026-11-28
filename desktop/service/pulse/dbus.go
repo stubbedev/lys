@@ -8,6 +8,7 @@ import (
 
 	"github.com/stubbedev/lys/lib/dbusx"
 	"github.com/stubbedev/lys/lib/intconv"
+	"github.com/stubbedev/lys/lib/pulse/native"
 	dbus "github.com/stubbedev/lys/lib/third_party/godbus"
 )
 
@@ -455,7 +456,7 @@ type CardEntry struct {
 func (o *audioObject) ListCards() ([]CardEntry, *dbus.Error) {
 	var out []CardEntry
 	for _, c := range o.svc.Cards() {
-		e := CardEntry{Index: c.Index, Name: c.Name, Description: cmp.Or(c.Props["device.description"], c.Name), Active: c.ActiveProfile, Profiles: []string{}}
+		e := CardEntry{Index: uint32(c.Index), Name: c.Name, Description: cmp.Or(c.Props["device.description"], c.Name), Active: c.ActiveProfile, Profiles: []string{}}
 		for _, p := range c.Profiles {
 			if p.Available {
 				e.Profiles = append(e.Profiles, p.Name)
@@ -468,7 +469,7 @@ func (o *audioObject) ListCards() ([]CardEntry, *dbus.Error) {
 
 // SetCardProfile switches a card's profile.
 func (o *audioObject) SetCardProfile(card uint32, profile string) *dbus.Error {
-	if err := o.svc.SetCardProfile(context.Background(), card, profile); err != nil {
+	if err := o.svc.SetCardProfile(context.Background(), native.CardIndex(card), profile); err != nil {
 		return failed(err)
 	}
 	return nil
