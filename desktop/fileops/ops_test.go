@@ -611,7 +611,7 @@ func TestMoveAcrossFilesystems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l.dev = n.dev + 1
+	l.vol.dev = n.vol.dev + 1
 	p, err := planTransfer(moving, []request{{src: filepath.Join(src, "dir"), node: n, target: filepath.Join(dst, "dir")}}, map[string]listing{dst: l})
 	if err != nil {
 		t.Fatal(err)
@@ -654,7 +654,7 @@ func TestMoveFailures(t *testing.T) {
 func TestRenameAndUndo(t *testing.T) {
 	src := tree(t)
 	from := filepath.Join(src, "doc.txt")
-	undo, err := Rename(from, "renamed.txt")
+	undo, err := Rename(nil, from, "renamed.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -667,7 +667,7 @@ func TestRenameAndUndo(t *testing.T) {
 	if got := names(t, src); !slices.Equal(got, []string{"dir", "doc.txt"}) {
 		t.Errorf("undoing the rename left %q", got)
 	}
-	if undo, err := Rename(from, "doc.txt"); undo != nil || err != nil {
+	if undo, err := Rename(nil, from, "doc.txt"); undo != nil || err != nil {
 		t.Errorf("renaming to its own name = %+v, %v; want nothing done", undo, err)
 	}
 }
@@ -675,14 +675,14 @@ func TestRenameAndUndo(t *testing.T) {
 func TestRenameFailures(t *testing.T) {
 	src := tree(t)
 	from := filepath.Join(src, "doc.txt")
-	if _, err := Rename(from, "dir"); !errors.Is(err, fs.ErrExist) || !strings.Contains(err.Error(), "rename "+from) {
+	if _, err := Rename(nil, from, "dir"); !errors.Is(err, fs.ErrExist) || !strings.Contains(err.Error(), "rename "+from) {
 		t.Errorf("renaming over a folder = %v, want an existence error naming the file", err)
 	}
-	if _, err := Rename(filepath.Join(src, "gone"), "x"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := Rename(nil, filepath.Join(src, "gone"), "x"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("renaming a missing file = %v", err)
 	}
 	for _, name := range []string{"", ".", "..", "a/b", "a\x00b"} {
-		if _, err := Rename(from, name); err == nil || !strings.Contains(err.Error(), from) {
+		if _, err := Rename(nil, from, name); err == nil || !strings.Contains(err.Error(), from) {
 			t.Errorf("renaming to %q = %v", name, err)
 		}
 	}
@@ -693,25 +693,25 @@ func TestRenameFailures(t *testing.T) {
 
 func TestNewFolderAndFile(t *testing.T) {
 	dir := t.TempDir()
-	folder, err := NewFolder(dir, "New Folder")
+	folder, err := NewFolder(nil, dir, "New Folder")
 	if err != nil || !lstat(t, folder).IsDir() || folder != filepath.Join(dir, "New Folder") {
 		t.Errorf("NewFolder = %q, %v", folder, err)
 	}
-	file, err := NewFile(dir, "notes.txt")
+	file, err := NewFile(nil, dir, "notes.txt")
 	if err != nil || content(t, file) != "" {
 		t.Errorf("NewFile = %q, %v", file, err)
 	}
-	if _, err := NewFolder(dir, "notes.txt"); !errors.Is(err, fs.ErrExist) || !strings.Contains(err.Error(), file) {
+	if _, err := NewFolder(nil, dir, "notes.txt"); !errors.Is(err, fs.ErrExist) || !strings.Contains(err.Error(), file) {
 		t.Errorf("a folder over a file = %v", err)
 	}
 	writeFile(t, file, "kept", 0o600)
-	if _, err := NewFile(dir, "notes.txt"); !errors.Is(err, fs.ErrExist) || content(t, file) != "kept" {
+	if _, err := NewFile(nil, dir, "notes.txt"); !errors.Is(err, fs.ErrExist) || content(t, file) != "kept" {
 		t.Errorf("a file over a file = %v", err)
 	}
-	if _, err := NewFile(dir, "a/b"); err == nil {
+	if _, err := NewFile(nil, dir, "a/b"); err == nil {
 		t.Error("a file name with a slash was taken")
 	}
-	if _, err := NewFolder(filepath.Join(dir, "gone"), "x"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := NewFolder(nil, filepath.Join(dir, "gone"), "x"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("a folder in a missing folder = %v", err)
 	}
 }

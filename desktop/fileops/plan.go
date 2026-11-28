@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 // transfer is what a plan does with its sources.
@@ -66,26 +67,26 @@ func planTransfer(op transfer, reqs []request, dirs map[string]listing) (plan, e
 		p.taken[dir] = names
 	}
 	for _, r := range reqs {
-		src, dst := filepath.Clean(r.src), filepath.Clean(r.target)
-		if r.node.isDir() && dst != src && within(dst, src) {
+		src, dst := vfs.Clean(r.src), vfs.Clean(r.target)
+		if r.node.isDir() && dst != src && vfs.Within(dst, src) {
 			return plan{}, fmt.Errorf("%s %s into itself", op.verb(), src)
 		}
-		dir, name := filepath.Dir(dst), filepath.Base(dst)
+		dir, name := vfs.Dir(dst), vfs.Base(dst)
 		l, ok := dirs[dir]
 		if !ok {
 			return plan{}, fmt.Errorf("%s %s: the folder %s was not listed", op.verb(), src, dir)
 		}
 		taken := p.taken[dir]
-		it := item{src: src, dst: dst, node: r.node, rename: op == moving && l.dev == r.node.dev}
+		it := item{src: src, dst: dst, node: r.node, rename: op == moving && l.vol == r.node.vol}
 		switch isDir, exists := taken[name]; {
 		case dst == src && op == moving:
 			continue
 		case dst == src:
-			it.dst = filepath.Join(dir, freeName(name, r.node.isDir(), taken))
+			it.dst = vfs.Join(dir, freeName(name, r.node.isDir(), taken))
 		case exists:
 			it.conflict, it.targetIsDir = true, isDir
 		}
-		taken[filepath.Base(it.dst)] = r.node.isDir()
+		taken[vfs.Base(it.dst)] = r.node.isDir()
 		files, bytes := r.node.count()
 		p.files += files
 		if !it.rename {
@@ -94,11 +95,6 @@ func planTransfer(op transfer, reqs []request, dirs map[string]listing) (plan, e
 		p.items = append(p.items, it)
 	}
 	return p, nil
-}
-
-// within reports whether path is dir or lies under it.
-func within(path, dir string) bool {
-	return path == dir || strings.HasPrefix(path, strings.TrimSuffix(dir, "/")+"/")
 }
 
 // resolve applies a conflict's answer to its item: false when it is
@@ -110,14 +106,14 @@ func resolve(it item, a Action, taken map[string]bool) (item, bool, error) {
 	case Skip:
 		return item{}, false, nil
 	case Replace:
-		if within(it.src, it.dst) {
+		if vfs.Within(it.src, it.dst) {
 			return item{}, false, fmt.Errorf("replace %s with %s inside it", it.dst, it.src)
 		}
 		it.replace = true
 		return it, true, nil
 	case KeepBoth:
-		name := freeName(filepath.Base(it.dst), it.node.isDir(), taken)
-		it.dst, it.conflict, it.targetIsDir = filepath.Join(filepath.Dir(it.dst), name), false, false
+		name := freeName(vfs.Base(it.dst), it.node.isDir(), taken)
+		it.dst, it.conflict, it.targetIsDir = vfs.Join(vfs.Dir(it.dst), name), false, false
 		return it, true, nil
 	}
 	return item{}, false, errors.New("the conflict was answered with no known action")

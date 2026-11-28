@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 var deleted = time.Date(2026, 11, 26, 13, 4, 5, 999, time.FixedZone("test", 3600))
@@ -23,7 +25,7 @@ func testBin(t *testing.T, mount string) Bin {
 		DataHome: filepath.Join(t.TempDir(), "data"),
 		UID:      os.Getuid(),
 		Volume: func(path string) (Volume, error) {
-			if mount != "" && within(path, mount) {
+			if mount != "" && vfs.Within(path, mount) {
 				return Volume{Dev: 2, Top: mount}, nil
 			}
 			return Volume{Dev: 1, Top: "/"}, nil
@@ -338,7 +340,7 @@ func TestSystemVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !within(dir, v.Top) {
+	if !vfs.Within(dir, v.Top) {
 		t.Errorf("the volume of %s is topped by %s, not above it", dir, v.Top)
 	}
 	if _, err := SystemVolume(filepath.Join(dir, "gone")); !errors.Is(err, fs.ErrNotExist) {

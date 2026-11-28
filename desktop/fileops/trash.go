@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/desktop/fileuri"
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 // deletionDate is the trash spec's DeletionDate layout, in local time.
@@ -262,7 +263,16 @@ type Trash struct {
 	Paths []string
 }
 
+// ErrNoTrash is a network location trashed: it has no trash, and is
+// deleted for good instead, once the user agreed.
+var ErrNoTrash = fmt.Errorf("a network location has no trash: %w", vfs.ErrUnsupported)
+
 func (t Trash) run(r *runner) (*Undo, error) {
+	for _, path := range t.Paths {
+		if vfs.IsRemote(path) {
+			return nil, fmt.Errorf("trash %s: %w", path, ErrNoTrash)
+		}
+	}
 	r.begin(int64(len(t.Paths)), 0)
 	var trashed []Item
 	for _, path := range t.Paths {

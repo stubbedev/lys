@@ -458,6 +458,7 @@ func TestDroppedPaths(t *testing.T) {
 		"file:///a/b%20c\r\nfile:///d":              {"/a/b c", "/d"},
 		"#c\nfile:///x\nhttps://e.com/y\nfile:///z": {"/x", "/z"},
 		"https://e.com/x":                           nil,
+		"sftp://h/a%20b\nfile:///c":                 {"sftp://h/a b", "/c"},
 		"":                                          nil,
 	} {
 		if got := droppedPaths([]byte(in)); !slices.Equal(got, want) {

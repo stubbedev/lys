@@ -17,6 +17,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/shell/shell/keys"
@@ -175,6 +176,10 @@ func (f *Files) Tabs() []string {
 	}
 	return dirs
 }
+
+// mounts are the filesystems the tabs browse, which the operations
+// reach network locations through.
+func (f *Files) mounts() *vfs.Mounts { return f.cfg.Browser.Mounts }
 
 // active is the tab showing, nil before the first.
 func (f *Files) active() *tab {

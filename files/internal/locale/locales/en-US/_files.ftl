@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] Delete { $count } items permanently?
 }
 files-delete-body = This cannot be undone.
+files-delete-no-trash-body = A network location has no trash: the files are deleted for good. This cannot be undone.
 files-delete-confirm = Delete
 files-empty-title = Empty the trash?
 files-progress-copy = Copying { $done } of { $of }

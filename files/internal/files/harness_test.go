@@ -15,6 +15,7 @@ import (
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/lib/testhome"
 	"github.com/stubbedev/lys/lib/waittest"
@@ -86,6 +87,9 @@ type harness struct {
 	drained   chan struct{}
 	spawned   atomic.Int64
 	work      sync.WaitGroup
+	// mounts are the filesystems the tabs browse, the local disk and
+	// what a test connects.
+	mounts *vfs.Mounts
 }
 
 func newHarness(t *testing.T) *harness {
@@ -101,7 +105,7 @@ func newHarness(t *testing.T) *harness {
 			Volume: func(string) (fileops.Volume, error) { return fileops.Volume{Dev: 1, Top: "/"}, nil },
 			Now:    func() time.Time { return time.Date(2026, 11, 26, 12, 0, 0, 0, time.UTC) },
 		},
-		queue: make(chan func(), 1024), drained: make(chan struct{}),
+		queue: make(chan func(), 1024), drained: make(chan struct{}), mounts: vfs.NewMounts(),
 	}
 	go func() {
 		defer close(hs.drained)
@@ -122,6 +126,7 @@ func newHarness(t *testing.T) *harness {
 			TrashDirs:   func() []string { return []string{hs.trash} },
 			ForgetImage: func(render.ImageID) {},
 			Animations:  func() config.AnimationsConfig { return conf.Animations },
+			Mounts:      hs.mounts,
 		},
 	})
 	return hs

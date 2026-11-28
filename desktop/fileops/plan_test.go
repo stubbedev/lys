@@ -6,9 +6,11 @@ import (
 )
 
 func TestPlanTransfer(t *testing.T) {
-	file := func(dev uint64, size int64) node { return node{name: "f", kind: regular, size: size, dev: dev} }
-	folder := node{name: "b", kind: directory, dev: 2, children: []node{{name: "c", kind: regular, size: 5, dev: 2}}}
-	dirs := map[string]listing{"/dst": {dev: 1, names: map[string]bool{"x": true}}}
+	file := func(dev uint64, size int64) node {
+		return node{name: "f", kind: regular, size: size, vol: volume{dev: dev}}
+	}
+	folder := node{name: "b", kind: directory, vol: volume{dev: 2}, children: []node{{name: "c", kind: regular, size: 5, vol: volume{dev: 2}}}}
+	dirs := map[string]listing{"/dst": {vol: volume{dev: 1}, names: map[string]bool{"x": true}}}
 	reqs := []request{
 		{src: "/src/a", node: file(1, 10), target: "/dst/a"},
 		{src: "/src/b", node: folder, target: "/dst/b"},
@@ -65,8 +67,8 @@ func TestPlanTransfer(t *testing.T) {
 }
 
 func TestPlanTransferOntoItself(t *testing.T) {
-	dirs := map[string]listing{"/d": {dev: 1, names: map[string]bool{"a.txt": false, "a (2).txt": false}}}
-	reqs := []request{{src: "/d/a.txt", node: node{name: "a.txt", kind: regular, dev: 1}, target: "/d/a.txt"}}
+	dirs := map[string]listing{"/d": {vol: volume{dev: 1}, names: map[string]bool{"a.txt": false, "a (2).txt": false}}}
+	reqs := []request{{src: "/d/a.txt", node: node{name: "a.txt", kind: regular, vol: volume{dev: 1}}, target: "/d/a.txt"}}
 	p, err := planTransfer(copying, reqs, dirs)
 	if err != nil {
 		t.Fatal(err)
@@ -81,12 +83,12 @@ func TestPlanTransferOntoItself(t *testing.T) {
 }
 
 func TestPlanTransferRefuses(t *testing.T) {
-	folder := node{name: "b", kind: directory, dev: 1}
+	folder := node{name: "b", kind: directory, vol: volume{dev: 1}}
 	for name, req := range map[string]request{
 		"into itself": {src: "/src/b", node: folder, target: "/src/b/sub/b"},
 		"unlisted":    {src: "/src/b", node: folder, target: "/elsewhere/b"},
 	} {
-		_, err := planTransfer(copying, []request{req}, map[string]listing{"/src/b/sub": {dev: 1}})
+		_, err := planTransfer(copying, []request{req}, map[string]listing{"/src/b/sub": {vol: volume{dev: 1}}})
 		if err == nil || !strings.Contains(err.Error(), "/src/b") {
 			t.Errorf("%s: err = %v, want an error naming the source", name, err)
 		}

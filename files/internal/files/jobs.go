@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"path/filepath"
 	"slices"
 	"sync"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/widget"
@@ -228,7 +228,7 @@ func (jb *job) ask(c fileops.Conflict, answer chan<- fileops.Resolution) {
 		body = "files-conflict-folder"
 	}
 	jb.dismiss = f.cfg.Host.Ask(Question{
-		Title:   locale.T().Get("files-conflict-title", i18n.Str("name", filepath.Base(c.Target)), i18n.Str("folder", filepath.Base(filepath.Dir(c.Target)))),
+		Title:   locale.T().Get("files-conflict-title", i18n.Str("name", vfs.Base(c.Target)), i18n.Str("folder", vfs.Base(vfs.Dir(c.Target)))),
 		Body:    locale.T().Get(body),
 		Content: all,
 		Buttons: []app.DialogButton{

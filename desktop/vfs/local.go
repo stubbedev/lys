@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"slices"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -36,25 +37,27 @@ const (
 	direntName   = 19
 )
 
-// LocalFS is the local disk. A folder is listed through one directory
-// fd, getdents64 into a pooled off-heap buffer, and every entry stated
-// relative to that fd straight from the name in the buffer: no path is
-// walked and no string is made per entry, the names being written into
-// shared chunks.
+// LocalFS is the local disk; the zero LocalFS is ready to use. A folder
+// is listed through one directory fd, getdents64 into a pooled
+// off-heap buffer, and every entry stated relative to that fd straight
+// from the name in the buffer: no path is walked and no string is made
+// per entry, the names being written into shared chunks.
 type LocalFS struct {
+	once sync.Once
 	mem  memory.Shared
 	bufs *bufpool.Pool
 }
 
-// NewLocal is the local disk's filesystem.
-func NewLocal() *LocalFS {
-	l := &LocalFS{}
-	bufs, err := bufpool.New(&l.mem, 4*dirBufSize)
-	if err != nil {
-		panic(fmt.Sprintf("vfs: a dirent pool retaining %d bytes: %v", 4*dirBufSize, err))
-	}
-	l.bufs = bufs
-	return l
+// pool is the dirent buffers, made on the first listing.
+func (l *LocalFS) pool() *bufpool.Pool {
+	l.once.Do(func() {
+		bufs, err := bufpool.New(&l.mem, 4*dirBufSize)
+		if err != nil {
+			panic(fmt.Sprintf("vfs: a dirent pool retaining %d bytes: %v", 4*dirBufSize, err))
+		}
+		l.bufs = bufs
+	})
+	return l.bufs
 }
 
 // DirCounts are the system calls a listing made.
@@ -106,11 +109,12 @@ func (l *LocalFS) scan(dir string, visit func(fd int, name []byte, cname *byte, 
 		return 0, &fs.PathError{Op: "open", Path: dir, Err: err}
 	}
 	defer func() { _ = unix.Close(fd) }()
-	buf, err := l.bufs.Get(dirBufSize)
+	bufs := l.pool()
+	buf, err := bufs.Get(dirBufSize)
 	if err != nil {
 		return 0, fmt.Errorf("reading %s: a %d byte buffer: %w", dir, dirBufSize, err)
 	}
-	defer func() { _ = l.bufs.Put(buf) }()
+	defer func() { _ = bufs.Put(buf) }()
 	b := buf.Bytes()
 	calls := 0
 	for {

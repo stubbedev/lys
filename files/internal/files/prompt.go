@@ -2,13 +2,13 @@ package files
 
 import (
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/widgets"
 	"github.com/stubbedev/lys/desktop/styling"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/ui/widget"
 	"github.com/stubbedev/lys/ui/widget/css"
@@ -32,12 +32,12 @@ func (m making) placeholder() string {
 	return locale.T().Get("files-folder-name")
 }
 
-// in makes name in dir.
-func (m making) in(dir, name string) (string, error) {
+// in makes name in dir, reaching a network location through mounts.
+func (m making) in(mounts *vfs.Mounts, dir, name string) (string, error) {
 	if m == newFile {
-		return fileops.NewFile(dir, name)
+		return fileops.NewFile(mounts, dir, name)
 	}
-	return fileops.NewFolder(dir, name)
+	return fileops.NewFolder(mounts, dir, name)
 }
 
 // prompt is a tab's row naming a folder or a file to make in the
@@ -94,14 +94,22 @@ func (p *prompt) create() {
 	if name == "" {
 		return
 	}
-	dir := p.t.b.Dir()
-	path, err := p.making.in(dir, name)
-	if err != nil {
-		log.Printf("files: %v", err)
-		p.f.cfg.Host.Toast(locale.T().Get("files-create-failed", i18n.Str("name", name)), nil)
-		return
+	dir, making, mounts := p.t.b.Dir(), p.making, p.f.mounts()
+	type made struct {
+		path string
+		err  error
 	}
-	p.hide()
-	p.t.b.Focus(p.t.b.FileView())
-	p.t.b.Reveal(filepath.Dir(path), []string{path})
+	offLoop(p.f, func() made {
+		path, err := making.in(mounts, dir, name)
+		return made{path, err}
+	}, func(m made) {
+		if m.err != nil {
+			log.Printf("files: %v", m.err)
+			p.f.cfg.Host.Toast(locale.T().Get("files-create-failed", i18n.Str("name", name)), nil)
+			return
+		}
+		p.hide()
+		p.t.b.Focus(p.t.b.FileView())
+		p.t.b.Reveal(vfs.Dir(m.path), []string{m.path})
+	})
 }

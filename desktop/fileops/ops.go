@@ -1,6 +1,7 @@
 package fileops
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -8,30 +9,39 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 // Copy copies Sources into the folder Dest, each under its own name.
 // Links are copied as links unless FollowLinks copies what they lead
-// to.
+// to, or the copy touches a network location. Mounts reach the network
+// locations named, nil for none.
 type Copy struct {
 	Sources     []string
 	Dest        string
 	FollowLinks bool
+	Mounts      *vfs.Mounts
 }
 
 // Move moves Sources into the folder Dest, each under its own name: a
 // rename within one filesystem, a copy then a removal across two.
+// Mounts reach the network locations named, nil for none.
 type Move struct {
 	Sources []string
 	Dest    string
+	Mounts  *vfs.Mounts
 }
 
 // Delete removes Paths for good, a folder with all it holds; a link
-// is removed, never what it leads to.
+// is removed, never what it leads to. Mounts reach the network
+// locations named, nil for none.
 type Delete struct {
-	Paths []string
+	Paths  []string
+	Mounts *vfs.Mounts
 }
 
 type move struct{ from, to string }
@@ -102,13 +112,14 @@ type Undo struct {
 	moves   []move
 	trashed []Item
 	copies  []copied
+	mounts  *vfs.Mounts
 }
 
-func undoMoves(moves []move) *Undo {
+func undoMoves(moves []move, mounts *vfs.Mounts) *Undo {
 	if len(moves) == 0 {
 		return nil
 	}
-	return &Undo{moves: moves}
+	return &Undo{moves: moves, mounts: mounts}
 }
 
 func undoCopies(done []placed) *Undo {
@@ -127,7 +138,11 @@ func undoCopies(done []placed) *Undo {
 func (c Copy) run(r *runner) (*Undo, error) {
 	reqs := make([]request, 0, len(c.Sources))
 	for _, src := range c.Sources {
-		reqs = append(reqs, request{src: src, target: filepath.Join(c.Dest, filepath.Base(src))})
+		reqs = append(reqs, request{src: src, target: vfs.Join(c.Dest, vfs.Base(src))})
+	}
+	if anyRemote(append(slices.Clone(c.Sources), c.Dest)...) {
+		_, err := r.transferRemote(c.Mounts, copying, reqs)
+		return nil, err
 	}
 	done, err := r.transferAll(copying, reqs, c.FollowLinks)
 	return undoCopies(done), err
@@ -136,14 +151,25 @@ func (c Copy) run(r *runner) (*Undo, error) {
 func (m Move) run(r *runner) (*Undo, error) {
 	reqs := make([]request, 0, len(m.Sources))
 	for _, src := range m.Sources {
-		reqs = append(reqs, request{src: src, target: filepath.Join(m.Dest, filepath.Base(src))})
+		reqs = append(reqs, request{src: src, target: vfs.Join(m.Dest, vfs.Base(src))})
 	}
-	done, err := r.transferAll(moving, reqs, false)
+	done, err := r.transferMoves(m.Mounts, reqs)
 	moves := make([]move, 0, len(done))
 	for _, p := range done {
 		moves = append(moves, move{from: p.src, to: p.dst})
 	}
-	return undoMoves(moves), err
+	return undoMoves(moves, m.Mounts), err
+}
+
+// transferMoves moves reqs, through the filesystems when any touches a
+// network location.
+func (r *runner) transferMoves(mounts *vfs.Mounts, reqs []request) ([]placed, error) {
+	for _, req := range reqs {
+		if anyRemote(req.src, req.target) {
+			return r.transferRemote(mounts, moving, reqs)
+		}
+	}
+	return r.transferAll(moving, reqs, false)
 }
 
 func (u *Undo) run(r *runner) (*Undo, error) {
@@ -153,7 +179,7 @@ func (u *Undo) run(r *runner) (*Undo, error) {
 		for _, m := range slices.Backward(u.moves) {
 			reqs = append(reqs, request{src: m.to, target: m.from})
 		}
-		_, err := r.transferAll(moving, reqs, false)
+		_, err := r.transferMoves(u.mounts, reqs)
 		return nil, err
 	case len(u.copies) > 0:
 		return nil, r.removeCopies(u.copies)
@@ -262,26 +288,7 @@ func (r *runner) transferAll(op transfer, reqs []request, follow bool) ([]placed
 	return r.execute(p)
 }
 
-func (d Delete) run(r *runner) (*Undo, error) {
-	trees := make([]node, 0, len(d.Paths))
-	var files int64
-	for _, path := range d.Paths {
-		n, err := scan(path, false)
-		if err != nil {
-			return nil, fmt.Errorf("delete %s: %w", path, err)
-		}
-		f, _ := n.count()
-		files += f
-		trees = append(trees, n)
-	}
-	r.begin(files, 0)
-	for i, n := range trees {
-		if err := r.remove(d.Paths[i], n); err != nil {
-			return nil, fmt.Errorf("delete %s: %w", d.Paths[i], err)
-		}
-	}
-	return nil, nil
-}
+func (d Delete) run(r *runner) (*Undo, error) { return nil, r.deleteAll(d.Mounts, d.Paths) }
 
 func (r *runner) remove(path string, n node) error {
 	if err := r.ctx.Err(); err != nil {
@@ -311,47 +318,83 @@ func checkName(name string) error {
 	return nil
 }
 
+// remoteTimeout bounds a rename or a new file or folder on a network
+// location.
+const remoteTimeout = 30 * time.Second
+
 // Rename gives path a new name in its folder, never over something
-// already there; renaming to its own name does nothing.
-func Rename(path, name string) (*Undo, error) {
+// already there; renaming to its own name does nothing. Mounts reach
+// a network location, nil for none.
+func Rename(mounts *vfs.Mounts, path, name string) (*Undo, error) {
 	if err := checkName(name); err != nil {
 		return nil, fmt.Errorf("rename %s: %w", path, err)
 	}
-	path = filepath.Clean(path)
-	to := filepath.Join(filepath.Dir(path), name)
+	path = vfs.Clean(path)
+	to := vfs.Join(vfs.Dir(path), name)
 	if to == path {
 		return nil, nil
 	}
-	if err := renameNoReplace(path, to); err != nil {
+	var err error
+	if vfs.IsRemote(path) {
+		ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+		defer cancel()
+		err = renameRemote(ctx, mounts, path, to)
+	} else {
+		err = renameNoReplace(path, to)
+	}
+	if err != nil {
 		return nil, fmt.Errorf("rename %s to %s: %w", path, name, err)
 	}
-	return undoMoves([]move{{from: path, to: to}}), nil
+	return undoMoves([]move{{from: path, to: to}}, mounts), nil
 }
 
-// NewFolder makes the folder name in dir and returns its path.
-func NewFolder(dir, name string) (string, error) {
+// NewFolder makes the folder name in dir and returns its path. Mounts
+// reach a network location, nil for none.
+func NewFolder(mounts *vfs.Mounts, dir, name string) (string, error) {
 	if err := checkName(name); err != nil {
 		return "", fmt.Errorf("create a folder in %s: %w", dir, err)
 	}
-	path := filepath.Join(dir, name)
-	if err := os.Mkdir(path, 0o777); err != nil { //nolint:gosec // a folder the user asked for, as the umask allows
+	path := vfs.Join(dir, name)
+	if err := makeNew(mounts, path, func(ctx context.Context, fsys vfs.FS, p string) error { return fsys.Mkdir(ctx, p) }); err != nil {
 		return "", fmt.Errorf("create the folder %s: %w", path, err)
 	}
 	return path, nil
 }
 
 // NewFile makes the empty file name in dir and returns its path.
-func NewFile(dir, name string) (string, error) {
+// Mounts reach a network location, nil for none.
+func NewFile(mounts *vfs.Mounts, dir, name string) (string, error) {
 	if err := checkName(name); err != nil {
 		return "", fmt.Errorf("create a file in %s: %w", dir, err)
 	}
-	path := filepath.Join(dir, name)
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666) //nolint:gosec // a file the user asked for
+	path := vfs.Join(dir, name)
+	err := makeNew(mounts, path, func(ctx context.Context, fsys vfs.FS, p string) error {
+		w, err := fsys.Create(ctx, p)
+		if err != nil {
+			return err
+		}
+		if err := w.Close(); err != nil {
+			return errors.Join(err, fsys.Remove(ctx, p))
+		}
+		return nil
+	})
 	if err != nil {
 		return "", fmt.Errorf("create the file %s: %w", path, err)
 	}
-	if err := f.Close(); err != nil {
-		return "", errors.Join(fmt.Errorf("create the file %s: %w", path, err), os.Remove(path))
-	}
 	return path, nil
+}
+
+// makeNew makes what create makes at the location path, on the local
+// disk or the network location it names.
+func makeNew(mounts *vfs.Mounts, path string, create func(context.Context, vfs.FS, string) error) error {
+	ctx, cancel := context.WithTimeout(context.Background(), remoteTimeout)
+	defer cancel()
+	if !vfs.IsRemote(path) {
+		return create(ctx, &vfs.LocalFS{}, path)
+	}
+	fsys, p, err := reach(mounts, path)
+	if err != nil {
+		return err
+	}
+	return create(ctx, fsys, p)
 }

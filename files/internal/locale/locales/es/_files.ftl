@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] ¿Eliminar { $count } elementos definitivamente?
 }
 files-delete-body = Esto no se puede deshacer.
+files-delete-no-trash-body = Una ubicación de red no tiene papelera: los archivos se eliminan para siempre. Esto no se puede deshacer.
 files-delete-confirm = Eliminar
 files-empty-title = ¿Vaciar la papelera?
 files-progress-copy = Copiando { $done } de { $of }

@@ -7,6 +7,8 @@ import (
 	"slices"
 
 	"golang.org/x/sys/unix"
+
+	"github.com/stubbedev/lys/desktop/vfs"
 )
 
 type kind uint8
@@ -18,16 +20,24 @@ const (
 )
 
 // node is what a scan found at a path: a regular file, a folder with
-// its children in name order, or a symbolic link and its target.
+// its children in name order, or a symbolic link and its target, and
+// the volume it lies on.
 type node struct {
 	name     string
 	kind     kind
 	perm     uint32
 	size     int64
 	mtime    unix.Timespec
-	dev      uint64
+	vol      volume
 	target   string
 	children []node
+}
+
+// volume is a filesystem things are renamed within: a local device, or
+// a connected server.
+type volume struct {
+	dev    uint64
+	server vfs.Server
 }
 
 func (n node) isDir() bool { return n.kind == directory }
@@ -67,7 +77,7 @@ func scanAt(path string, follow bool, open []inode) (node, error) {
 	}
 	n := node{
 		name: filepath.Base(path), perm: st.Mode & 0o7777, size: st.Size,
-		mtime: st.Mtim, dev: st.Dev,
+		mtime: st.Mtim, vol: volume{dev: st.Dev},
 	}
 	switch st.Mode & unix.S_IFMT {
 	case unix.S_IFREG:
@@ -103,10 +113,10 @@ func scanAt(path string, follow bool, open []inode) (node, error) {
 	return n, nil
 }
 
-// listing is a folder that things are put in: its filesystem and what
-// it holds, each name mapped to whether it is a folder.
+// listing is a folder that things are put in: its volume and what it
+// holds, each name mapped to whether it is a folder.
 type listing struct {
-	dev   uint64
+	vol   volume
 	names map[string]bool
 }
 
@@ -122,7 +132,7 @@ func list(dir string) (listing, error) {
 	if err != nil {
 		return listing{}, err
 	}
-	l := listing{dev: st.Dev, names: make(map[string]bool, len(des))}
+	l := listing{vol: volume{dev: st.Dev}, names: make(map[string]bool, len(des))}
 	for _, de := range des {
 		l.names[de.Name()] = de.IsDir()
 	}

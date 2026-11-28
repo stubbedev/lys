@@ -278,8 +278,12 @@ func TestDraggedRowsOfferTheHostsActions(t *testing.T) {
 	}
 }
 
-// What is cut says so to the apps that paste it, what is copied too.
+// What is cut says so to the apps that paste it, what is copied too; a
+// network location goes as its own URI.
 func TestFilesContentSaysCutOrCopy(t *testing.T) {
+	if got, _ := FilesContent([]string{"sftp://h/a b"}, false).Bytes(GnomeCopiedFiles); string(got) != "copy\nsftp://h/a%20b" {
+		t.Errorf("a network location is offered as %q", got)
+	}
 	for cut, op := range map[bool]string{true: "cut", false: "copy"} {
 		c := FilesContent([]string{"/a b", "/c"}, cut)
 		got, err := c.Bytes(GnomeCopiedFiles)

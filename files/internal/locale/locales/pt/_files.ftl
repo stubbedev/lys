@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] Eliminar { $count } itens definitivamente?
 }
 files-delete-body = Esta ação não pode ser anulada.
+files-delete-no-trash-body = Uma localização de rede não tem lixo: os ficheiros são eliminados definitivamente. Esta ação não pode ser anulada.
 files-delete-confirm = Eliminar
 files-empty-title = Esvaziar o lixo?
 files-progress-copy = A copiar { $done } de { $of }

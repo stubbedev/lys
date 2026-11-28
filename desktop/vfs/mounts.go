@@ -30,7 +30,7 @@ type Mounts struct {
 
 // NewMounts is the local disk with nothing connected.
 func NewMounts() *Mounts {
-	return &Mounts{local: NewLocal(), mounts: map[Server]Mount{}, watchers: map[uint64]func(){}}
+	return &Mounts{local: &LocalFS{}, mounts: map[Server]Mount{}, watchers: map[uint64]func(){}}
 }
 
 // Local is the local disk's filesystem.

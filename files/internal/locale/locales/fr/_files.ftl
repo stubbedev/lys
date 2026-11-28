@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] Supprimer { $count } éléments définitivement ?
 }
 files-delete-body = Cette action est irréversible.
+files-delete-no-trash-body = Un emplacement réseau n’a pas de corbeille : les fichiers sont supprimés définitivement. Cette action est irréversible.
 files-delete-confirm = Supprimer
 files-empty-title = Vider la corbeille ?
 files-progress-copy = Copie de { $done } sur { $of }

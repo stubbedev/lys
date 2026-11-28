@@ -4,12 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/vfs"
 	"github.com/stubbedev/lys/shell/shell/filebrowser"
 	"github.com/stubbedev/lys/ui/app"
 	"github.com/stubbedev/lys/ui/transfer"
@@ -39,6 +39,15 @@ func (f *Files) menu(t *tab, sel []filebrowser.Entry) []widget.MenuItem {
 		}
 	case len(sel) == 0 && t.virtual():
 		return nil
+	case len(sel) == 0 && vfs.IsRemote(t.b.Dir()):
+		return []widget.MenuItem{
+			item("files-paste", func() { f.paste(t) }),
+			widget.MenuSeparator(),
+			item("files-new-folder", func() { t.prompt.ask(newFolder) }),
+			item("files-new-file", func() { t.prompt.ask(newFile) }),
+			widget.MenuSeparator(),
+			item("files-copy-path", func() { f.copyPaths([]string{t.b.Dir()}) }),
+		}
 	case len(sel) == 0:
 		return []widget.MenuItem{
 			item("files-paste", func() { f.paste(t) }),
@@ -74,6 +83,9 @@ func (f *Files) menu(t *tab, sel []filebrowser.Entry) []widget.MenuItem {
 		)
 	}
 	items = append(items, widget.MenuSeparator(), item("files-copy-path", func() { f.copyPaths(paths) }))
+	if vfs.IsRemote(t.b.Dir()) {
+		return items
+	}
 	if len(sel) == 1 && sel[0].IsDir {
 		items = append(items, item("files-terminal", func() { f.cfg.Host.OpenTerminal(sel[0].Path) }))
 	}
@@ -177,7 +189,7 @@ func (f *Files) write(content transfer.Content) {
 var pasteMimes = []string{filebrowser.GnomeCopiedFiles, transfer.MimeURIList}
 
 // errNothingToPaste is a clipboard that holds no local file.
-var errNothingToPaste = errors.New("the clipboard holds no local file")
+var errNothingToPaste = errors.New("the clipboard holds no file")
 
 // clipped is what a paste found on the clipboard: the files, and
 // whether they were cut.
@@ -199,13 +211,13 @@ func parseClipped(mime string, data []byte) (clipped, error) {
 		default:
 			return clipped{}, fmt.Errorf("%s names the operation %q", mime, op)
 		}
-		c.paths = transfer.FilePaths(transfer.ParseURIList([]byte(rest)))
+		c.paths = filebrowser.URILocations(transfer.ParseURIList([]byte(rest)))
 		if len(c.paths) == 0 {
 			return clipped{}, errNothingToPaste
 		}
 		return c, nil
 	case transfer.MimeURIList:
-		paths := transfer.FilePaths(transfer.ParseURIList(data))
+		paths := filebrowser.URILocations(transfer.ParseURIList(data))
 		if len(paths) == 0 {
 			return clipped{}, errNothingToPaste
 		}
@@ -243,10 +255,10 @@ func (f *Files) paste(t *tab) {
 // transfer copies paths into dir, or moves them.
 func (f *Files) transfer(paths []string, dir string, move bool) {
 	if move {
-		f.jobs.start(moving, fileops.Move{Sources: paths, Dest: dir}, f.pushUndo)
+		f.jobs.start(moving, fileops.Move{Sources: paths, Dest: dir, Mounts: f.mounts()}, f.pushUndo)
 		return
 	}
-	f.jobs.start(copying, fileops.Copy{Sources: paths, Dest: dir}, f.pushUndo)
+	f.jobs.start(copying, fileops.Copy{Sources: paths, Dest: dir, Mounts: f.mounts()}, f.pushUndo)
 }
 
 // dragActions are what rows dragged out of a tab offer: to be copied
@@ -267,7 +279,7 @@ func (f *Files) drop(paths []string, into string, how widget.Dropped) {
 		return
 	}
 	mods := f.cfg.Host.HeldMods()
-	offLoop(f, func() bool { return sameFilesystem(into, paths) }, func(same bool) {
+	offLoop(f, func() bool { return sameVolume(into, paths) }, func(same bool) {
 		f.transfer(paths, into, dropAction(mods, same) == transfer.ActionMove)
 	})
 }
@@ -293,27 +305,43 @@ func (f *Files) rename(t *tab) {
 	if len(paths) != 1 || t.virtual() {
 		return
 	}
-	path := paths[0]
+	path, mounts := paths[0], f.mounts()
 	t.b.Rename(path, func(name string) {
-		u, err := fileops.Rename(path, name)
-		if err != nil {
-			log.Printf("files: %v", err)
-			f.cfg.Host.Toast(locale.T().Get("files-rename-failed", i18n.Str("name", filepath.Base(path))), nil)
-			return
-		}
-		f.pushUndo(u)
-		t.b.Reveal(filepath.Dir(path), []string{filepath.Join(filepath.Dir(path), name)})
+		offLoop(f, func() renamed {
+			u, err := fileops.Rename(mounts, path, name)
+			return renamed{u, err}
+		}, func(r renamed) {
+			if r.err != nil {
+				log.Printf("files: %v", r.err)
+				f.cfg.Host.Toast(locale.T().Get("files-rename-failed", i18n.Str("name", vfs.Base(path))), nil)
+				return
+			}
+			f.pushUndo(r.undo)
+			t.b.Reveal(vfs.Dir(path), []string{vfs.Join(vfs.Dir(path), name)})
+		})
 	})
 }
 
-// trash moves paths to the trash, saying so with an Undo.
+// renamed is how a rename went.
+type renamed struct {
+	undo *fileops.Undo
+	err  error
+}
+
+// trash moves paths to the trash, saying so with an Undo; a network
+// location has none, so files there are deleted for good once the user
+// agrees, as the dialog asking says.
 func (f *Files) trash(t *tab, paths []string) {
 	if len(paths) == 0 || t.virtual() {
 		return
 	}
+	if slices.ContainsFunc(paths, vfs.IsRemote) {
+		f.askDelete(t, paths, "files-delete-no-trash-body")
+		return
+	}
 	f.jobs.start(trashing, fileops.Trash{Bin: f.cfg.Bin, Paths: paths}, func(u *fileops.Undo) {
 		f.pushUndo(u)
-		f.cfg.Host.Toast(locale.T().Get("files-trashed", i18n.Int("count", int64(len(paths))), i18n.Str("name", filepath.Base(paths[0]))), func() { f.runUndo(u) })
+		f.cfg.Host.Toast(locale.T().Get("files-trashed", i18n.Int("count", int64(len(paths))), i18n.Str("name", vfs.Base(paths[0]))), func() { f.runUndo(u) })
 	})
 }
 
@@ -328,6 +356,11 @@ func (f *Files) confirmDelete(t *tab, paths []string) {
 	if len(paths) == 0 || t.virtual() && !t.inTrash() {
 		return
 	}
+	f.askDelete(t, paths, "files-delete-body")
+}
+
+// askDelete asks, saying body, before removing paths for good.
+func (f *Files) askDelete(t *tab, paths []string, body string) {
 	tr := locale.T()
 	shown := map[string]string{}
 	for _, e := range t.b.Selected() {
@@ -335,11 +368,11 @@ func (f *Files) confirmDelete(t *tab, paths []string) {
 	}
 	name, ok := shown[paths[0]]
 	if !ok {
-		name = filepath.Base(paths[0])
+		name = vfs.Base(paths[0])
 	}
 	f.cfg.Host.Ask(Question{
 		Title: tr.Get("files-delete-title", i18n.Int("count", int64(len(paths))), i18n.Str("name", name)),
-		Body:  tr.Get("files-delete-body"),
+		Body:  tr.Get(body),
 		Buttons: []app.DialogButton{
 			{Label: tr.Get("files-cancel"), Response: answerCancel, Role: app.ButtonRoleCancel},
 			{Label: tr.Get("files-delete-confirm"), Response: answerDelete, Role: app.ButtonRoleDefault, Appearance: app.AppearanceDestructive},
@@ -347,7 +380,7 @@ func (f *Files) confirmDelete(t *tab, paths []string) {
 		Default: answerCancel, Cancel: answerCancel,
 		Answer: func(response string) {
 			if response == answerDelete {
-				f.jobs.start(deleting, fileops.Delete{Paths: slices.Clone(paths)}, nil)
+				f.jobs.start(deleting, fileops.Delete{Paths: slices.Clone(paths), Mounts: f.mounts()}, nil)
 			}
 		},
 	})

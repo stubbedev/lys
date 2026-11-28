@@ -17,7 +17,6 @@ import (
 
 	"github.com/stubbedev/lys/desktop/config"
 	"github.com/stubbedev/lys/desktop/dochelper"
-	"github.com/stubbedev/lys/desktop/fileuri"
 	"github.com/stubbedev/lys/desktop/fswatch"
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/mime"
@@ -1953,30 +1952,37 @@ func (c *Browser) dragOut(rows []int) *widget.DragContent {
 	return &widget.DragContent{Content: FilesContent(paths, false), Actions: actions}
 }
 
-// FilesContent offers paths as a uri list and GNOME's copied-files
+// FilesContent offers locations as a uri list and GNOME's copied-files
 // form, which says whether they were cut (to move where they are
-// pasted) or copied.
+// pasted) or copied: a local path as its file:// URI, a network
+// location as its own.
 func FilesContent(paths []string, cut bool) transfer.Content {
 	op := "copy"
 	if cut {
 		op = "cut"
 	}
-	copied := []string{op}
-	for _, p := range paths {
-		copied = append(copied, transfer.FileURI(p))
+	uris := make([]string, len(paths))
+	for i, p := range paths {
+		uris[i] = vfs.URI(p)
 	}
-	return transfer.Merge(transfer.Files(paths...), transfer.Bytes(GnomeCopiedFiles, []byte(strings.Join(copied, "\n"))))
+	copied := append([]string{op}, uris...)
+	return transfer.Merge(transfer.URIs(uris...), transfer.Bytes(GnomeCopiedFiles, []byte(strings.Join(copied, "\n"))))
 }
 
-// droppedPaths are the local paths in a text/uri-list payload.
-func droppedPaths(data []byte) []string {
-	var paths []string
-	for _, uri := range transfer.ParseURIList(data) {
-		if p, ok := fileuri.Path(uri); ok {
-			paths = append(paths, p)
+// droppedPaths are the locations in a text/uri-list payload.
+func droppedPaths(data []byte) []string { return URILocations(transfer.ParseURIList(data)) }
+
+// URILocations are the locations a uri list names: local paths for
+// file:// URIs, network locations for the schemes vfs knows; any other
+// URI is left out.
+func URILocations(uris []string) []string {
+	var locs []string
+	for _, uri := range uris {
+		if loc, ok := vfs.FromURI(uri); ok {
+			locs = append(locs, loc)
 		}
 	}
-	return paths
+	return locs
 }
 
 // typeAhead is a file view that hands characters typed into it to

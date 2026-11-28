@@ -92,7 +92,7 @@ func TestLocationPathsStayOnTheirServer(t *testing.T) {
 // The local disk and the in-memory filesystem both behave as vfs.FS
 // says.
 func TestLocalConforms(t *testing.T) {
-	vfstest.Conform(t, vfs.NewLocal(), t.TempDir())
+	vfstest.Conform(t, &vfs.LocalFS{}, t.TempDir())
 }
 
 func TestMemFSConforms(t *testing.T) {
@@ -105,7 +105,7 @@ func TestALocalDanglingLinkIsKnownByName(t *testing.T) {
 	if err := os.Symlink(filepath.Join(dir, "gone"), filepath.Join(dir, "link")); err != nil {
 		t.Fatal(err)
 	}
-	l := vfs.NewLocal()
+	l := &vfs.LocalFS{}
 	info, err := l.Stat(context.Background(), filepath.Join(dir, "link"))
 	if err != nil || info != (vfs.Info{Name: "link", Link: true}) {
 		t.Errorf("the dangling link states as %+v, %v", info, err)
@@ -131,7 +131,7 @@ func TestListingABigFolderIsCounted(t *testing.T) {
 		}
 		_ = unix.Close(fd)
 	}
-	l := vfs.NewLocal()
+	l := &vfs.LocalFS{}
 	infos, counts, err := l.ReadDirCounted(root)
 	if err != nil {
 		t.Fatal(err)

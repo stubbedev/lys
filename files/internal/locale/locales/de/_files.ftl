@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] { $count } Elemente endgültig löschen?
 }
 files-delete-body = Dies kann nicht rückgängig gemacht werden.
+files-delete-no-trash-body = Ein Netzwerkort hat keinen Papierkorb: Die Dateien werden endgültig gelöscht. Dies kann nicht rückgängig gemacht werden.
 files-delete-confirm = Löschen
 files-empty-title = Papierkorb leeren?
 files-progress-copy = { $done } von { $of } werden kopiert

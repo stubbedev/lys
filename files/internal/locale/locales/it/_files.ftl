@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] Eliminare { $count } elementi definitivamente?
 }
 files-delete-body = L’operazione non può essere annullata.
+files-delete-no-trash-body = Una posizione di rete non ha un cestino: i file vengono eliminati definitivamente. L’operazione non può essere annullata.
 files-delete-confirm = Elimina
 files-empty-title = Svuotare il cestino?
 files-progress-copy = Copia di { $done } su { $of }

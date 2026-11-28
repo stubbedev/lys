@@ -44,6 +44,7 @@ files-delete-title = { $count ->
    *[other] { $count } items definitief verwijderen?
 }
 files-delete-body = Dit kan niet ongedaan worden gemaakt.
+files-delete-no-trash-body = Een netwerklocatie heeft geen prullenbak: de bestanden worden definitief verwijderd. Dit kan niet ongedaan worden gemaakt.
 files-delete-confirm = Verwijderen
 files-empty-title = De prullenbak legen?
 files-progress-copy = { $done } van { $of } kopiëren
