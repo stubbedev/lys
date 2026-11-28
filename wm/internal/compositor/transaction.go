@@ -121,7 +121,7 @@ func (c *Compositor) awaits(w *window, p wm.Placement, wanted want) bool {
 }
 
 func (c *Compositor) holdable() bool {
-	return c.holdTimer != nil && !c.releasing && !c.shell.Locked()
+	return c.holdTimer.Live() && !c.releasing && !c.shell.Locked()
 }
 
 func (c *Compositor) sendGoal(a wm.Arrangement) ([]*window, error) {

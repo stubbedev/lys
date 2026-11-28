@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
 	"testing"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/stubbedev/lys/lib/waittest"
 
 	"github.com/stubbedev/lys/ui/internal/imgcache"
-	"github.com/stubbedev/lys/ui/transfer"
 )
 
 // quadImage returns a 4x4 raster with solid 2x2 quadrants: red top
@@ -787,13 +785,5 @@ func TestImageIsAnImageOnlyWhileNamed(t *testing.T) {
 	im.SetTooltip("")
 	if RoleOf(im) != RoleNone {
 		t.Error("an image whose name was cleared is still an image")
-	}
-}
-
-func TestImagePasteMimesAreTheCallersOwn(t *testing.T) {
-	im := NewImage(quadImage())
-	im.PasteMimes()[0] = "x-mutated"
-	if got := im.PasteMimes(); !slices.Equal(got, transfer.ImageMimes()) {
-		t.Errorf("PasteMimes = %v after a caller changed its copy, want %v", got, transfer.ImageMimes())
 	}
 }

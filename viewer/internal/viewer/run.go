@@ -14,6 +14,7 @@ import (
 	"github.com/stubbedev/lys/desktop/dochelper"
 	"github.com/stubbedev/lys/desktop/fileops"
 	"github.com/stubbedev/lys/desktop/i18n"
+	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/mime"
 	"github.com/stubbedev/lys/desktop/opener"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
@@ -55,12 +56,23 @@ func Run(paths []string) error {
 		return fmt.Errorf("viewer: load the desktop config: %w", err)
 	}
 	defer svc.Close()
-	started, err := apptheme.Start("lys-viewer", svc.Config(), fontPx)
+	app.SetLogger(logging.Library())
+	sess, err := app.Connect()
 	if err != nil {
-		return fmt.Errorf("viewer: %w", err)
+		return fmt.Errorf("viewer: connect: %w", err)
 	}
-	defer started.Close()
-	application, theme, typeface := started.App, started.Theme, started.Face
+	defer sess.Close()
+
+	application := app.NewApplication(sess)
+	shipIcons()
+	defer apptheme.Setup(application)()
+	cfg := svc.Config()
+	theme := apptheme.New(cfg)
+	theme.WatchUserStyles(application)
+	typeface, err := app.Font(cfg.General.FontSans, fontPx)
+	if err != nil {
+		return fmt.Errorf("viewer: font %q: %w", cfg.General.FontSans, err)
+	}
 	face := app.FontFallback(typeface)
 	db := mime.System()
 	sources := preview.Sources{MIME: db, Thumbnails: thumbnail.New(thumbnail.Config{}), Pictures: preview.NewPictures(preview.PictureBudget)}
@@ -102,6 +114,16 @@ func Run(paths []string) error {
 		ins.Bind(application)
 	}
 	return app.Ended(application.Run())
+}
+
+func shipIcons() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Printf("viewer: icons: find this program: %v", err)
+		return
+	}
+	dir := filepath.Join(filepath.Dir(exe), "..", "share", "lys-viewer", "icons")
+	widget.SetIconSearchPaths(append(widget.IconSearchPaths(), dir))
 }
 
 type host struct {

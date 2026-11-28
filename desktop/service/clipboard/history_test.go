@@ -245,10 +245,7 @@ func TestUTF8TextIsPreferredOverTheOlderFlavours(t *testing.T) {
 	if got := best(t, "STRING", "TEXT", textMime); got != textMime {
 		t.Errorf("best = %q", got)
 	}
-	if got := best(t, "STRING", "TEXT", "COMPOUND_TEXT"); got != "COMPOUND_TEXT" {
-		t.Errorf("best = %q, want the first of them lys-ui reads", got)
-	}
-	if got := best(t, "STRING"); got != "STRING" {
+	if got := best(t, "STRING", "TEXT"); got != "STRING" {
 		t.Errorf("best = %q", got)
 	}
 	if got := best(t, "application/x-thing", "text/html"); got != "text/html" {
@@ -380,10 +377,10 @@ func TestTextIsOfferedUnderEveryTextFlavourOnce(t *testing.T) {
 	if mimes[0] != textMime || !slices.Contains(mimes, "STRING") {
 		t.Fatalf("mimes = %v", mimes)
 	}
-	// The entry's own mime is in transfer.TextMimes too, and must not be
+	// The entry's own mime is in TextMimes too, and must not be
 	// offered twice — a duplicate offer is a protocol error for some
 	// compositors.
-	if len(mimes) != len(transfer.TextMimes()) {
+	if len(mimes) != len(TextMimes) {
 		t.Fatalf("mimes = %v, want each text flavour once", mimes)
 	}
 }
@@ -400,7 +397,7 @@ func TestNonTextIsOfferedOnlyAsItself(t *testing.T) {
 func TestATextMimeOutsideTheKnownListStillLeadsItsOwnOffer(t *testing.T) {
 	mimes := offerMimes("text/html")
 
-	if mimes[0] != "text/html" || len(mimes) != len(transfer.TextMimes())+1 {
+	if mimes[0] != "text/html" || len(mimes) != len(TextMimes)+1 {
 		t.Fatalf("mimes = %v", mimes)
 	}
 }

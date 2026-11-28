@@ -851,3 +851,31 @@ func TestPostsRacingCloseFailOnlyAsClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestRemovingATimerThatWasNeverAddedDoesNothing(t *testing.T) {
+	var timer *Timer
+	if err := timer.Remove(); err != nil {
+		t.Fatalf("Remove of no timer = %v", err)
+	}
+}
+
+func TestATimerIsLiveFromItsAddUntilItsRemove(t *testing.T) {
+	l := newLoop(t)
+	var none *Timer
+	if none.Live() {
+		t.Fatal("no timer is live")
+	}
+	timer, err := l.AddTimer(func() error { return nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !timer.Live() {
+		t.Fatal("an added timer is not live")
+	}
+	if err := timer.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if timer.Live() {
+		t.Fatal("a removed timer is still live")
+	}
+}

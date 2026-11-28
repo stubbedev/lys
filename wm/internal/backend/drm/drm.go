@@ -2601,22 +2601,8 @@ func (o *Output) release() error {
 		o.modeBlob = 0
 	}
 	o.unbind()
-	if o.latch != nil {
-		err = errors.Join(err, o.latch.Remove())
-		o.latch = nil
-	}
-	if o.pacer != nil {
-		err = errors.Join(err, o.pacer.Remove())
-		o.pacer = nil
-	}
-	if o.planesLatch != nil {
-		err = errors.Join(err, o.planesLatch.Remove())
-		o.planesLatch = nil
-	}
-	if o.commitLatch != nil {
-		err = errors.Join(err, o.commitLatch.Remove())
-		o.commitLatch = nil
-	}
+	err = errors.Join(err, o.latch.Remove(), o.pacer.Remove(), o.planesLatch.Remove(), o.commitLatch.Remove())
+	o.latch, o.pacer, o.planesLatch, o.commitLatch = nil, nil, nil, nil
 	if o.cursor != nil {
 		err = errors.Join(err, o.cursor.release())
 		o.cursor = nil

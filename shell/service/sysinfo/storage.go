@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/stubbedev/lys/lib/procstat"
 	"golang.org/x/sys/unix"
 )
 
@@ -53,7 +52,7 @@ func disks(wanted func(mount string) bool) []Disk {
 		if len(fields) < 3 {
 			continue
 		}
-		spec, file, fstype := fields[0], procstat.UnescapeMount(fields[1]), fields[2]
+		spec, file, fstype := fields[0], unescapeMount(fields[1]), fields[2]
 		if ignoredFilesystems[fstype] || strings.HasPrefix(file, "/sys") || strings.HasPrefix(file, "/proc") ||
 			(strings.HasPrefix(file, "/run") && !strings.HasPrefix(file, "/run/media")) || strings.HasPrefix(spec, "sunrpc") {
 			continue
@@ -73,6 +72,10 @@ func disks(wanted func(mount string) bool) []Disk {
 	}
 	return out
 }
+
+var mountEscapes = strings.NewReplacer(`\134`, `\`, `\040`, " ", `\011`, "\t", `\012`, "\n")
+
+func unescapeMount(s string) string { return mountEscapes.Replace(s) }
 
 // statvfs is block size times blocks and times
 // available blocks; a zero total is no disk.

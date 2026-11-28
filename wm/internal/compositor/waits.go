@@ -75,7 +75,7 @@ func (c *Compositor) Awaiting() error {
 }
 
 func (c *Compositor) armWaits() error {
-	if c.waits.armed || c.waits.timer == nil {
+	if c.waits.armed || !c.waits.timer.Live() {
 		return nil
 	}
 	c.waits.armed = true

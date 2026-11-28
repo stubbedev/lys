@@ -541,11 +541,8 @@ func (n *native) paused() bool {
 }
 
 func (n *native) Close() error {
-	var errs []error
 	n.sessionWork.Wait()
-	if n.wake != nil {
-		errs = append(errs, n.wake.Remove())
-	}
+	errs := []error{n.wake.Remove()}
 	if n.monitor != nil {
 		errs = append(errs, n.monitor.Close())
 	}

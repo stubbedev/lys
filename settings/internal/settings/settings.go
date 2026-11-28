@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"slices"
 	"time"
 
 	"github.com/stubbedev/lys/desktop/config"
+	"github.com/stubbedev/lys/desktop/logging"
 	"github.com/stubbedev/lys/desktop/service/clipboard"
 	"github.com/stubbedev/lys/desktop/service/powersupply"
 	"github.com/stubbedev/lys/desktop/shell/apptheme"
@@ -25,8 +27,6 @@ import (
 // appID is the window's application id (dev.stubbe.lys.settings, the
 // desktop entry's name).
 const appID = "dev.stubbe.lys.settings"
-
-const fontPx = 14
 
 // Run loads the config and shows the settings window until it closes.
 // A config that cannot load is an error: the window edits
@@ -56,14 +56,25 @@ func Run(page, setting string) error {
 			return fmt.Errorf("settings: no page %q", page)
 		}
 	}
-	started, err := apptheme.Start("lys-settings", svc.Config(), fontPx)
+	app.SetLogger(logging.Library())
+	sess, err := app.Connect()
 	if err != nil {
-		return fmt.Errorf("settings: %w", err)
+		return fmt.Errorf("settings: connect: %w", err)
 	}
-	defer started.Close()
-	application, theme, face := started.App, started.Theme, started.Face
+	defer sess.Close()
+
+	application := app.NewApplication(sess)
+	shipIcons()
+	defer apptheme.Setup(application)()
+	cfg := svc.Config()
+	theme := apptheme.New(cfg)
+	theme.WatchUserStyles(application)
+	face, err := app.Font(cfg.General.FontSans, 14)
+	if err != nil {
+		return fmt.Errorf("settings: font %q: %w", cfg.General.FontSans, err)
+	}
 	// The code views are GtkTextView's monospace (the family alias).
-	mono, err := app.Font("monospace", fontPx)
+	mono, err := app.Font("monospace", 14)
 	if err != nil {
 		log.Printf("settings: monospace font: %v", err)
 		mono = face
@@ -103,7 +114,7 @@ func Run(page, setting string) error {
 		forgetImage:    application.ForgetImage,
 		clock:          wallClock{},
 	}
-	w, win, stop, err := openSettingsWindow(application, started.Outputs, k, theme)
+	w, win, stop, err := openSettingsWindow(application, sess.Outputs, k, theme)
 	if err != nil {
 		return err
 	}
@@ -191,6 +202,18 @@ func openSettingsWindow(application *app.Application, outputs func() []*app.Outp
 		})
 	})
 	return w, win, stop, nil
+}
+
+// shipIcons puts the icons this app installs on the search path: they live in
+// its own share directory, so it needs no lys-shell and owns no file of its.
+func shipIcons() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Printf("settings: icons: find this program: %v", err)
+		return
+	}
+	dir := filepath.Join(filepath.Dir(exe), "..", "share", "lys-settings", "icons")
+	widget.SetIconSearchPaths(append(widget.IconSearchPaths(), dir))
 }
 
 // confirmResetAll asks, then drops every runtime override

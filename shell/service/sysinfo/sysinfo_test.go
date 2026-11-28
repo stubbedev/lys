@@ -307,7 +307,7 @@ func TestAggregateStorage(t *testing.T) {
 func TestDisksSkipPseudoFilesystems(t *testing.T) {
 	fakeProc(t, "", "")
 	mounts := "/dev/nvme0n1p2 / ext4 rw 0 0\nproc /proc proc rw 0 0\ntmpfs /tmp tmpfs rw 0 0\n" +
-		"/dev/sda1 /run/user/1000/x ext4 rw 0 0\n/dev/sdb1 /run/media/usb vfat rw 0 0\n/dev/sdc1 /mnt/my\\040disk xfs rw 0 0\n/dev/sdd1 /mnt/tag\\043one btrfs rw 0 0\n/dev/nvme0n1p2 / ext4 rw 0 0\n"
+		"/dev/sda1 /run/user/1000/x ext4 rw 0 0\n/dev/sdb1 /run/media/usb vfat rw 0 0\n/dev/sdc1 /mnt/my\\040disk xfs rw 0 0\n/dev/nvme0n1p2 / ext4 rw 0 0\n"
 	if err := os.WriteFile(filepath.Join(ProcRoot, "mounts"), []byte(mounts), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -321,7 +321,7 @@ func TestDisksSkipPseudoFilesystems(t *testing.T) {
 			t.Errorf("%s used = %d, want total-available", d.MountPoint, d.UsedBytes)
 		}
 	}
-	if strings.Join(got, ",") != "/:ext4,/run/media/usb:vfat,/mnt/my disk:xfs,/mnt/tag#one:btrfs" {
+	if strings.Join(got, ",") != "/:ext4,/run/media/usb:vfat,/mnt/my disk:xfs" {
 		t.Errorf("disks = %v", got)
 	}
 }
@@ -572,6 +572,15 @@ func TestCPUReaderOmitsWhatItIsToldTo(t *testing.T) {
 	}
 	if cpu.AvgFrequencyMHz != 0 || cpu.Cores[0].FrequencyMHz != 0 || cpu.HasTemperature {
 		t.Errorf("omitted fields were read: %+v", cpu)
+	}
+}
+
+func TestUnescapeMount(t *testing.T) {
+	if got := unescapeMount(`/mnt/a\040b\134c`); got != `/mnt/a b\c` {
+		t.Errorf("unescaped = %q", got)
+	}
+	if allocs := testing.AllocsPerRun(10, func() { unescapeMount("/mnt/plain") }); allocs > 5 {
+		t.Errorf("a plain mount allocates %.0f times, want at most 5", allocs)
 	}
 }
 

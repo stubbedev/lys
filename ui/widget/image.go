@@ -391,7 +391,7 @@ func (im *Image) Role() Role {
 }
 
 // PasteMimes implements ContentPaster: the image types, best first.
-func (im *Image) PasteMimes() []string { return transfer.ImageMimes() }
+func (im *Image) PasteMimes() []string { return transfer.ImageMimes }
 
 // PasteContent implements ContentPaster through PasteImage.
 func (im *Image) PasteContent(mime string, data []byte) { im.PasteImage(data, mime) }

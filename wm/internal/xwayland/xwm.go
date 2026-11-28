@@ -786,11 +786,8 @@ func (m *wm) close() error {
 	var errs []error
 	for _, id := range slices.Sorted(maps.Keys(m.windows)) {
 		w := m.windows[id]
-		if w.timer != nil {
-			errs = append(errs, w.timer.Remove())
-			w.timer = nil
-		}
-		errs = append(errs, m.hide(w))
+		errs = append(errs, w.timer.Remove(), m.hide(w))
+		w.timer = nil
 	}
 	clear(m.windows)
 	for _, sel := range m.selections {
@@ -806,15 +803,8 @@ func (m *wm) close() error {
 		errs = append(errs, in.out.Close())
 	}
 	m.incoming = nil
-	if m.reap != nil {
-		errs = append(errs, m.reap.Remove())
-		m.reap = nil
-	}
-	if m.stall != nil {
-		errs = append(errs, m.stall.Remove())
-		m.stall = nil
-	}
-	errs = append(errs, m.closeDnd())
+	errs = append(errs, m.reap.Remove(), m.stall.Remove(), m.closeDnd())
+	m.reap, m.stall = nil, nil
 	m.dropOutgoing(func(outKey, *outgoing) bool { return true })
 	return errors.Join(errs...)
 }

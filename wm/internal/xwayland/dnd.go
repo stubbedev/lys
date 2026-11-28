@@ -248,11 +248,8 @@ func (m *wm) dndFinished(win xproto.Window, ok bool) error {
 func (m *wm) closeDnd() error {
 	out := m.dnd
 	m.dnd = nil
-	var errs []error
-	if m.dndStall != nil {
-		errs = append(errs, m.dndStall.Remove())
-		m.dndStall = nil
-	}
+	errs := []error{m.dndStall.Remove()}
+	m.dndStall = nil
 	if out != nil && out.dropped {
 		errs = append(errs, out.drag.Finished(false))
 	}

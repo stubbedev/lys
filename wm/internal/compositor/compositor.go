@@ -376,6 +376,7 @@ type Compositor struct {
 	overlays           map[*output.Output]overlaysShown
 	candidates         map[*surface.Surface]*candidacy
 	hdrSwitches        map[backend.Output]*hdrSwitch
+	timers             []*loop.Timer
 	profiles           map[backend.Output]*profile
 	hdrHold            time.Duration
 	overlayWork        overlayWork
@@ -628,26 +629,22 @@ func (c *Compositor) setup(l *loop.Loop, display *server.Display, b backend.Back
 	if err := sandbox(display); err != nil {
 		return err
 	}
-	if c.repeat.timer, err = l.AddTimer(c.repeatFired); err != nil {
-		return err
-	}
-	if c.holdTimer, err = l.AddTimer(c.holdExpired); err != nil {
-		return err
-	}
-	if c.slow.timer, err = l.AddTimer(c.slowKeyHeld); err != nil {
-		return err
-	}
-	if c.hidden.timer, err = l.AddTimer(c.hiddenFrame); err != nil {
-		return err
-	}
-	if c.sleep.timer, err = l.AddTimer(c.sleepDue); err != nil {
-		return err
-	}
-	if c.waits.timer, err = l.AddTimer(c.sweepWaits); err != nil {
-		return err
-	}
-	if c.presence.timer, err = l.AddTimer(c.cursorIdleExpired); err != nil {
-		return err
+	for _, t := range []struct {
+		timer **loop.Timer
+		fired func() error
+	}{
+		{&c.repeat.timer, c.repeatFired},
+		{&c.holdTimer, c.holdExpired},
+		{&c.slow.timer, c.slowKeyHeld},
+		{&c.hidden.timer, c.hiddenFrame},
+		{&c.sleep.timer, c.sleepDue},
+		{&c.waits.timer, c.sweepWaits},
+		{&c.presence.timer, c.cursorIdleExpired},
+	} {
+		if *t.timer, err = l.AddTimer(t.fired); err != nil {
+			return err
+		}
+		c.timers = append(c.timers, *t.timer)
 	}
 	if c.layout, err = output.New(display); err != nil {
 		return err
@@ -855,21 +852,11 @@ func (c *Compositor) Close() error {
 	for o := range c.inheritFades {
 		errs = append(errs, c.dropInheritedFade(o))
 	}
-	if c.repeat.timer != nil {
-		errs = append(errs, c.repeat.timer.Remove())
-		c.repeat.timer = nil
+	for _, t := range c.timers {
+		errs = append(errs, t.Remove())
 	}
-	if c.holdTimer != nil {
-		errs = append(errs, c.holdTimer.Remove())
-		c.holdTimer = nil
-	}
-	if c.hidden.timer != nil {
-		errs = append(errs, c.hidden.timer.Remove())
-		c.hidden.timer = nil
-	}
-	if c.waits.timer != nil {
-		errs = append(errs, c.waits.timer.Remove())
-		c.waits.timer = nil
+	for b := range c.hdrSwitches {
+		errs = append(errs, c.dropHDRSwitch(b))
 	}
 	return errors.Join(errs...)
 }

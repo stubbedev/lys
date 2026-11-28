@@ -130,6 +130,9 @@ func (c *Compositor) eachSurfaceOf(w *window, f func(*surface.Surface)) {
 }
 
 func (c *Compositor) armSleep(now time.Duration) error {
+	if !c.sleep.timer.Live() {
+		return nil
+	}
 	due, found := time.Duration(0), false
 	for _, w := range c.windows {
 		if !w.rest.unseen || w.rest.asleep {

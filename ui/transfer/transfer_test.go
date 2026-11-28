@@ -10,33 +10,14 @@ import (
 	"testing"
 )
 
-func TestTheMimeListsAreEachCallersOwn(t *testing.T) {
-	TextMimes()[0] = "x-mutated"
-	ImageMimes()[0] = "x-mutated"
-	c := Text("hi")
-	c.Mimes[0] = "x-mutated"
-	if got := TextMimes()[0]; got != MimeText {
-		t.Errorf("TextMimes leads with %q after a caller changed its copy", got)
-	}
-	if got := ImageMimes()[0]; got != MimePNG {
-		t.Errorf("ImageMimes leads with %q after a caller changed its copy", got)
-	}
-	if got := Text("hi").Mimes[0]; got != MimeText {
-		t.Errorf("Text offers %q first after a caller changed an earlier offer", got)
-	}
-	if !IsTextMime("COMPOUND_TEXT") || IsTextMime(MimeURIList) || IsTextMime("text/html") {
-		t.Error("IsTextMime does not hold to the list")
-	}
-}
-
 // Text offers every text mime with the same bytes; Merge keeps the
 // first part's payload for a shared mime.
 func TestTextAndMerge(t *testing.T) {
 	c := Text("hi")
-	if !slices.Equal(c.Mimes, TextMimes()) {
+	if !slices.Equal(c.Mimes, TextMimes) {
 		t.Errorf("text mimes = %v", c.Mimes)
 	}
-	for _, m := range TextMimes() {
+	for _, m := range TextMimes {
 		if b, err := c.Bytes(m); err != nil || string(b) != "hi" {
 			t.Errorf("%s = %q, %v", m, b, err)
 		}
@@ -46,7 +27,7 @@ func TestTextAndMerge(t *testing.T) {
 		t.Errorf("html mimes = %v", h.Mimes)
 	}
 	m := Merge(Text("first"), Text("second"))
-	if len(m.Mimes) != len(TextMimes()) {
+	if len(m.Mimes) != len(TextMimes) {
 		t.Errorf("merge duplicated mimes: %v", m.Mimes)
 	}
 	if b, _ := m.Bytes(MimeText); string(b) != "first" {
