@@ -2742,6 +2742,33 @@
       "testing"
     ]
   },
+  "desktop/vfs/mtpfs": {
+    "imports": [
+      "desktop/mtp",
+      "desktop/mtp/ptp",
+      "desktop/mtp/usb",
+      "desktop/vfs"
+    ],
+    "external": [
+      "context",
+      "errors",
+      "fmt",
+      "io",
+      "io/fs",
+      "os",
+      "path",
+      "strconv",
+      "strings",
+      "time"
+    ],
+    "testImports": [
+      "desktop/mtp/ptp/ptptest",
+      "desktop/vfs/vfstest"
+    ],
+    "testExternal": [
+      "testing"
+    ]
+  },
   "desktop/vfs/netfs": {
     "imports": [
       "desktop/vfs",
@@ -2908,12 +2935,15 @@
       "desktop/spawn",
       "desktop/styling",
       "desktop/vfs",
+      "desktop/vfs/mtpfs",
+      "desktop/vfs/netfs",
       "files/internal/filemanager1",
       "files/internal/locale",
       "lib/dbusx",
       "lib/third_party/godbus",
       "lib/xdg",
       "lib/xkb",
+      "secrets/client",
       "shell/service/launcher",
       "shell/service/udisks",
       "shell/shell/filebrowser",
@@ -11259,6 +11289,7 @@
       "bytes",
       "cmp",
       "context",
+      "crypto/x509",
       "encoding/xml",
       "errors",
       "fmt",
@@ -11282,6 +11313,8 @@
       "desktop/shell/apptheme",
       "desktop/shell/treetest",
       "desktop/thumbnail/thumbnailtest",
+      "desktop/vfs/netfs",
+      "desktop/vfs/sftpfs/sftptest",
       "desktop/vfs/vfstest",
       "lib/logtest",
       "lib/testhome",
@@ -11290,9 +11323,15 @@
       "shell/shell/filebrowser/browsertest"
     ],
     "testExternal": [
+      "golang.org/x/crypto/ssh",
+      "golang.org/x/crypto/ssh/knownhosts",
+      "golang.org/x/net/webdav",
       "image/color",
       "image/jpeg",
       "image/png",
+      "net",
+      "net/http",
+      "net/http/httptest",
       "runtime",
       "runtime/debug",
       "runtime/metrics",
