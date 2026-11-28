@@ -2,6 +2,7 @@ package compositor
 
 import (
 	"errors"
+	"os"
 	"slices"
 	"testing"
 
@@ -93,10 +94,14 @@ func (r *rig) handOver() *rig {
 		r.t.Fatal(err)
 	}
 	next.plug()
-	next.on(func() { err = errors.Join(next.comp.FinishAdoption(), release(), next.comp.CompleteAdoption()) })
+	next.on(func() {
+		err = errors.Join(next.comp.FinishAdoption(), release(), next.comp.CompleteAdoption())
+		next.comp.display.TakeOver()
+	})
 	if err != nil {
 		r.t.Fatal(err)
 	}
+	r.on(func() { r.comp.display.HandOver() })
 	return next
 }
 
@@ -140,4 +145,33 @@ func TestAnUpgradeKeepsAClientsInputObjectsThoughTheNextCompositorsDevicesComeLa
 	}
 	must(t, keyboard.Release(), pointer.Release(), touch.Release())
 	old.roundtrip()
+}
+
+func TestTheOldDisplayClosingLeavesTheNextCompositorsSocketAccepting(t *testing.T) {
+	dir := testenv.SocketDir(t)
+	old := boot(t, func(l *loop.Loop, opts server.Options) (*server.Display, error) {
+		opts.RuntimeDir = dir
+		return server.New(l, opts)
+	}, func(_ *loop.Loop, s *spyRenderer) backend.Backend { return fakeBackend{s} }, func(*Config) {})
+	old.on(func() { old.comp.display.KeepHandoverJournal() })
+	old.connect()
+	old.roundtrip()
+
+	next := old.handOver()
+	var err error
+	old.on(func() { err = old.comp.display.Close() })
+	if err != nil {
+		t.Fatalf("closing the display that handed its socket over: %v", err)
+	}
+	path := next.comp.display.Path()
+	for _, p := range []string{path, path + ".lock"} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("the old display's Close took %s from the next compositor: %v", p, err)
+		}
+	}
+	next.connect()
+	next.roundtrip()
+	if _, ok := next.globals["wl_compositor"]; !ok {
+		t.Fatalf("a client connecting after the old display closed saw globals %v", next.globals)
+	}
 }

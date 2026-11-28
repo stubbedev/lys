@@ -455,6 +455,7 @@ func (u *upgrader) drive(pid int, peer *handoverPeer, end *handoverEnd, st *hand
 func (u *upgrader) leave() error {
 	defer os.Exit(0)
 	defer func() { _ = recover() }()
+	u.display.HandOver()
 	if u.opened.native != nil {
 		return u.opened.native.retire()
 	}
@@ -611,6 +612,7 @@ func (a *adopted) handshake() {
 
 func (a *adopted) commit() error {
 	*a.committed = true
+	a.comp.Display().TakeOver()
 	if err := a.release(); err != nil {
 		return fmt.Errorf("release the clients: %w", err)
 	}

@@ -85,7 +85,9 @@ func (e *env) serve() {
 		if err := <-done; err != nil {
 			e.t.Errorf("Run: %v", err)
 		}
-		_ = e.disp.Close()
+		if err := e.disp.Close(); err != nil {
+			e.t.Error(err)
+		}
 		_ = e.loop.Close()
 	})
 }

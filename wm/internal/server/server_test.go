@@ -15,6 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/stubbedev/lys/wm/internal/backend"
+	"github.com/stubbedev/lys/wm/internal/handover"
 	"github.com/stubbedev/lys/wm/internal/loop"
 	cw "github.com/stubbedev/lys/wm/internal/protocol/client/wayland"
 	sw "github.com/stubbedev/lys/wm/internal/protocol/server/wayland"
@@ -210,6 +211,106 @@ func TestSocketLockAndCleanup(t *testing.T) {
 	long := filepath.Join(dir, strings.Repeat("x", 100))
 	if _, err := New(l, Options{RuntimeDir: long, Report: func(error) {}}); err == nil || !strings.Contains(err.Error(), "a Unix socket allows 107") {
 		t.Fatalf("New with an overlong path = %v", err)
+	}
+}
+
+func handOverDisplay(t *testing.T, l *loop.Loop, dir string) (old, next *Display) {
+	t.Helper()
+	old, err := New(l, Options{RuntimeDir: dir, Report: func(err error) { t.Error(err) }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pair, err := unix.Socketpair(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(pair[0])
+	defer unix.Close(pair[1])
+	sent := &handover.FDs{}
+	defer sent.CloseOwned()
+	if err := old.Park(); err != nil {
+		t.Fatal(err)
+	}
+	st, _, err := old.Snapshot(sent, func(*Client) bool { return false })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := handover.Send(pair[0], st, sent); err != nil {
+		t.Fatal(err)
+	}
+	got := &State{}
+	fds, err := handover.Receive(pair[1], got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next, err = Adopt(l, Options{Report: func(err error) { t.Error(err) }}, got, fds); err != nil {
+		t.Fatal(err)
+	}
+	return old, next
+}
+
+func socketFiles(t *testing.T, d *Display) []string {
+	t.Helper()
+	var left []string
+	for _, p := range []string{d.Path(), d.Path() + ".lock"} {
+		if _, err := os.Stat(p); err == nil {
+			left = append(left, filepath.Base(p))
+		} else if !errors.Is(err, os.ErrNotExist) {
+			t.Fatal(err)
+		}
+	}
+	return left
+}
+
+func TestADisplayThatHandedOverLeavesTheSocketAndLockToItsSuccessor(t *testing.T) {
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	old, next := handOverDisplay(t, l, testenv.SocketDir(t))
+	next.TakeOver()
+	old.HandOver()
+	if err := old.Close(); err != nil {
+		t.Fatalf("Close of the display that handed over: %v", err)
+	}
+	if left := socketFiles(t, next); !slices.Equal(left, []string{"wayland-0", "wayland-0.lock"}) {
+		t.Fatalf("after the old display closed, %v is left, want the socket and its lock", left)
+	}
+	fd, err := unix.Socket(unix.AF_UNIX, unix.SOCK_STREAM|unix.SOCK_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(fd)
+	if err := unix.Connect(fd, &unix.SockaddrUnix{Name: next.Path()}); err != nil {
+		t.Fatalf("connect to the successor's socket after the old display closed: %v", err)
+	}
+	if err := next.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if left := socketFiles(t, next); len(left) != 0 {
+		t.Fatalf("the successor's Close left %v behind", left)
+	}
+}
+
+func TestAnAdoptedDisplayThatNeverTookOverLeavesTheSocketToTheDisplayItCameFrom(t *testing.T) {
+	l, err := loop.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+	old, next := handOverDisplay(t, l, testenv.SocketDir(t))
+	if err := next.Close(); err != nil {
+		t.Fatalf("Close of the adopted display: %v", err)
+	}
+	if left := socketFiles(t, old); !slices.Equal(left, []string{"wayland-0", "wayland-0.lock"}) {
+		t.Fatalf("after the uncommitted successor closed, %v is left, want the socket and its lock", left)
+	}
+	if err := old.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if left := socketFiles(t, old); len(left) != 0 {
+		t.Fatalf("the display that kept its socket left %v behind", left)
 	}
 }
 

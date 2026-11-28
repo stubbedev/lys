@@ -155,6 +155,14 @@ func (d *Display) Park() error {
 	return errors.Join(errs...)
 }
 
+func (d *Display) HandOver() {
+	d.ownsSocket, d.ownsLock = false, false
+}
+
+func (d *Display) TakeOver() {
+	d.ownsSocket, d.ownsLock = true, true
+}
+
 func (d *Display) Resume() error {
 	d.parked = false
 	errs := []error{d.listener.Modify(loop.Readable)}
@@ -448,7 +456,7 @@ func Adopt(l *loop.Loop, opts Options, st *State, t *handover.FDs) (*Display, er
 	}
 	d := &Display{
 		loop: l, trace: opts.Trace, report: opts.Report, start: time.Now(), listenFD: listenFD, lockFD: lockFD, spare: -1,
-		policies: map[*wire.Interface]*objectPolicy{}, name: st.Name, socketPath: st.Path, lockPath: st.Path + ".lock", bound: true, serial: st.Serial, journaling: true,
+		policies: map[*wire.Interface]*objectPolicy{}, name: st.Name, socketPath: st.Path, lockPath: st.Path + ".lock", serial: st.Serial, journaling: true,
 	}
 	if d.spare, err = openSpare(); err != nil {
 		return nil, err

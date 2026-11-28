@@ -42,7 +42,8 @@ type Display struct {
 	lockFD     int
 	spare      int
 	report     func(error)
-	bound      bool
+	ownsSocket bool
+	ownsLock   bool
 	listener   *loop.Source
 	clients    []*Client
 	dead       []*Client
@@ -107,7 +108,7 @@ func (d *Display) bind(dir string) error {
 			}
 			return fmt.Errorf("server: lock %s.lock: %w", path, err)
 		}
-		d.name, d.socketPath, d.lockPath, d.lockFD = name, path, path+".lock", lockFD
+		d.name, d.socketPath, d.lockPath, d.lockFD, d.ownsLock = name, path, path+".lock", lockFD, true
 		if err := unix.Unlink(path); err != nil && !errors.Is(err, unix.ENOENT) {
 			_ = d.release()
 			return fmt.Errorf("server: remove stale socket %s: %w", path, err)
@@ -122,7 +123,7 @@ func (d *Display) bind(dir string) error {
 			_ = d.release()
 			return fmt.Errorf("server: bind %s: %w", path, err)
 		}
-		d.bound = true
+		d.ownsSocket = true
 		if err := unix.Listen(fd, 128); err != nil {
 			_ = d.release()
 			return fmt.Errorf("server: listen on %s: %w", path, err)
@@ -134,16 +135,20 @@ func (d *Display) bind(dir string) error {
 
 func (d *Display) release() error {
 	var errs []error
-	if d.bound {
+	if d.ownsSocket {
 		errs = append(errs, unix.Unlink(d.socketPath))
-		d.bound = false
+		d.ownsSocket = false
 	}
 	if d.listenFD >= 0 {
 		errs = append(errs, unix.Close(d.listenFD))
 		d.listenFD = -1
 	}
+	if d.ownsLock {
+		errs = append(errs, unix.Unlink(d.lockPath))
+		d.ownsLock = false
+	}
 	if d.lockFD >= 0 {
-		errs = append(errs, unix.Unlink(d.lockPath), unix.Close(d.lockFD))
+		errs = append(errs, unix.Close(d.lockFD))
 		d.lockFD = -1
 	}
 	if d.spare >= 0 {

@@ -88,10 +88,12 @@ func (e *env) handOver() *env {
 		if release, err = next.disp.Restore(display, fds); err == nil {
 			err = release()
 		}
+		next.disp.TakeOver()
 	})
 	if err != nil {
 		e.t.Fatal(err)
 	}
+	e.on(func() { e.disp.HandOver() })
 	return next
 }
 

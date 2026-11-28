@@ -137,7 +137,9 @@ func boot(t *testing.T, open func(*loop.Loop, server.Options) (*server.Display, 
 		if err := <-done; err != nil {
 			t.Errorf("Run: %v", err)
 		}
-		_ = disp.Close()
+		if err := disp.Close(); err != nil {
+			t.Error(err)
+		}
 		if err := r.comp.Close(); err != nil {
 			t.Error(err)
 		}
