@@ -104,9 +104,10 @@ var fontTypes = []string{"font/ttf", "font/otf", "font/woff"}
 // RendererFor is the renderer a file of mimeType is shown with first:
 // Image for a picture imagedecode decodes and for an SVG drawing, Video
 // for a video and for an audio file that may carry one, Markdown for
-// Markdown, Table for CSV and TSV, Archive for a zip or tar archive
-// (gzip or bzip2 compressed), Font for a font, Text for other text,
-// Folder for a directory and Thumbnail for everything else. A video
+// Markdown, Table for CSV and TSV, Archive for a zip, 7z or tar archive
+// (gzip, bzip2, xz, LZMA or zstd compressed), Font for a font, Text for
+// other text, Folder for a directory and Thumbnail for everything else.
+// A video
 // without a picture to show, text that does not read as text and a
 // font or archive that does not read fall back to Thumbnail, a drawing
 // or a table that does not read to Text, and a file without a thumbnail

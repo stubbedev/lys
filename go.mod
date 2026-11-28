@@ -14,10 +14,12 @@ require (
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/jlaffaye/ftp v0.2.4
 	github.com/kettek/apng v0.0.0-20250827064933-2bb5f5fcf253
+	github.com/klauspost/compress v1.20.5
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/pkg/sftp v1.13.13
 	github.com/rivo/uniseg v0.4.7
 	github.com/stubbedev/memory-go v0.6.0
+	github.com/ulikunitz/xz v0.5.17
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/crypto v0.59.0
 	golang.org/x/image v0.48.0

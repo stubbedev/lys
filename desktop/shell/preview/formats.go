@@ -21,9 +21,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/stubbedev/lys/lib/exif"
 	"github.com/stubbedev/lys/lib/icons"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/sevenzip"
+	"github.com/ulikunitz/xz"
+	"github.com/ulikunitz/xz/lzma"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/imagedecode"
@@ -34,11 +38,14 @@ import (
 // icons.FileLimit bytes, a font of at most FontBytes, a table's first
 // tableColumns columns, and an archive's first ArchiveEntries entries
 // within its first ArchiveBytes bytes, which a compressed tar is read
-// through to list.
+// through to list, an LZMA or zstd one with a window of at most
+// archiveWindow bytes (a 7z archive's header within
+// sevenzip.HeaderBytes).
 const (
 	FontBytes      = 32 << 20
 	ArchiveEntries = 10_000
 	ArchiveBytes   = 1 << 30
+	archiveWindow  = 256 << 20
 	tableColumns   = 64
 )
 
@@ -59,6 +66,10 @@ const (
 	tarArchive
 	gzipTar
 	bzip2Tar
+	xzTar
+	lzmaTar
+	zstdTar
+	sevenZipArchive
 )
 
 // archiveTypes are the archive types listed, by format: these types
@@ -70,6 +81,10 @@ var archiveTypes = map[string]archiveFormat{
 	"application/x-tar":                  tarArchive,
 	"application/x-compressed-tar":       gzipTar,
 	"application/x-bzip2-compressed-tar": bzip2Tar,
+	"application/x-xz-compressed-tar":    xzTar,
+	"application/x-lzma-compressed-tar":  lzmaTar,
+	"application/x-zstd-compressed-tar":  zstdTar,
+	"application/x-7z-compressed":        sevenZipArchive,
 }
 
 // archiveFormatOf is the format of an archive of mimeType, its alias
@@ -260,9 +275,12 @@ func loadArchive(ctx context.Context, path string, f archiveFormat, info Info) C
 	var entries []archiveEntry
 	var more bool
 	var err error
-	if f == zipArchive {
+	switch f {
+	case zipArchive:
 		entries, more, err = zipEntries(ctx, path)
-	} else {
+	case sevenZipArchive:
+		entries, more, err = sevenZipEntries(path)
+	default:
 		entries, more, err = tarEntries(ctx, path, f)
 	}
 	if err != nil {
@@ -327,6 +345,21 @@ func tarEntries(ctx context.Context, path string, f archiveFormat) ([]archiveEnt
 		stream = gz
 	case bzip2Tar:
 		stream = bzip2.NewReader(stream)
+	case xzTar:
+		if stream, err = (xz.ReaderConfig{DictCap: archiveWindow}).NewReader(stream); err != nil {
+			return nil, false, err
+		}
+	case lzmaTar:
+		if stream, err = (lzma.ReaderConfig{DictCap: archiveWindow}).NewReader(stream); err != nil {
+			return nil, false, err
+		}
+	case zstdTar:
+		zr, err := zstd.NewReader(stream, zstd.WithDecoderConcurrency(1), zstd.WithDecoderMaxWindow(archiveWindow))
+		if err != nil {
+			return nil, false, err
+		}
+		defer zr.Close()
+		stream = zr
 	}
 	tr := tar.NewReader(stream)
 	var entries []archiveEntry
@@ -347,4 +380,27 @@ func tarEntries(ctx context.Context, path string, f archiveFormat) ([]archiveEnt
 	}
 	_, err = tr.Next()
 	return entries, !errors.Is(err, io.EOF), nil
+}
+
+// sevenZipEntries lists the 7z archive at path from its header, its
+// first ArchiveEntries entries.
+func sevenZipEntries(path string) ([]archiveEntry, bool, error) {
+	file, err := os.Open(path) //nolint:gosec // the archive being previewed
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = file.Close() }()
+	st, err := file.Stat()
+	if err != nil {
+		return nil, false, err
+	}
+	listed, err := sevenzip.List(file, st.Size())
+	if err != nil {
+		return nil, false, err
+	}
+	entries := make([]archiveEntry, min(len(listed), ArchiveEntries))
+	for i, e := range listed[:len(entries)] {
+		entries[i] = archiveEntry{name: e.Name, dir: e.Dir, size: e.Size, modified: e.Modified}
+	}
+	return entries, len(listed) > ArchiveEntries, nil
 }

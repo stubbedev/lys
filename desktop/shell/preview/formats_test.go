@@ -8,31 +8,36 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/klauspost/compress/zstd"
 	lysinter "github.com/stubbedev/lys/lib/inter"
 	"github.com/stubbedev/lys/lib/render"
 	"github.com/stubbedev/lys/ui/widget"
+	"github.com/ulikunitz/xz"
+	"github.com/ulikunitz/xz/lzma"
 
 	"github.com/stubbedev/lys/desktop/i18n"
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 )
 
 // The richer types show as their own renderers, and only those types:
-// an EPUB, though a zip, is no archive, and an xz-compressed tar, which
-// lys does not decompress, is shown as other files are.
+// an EPUB, though a zip, is no archive, and an xz-compressed file that
+// is no tar is shown as other files are.
 func TestTheRicherTypesHaveTheirRenderers(t *testing.T) {
 	db := testDB(t)
 	for mimeType, want := range map[string]Renderer{
 		"image/svg+xml": Image, "text/markdown": Markdown, "text/csv": Table, "text/tab-separated-values": Table,
 		"application/zip": Archive, "application/x-tar": Archive, "application/x-compressed-tar": Archive,
-		"application/x-bzip2-compressed-tar": Archive, "font/ttf": Font, "font/woff": Font,
+		"application/x-bzip2-compressed-tar": Archive, "application/x-xz-compressed-tar": Archive, "application/x-lzma-compressed-tar": Archive,
+		"application/x-zstd-compressed-tar": Archive, "application/x-7z-compressed": Archive, "font/ttf": Font, "font/woff": Font,
 		"application/json": Text, "application/x-desktop": Text,
-		"application/epub+zip": Thumbnail, "application/x-xz-compressed-tar": Thumbnail,
+		"application/epub+zip": Thumbnail, "application/x-xz": Thumbnail,
 	} {
 		if got := RendererFor(db, mimeType); got != want {
 			t.Errorf("RendererFor(%s) = %v, want %v", mimeType, got, want)
@@ -255,15 +260,10 @@ func zipOf(t *testing.T, n int) []byte {
 	return b.Bytes()
 }
 
-func tarOf(t *testing.T, gz bool) []byte {
+func tarOf(t *testing.T) []byte {
 	t.Helper()
 	var b bytes.Buffer
-	var zw *gzip.Writer
 	tw := tar.NewWriter(&b)
-	if gz {
-		zw = gzip.NewWriter(&b)
-		tw = tar.NewWriter(zw)
-	}
 	for _, f := range archiveFiles {
 		if err := tw.WriteHeader(&tar.Header{Name: f.name, Mode: 0o644, Size: int64(len(f.body)), ModTime: stamp}); err != nil {
 			t.Fatal(err)
@@ -275,26 +275,50 @@ func tarOf(t *testing.T, gz bool) []byte {
 	if err := tw.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if zw != nil {
-		if err := zw.Close(); err != nil {
-			t.Fatal(err)
-		}
+	return b.Bytes()
+}
+
+// compressed is data written through the compressor open makes.
+func compressed[W io.WriteCloser](t *testing.T, data []byte, open func(io.Writer) (W, error)) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	w, err := open(&b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
 	}
 	return b.Bytes()
 }
 
 // An archive lists what it holds, each entry's name, size and time, and
-// counts its entries in the detail line: a zip, a tar, gzip or bzip2
-// compressed; past ArchiveEntries it lists that many and says there are
-// more. A damaged archive says it cannot be shown.
+// counts its entries in the detail line: a zip, a 7z, a tar, gzip,
+// bzip2, xz, LZMA or zstd compressed; past ArchiveEntries it lists that
+// many and says there are more. A damaged archive says it cannot be
+// shown.
 func TestAnArchiveListsItsFiles(t *testing.T) {
 	h := newHarness(t)
 	v := h.view(nil)
-	bz2, err := os.ReadFile(filepath.Join("testdata", "listing.tar.bz2"))
-	if err != nil {
-		t.Fatal(err)
+	fixture := func(name string) []byte {
+		data, err := os.ReadFile(filepath.Join("testdata", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
 	}
-	for name, data := range map[string][]byte{"code.zip": zipOf(t, 2), "code.tar": tarOf(t, false), "code.tar.gz": tarOf(t, true), "code.tar.bz2": bz2} {
+	tarball := tarOf(t)
+	for name, data := range map[string][]byte{
+		"code.zip": zipOf(t, 2), "code.7z": fixture("listing.7z"), "code.tar": tarball,
+		"code.tar.gz":   compressed(t, tarball, func(w io.Writer) (*gzip.Writer, error) { return gzip.NewWriter(w), nil }),
+		"code.tar.bz2":  fixture("listing.tar.bz2"),
+		"code.tar.xz":   compressed(t, tarball, xz.NewWriter),
+		"code.tar.lzma": compressed(t, tarball, lzma.NewWriter),
+		"code.tar.zst":  compressed(t, tarball, func(w io.Writer) (*zstd.Encoder, error) { return zstd.NewWriter(w) }),
+	} {
 		showIn(t, h, v, name, data)
 		if v.Renderer() != Archive {
 			t.Errorf("%s shows as %v", name, v.Renderer())
@@ -314,9 +338,14 @@ func TestAnArchiveListsItsFiles(t *testing.T) {
 	if st := v.shown.folder; v.Renderer() != Archive || st.items != ArchiveEntries || !st.itemsMore || !v.shown.table.more {
 		t.Errorf("a zip past the cap lists %+v as %v", st, v.Renderer())
 	}
-	showIn(t, h, v, "broken.zip", []byte("PK\x03\x04 not really"))
-	if v.Renderer() != Failed || v.shown.failure != Undecodable {
-		t.Errorf("a damaged zip shows as %v (%v)", v.Renderer(), v.shown.failure)
+	for name, data := range map[string][]byte{
+		"broken.zip": []byte("PK\x03\x04 not really"), "broken.7z": []byte("7z\xbc\xaf\x27\x1c not really, though long enough"),
+		"broken.tar.xz": []byte("\xfd7zXZ\x00 not really"), "broken.tar.zst": []byte("\x28\xb5\x2f\xfd not really"),
+	} {
+		showIn(t, h, v, name, data)
+		if v.Renderer() != Failed || v.shown.failure != Undecodable {
+			t.Errorf("a damaged %s shows as %v (%v)", name, v.Renderer(), v.shown.failure)
+		}
 	}
 }
 

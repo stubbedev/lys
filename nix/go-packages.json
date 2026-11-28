@@ -503,7 +503,9 @@
       "lib/waittest"
     ],
     "testExternal": [
+      "maps",
       "os",
+      "slices",
       "strconv",
       "testing",
       "time"
@@ -2208,6 +2210,7 @@
       "lib/icons",
       "lib/intconv",
       "lib/render",
+      "lib/sevenzip",
       "lib/xkb",
       "ui/app",
       "ui/media",
@@ -2227,7 +2230,10 @@
       "encoding/xml",
       "errors",
       "fmt",
+      "github.com/klauspost/compress/zstd",
       "github.com/stubbedev/memory-go",
+      "github.com/ulikunitz/xz",
+      "github.com/ulikunitz/xz/lzma",
       "image",
       "io",
       "io/fs",
@@ -4939,6 +4945,25 @@
     ],
     "testExternal": [
       "crypto/rand",
+      "testing"
+    ]
+  },
+  "lib/sevenzip": {
+    "external": [
+      "bytes",
+      "encoding/binary",
+      "errors",
+      "fmt",
+      "github.com/ulikunitz/xz/lzma",
+      "hash/crc32",
+      "io",
+      "time",
+      "unicode/utf16"
+    ],
+    "testExternal": [
+      "os",
+      "path/filepath",
+      "slices",
       "testing"
     ]
   },
