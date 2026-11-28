@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/stubbedev/lys/lib/xdg"
 )
 
 const (
@@ -155,13 +157,12 @@ func (c *Context) NewComposeTableFromLocale(locale string) (*ComposeTable, error
 	if p := c.getenv("XCOMPOSEFILE"); p != "" {
 		candidates = append(candidates, composeFile(p))
 	}
-	if xdg := c.getenv("XDG_CONFIG_HOME"); filepath.IsAbs(xdg) {
-		candidates = append(candidates, composeFile(filepath.Join(xdg, "XCompose")))
-	} else if c.getenv("HOME") != "" {
-		candidates = append(candidates, composeFile(filepath.Join(c.getenv("HOME"), ".config", "XCompose")))
+	env := xdg.Env(c.getenv)
+	if config, ok := env.ConfigHome(); ok {
+		candidates = append(candidates, composeFile(filepath.Join(config, "XCompose")))
 	}
-	if c.getenv("HOME") != "" {
-		candidates = append(candidates, composeFile(filepath.Join(c.getenv("HOME"), ".XCompose")))
+	if home, ok := env.Home(); ok {
+		candidates = append(candidates, composeFile(filepath.Join(home, ".XCompose")))
 	}
 	if src, ok := c.localeCompose(dir, locale); ok {
 		candidates = append(candidates, src)
@@ -385,10 +386,11 @@ func (l *composeLexer) includePath(p *composeParser) (composeSource, error) {
 		case '%':
 			b.WriteByte('%')
 		case 'H':
-			if p.ctx.getenv("HOME") == "" {
-				return composeSource{}, fmt.Errorf("%s: %%H in an include, but HOME is not set", l.name)
+			home, ok := xdg.Env(p.ctx.getenv).Home()
+			if !ok {
+				return composeSource{}, fmt.Errorf("%s: %%H in an include, but HOME is not an absolute path", l.name)
 			}
-			b.WriteString(p.ctx.getenv("HOME"))
+			b.WriteString(home)
 		case 'L':
 			src, ok := p.ctx.localeCompose(xlocaleDir(p.ctx.getenv), p.locale)
 			if !ok {
