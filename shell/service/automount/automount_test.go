@@ -69,7 +69,9 @@ type harness struct {
 	client  *udisks.Client
 	notes   *notifier
 	enabled atomic.Bool
-	// decided ticks each time the mounter reads Enabled.
+	// decided ticks each time the mounter has read Enabled, after the
+	// read, so a test that changes the setting once it ticks cannot race
+	// the read it waited for.
 	decided chan struct{}
 	opened  chan string
 }
@@ -91,8 +93,9 @@ func (h *harness) start(t *testing.T) {
 		Drives:   udisks.New(h.u.Client(t)),
 		Notifier: h.notes,
 		Enabled: func() bool {
+			on := h.enabled.Load()
 			h.decided <- struct{}{}
-			return h.enabled.Load()
+			return on
 		},
 		Open: func(dir string) { h.opened <- dir },
 	})

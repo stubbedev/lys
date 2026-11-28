@@ -337,9 +337,10 @@ func TestLoadFileAppliesAndRejectsClickBindings(t *testing.T) {
 	if err := os.WriteFile(path, []byte("modules:\n  battery:\n    scroll-up: \"brightness:sideways\"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Every string parses: a bad delta is no action.
-	if c, err := config.LoadFile(path); err != nil || c.Battery.Clicks().ScrollUp.Kind != config.ClickNone {
-		t.Errorf("bad delta: want no action and no error, got %v", err)
+	// A click action the schema cannot mean is a load error, never a
+	// silent no-op.
+	if _, err := config.LoadFile(path); err == nil {
+		t.Error("bad delta: loaded without an error, want the click binding refused")
 	}
 }
 
