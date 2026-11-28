@@ -279,7 +279,7 @@ gates *targets:
             ' ci/components.json)
         done
         if (( ${#tasks[@]} == count )); then
-            echo "gates: ${spec} runs nothing, since ${c} has no ${kinds[*]} to run" >&2
+            echo "gates: ${spec} runs nothing, since ${target} has no ${kinds[*]} to run on ${arch}" >&2
             exit 1
         fi
     done

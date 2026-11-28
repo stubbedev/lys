@@ -499,6 +499,44 @@ func TestValidateRefusesAStaticPartTheComponentLacksOrGoJobsThatSkipIt(t *testin
 	})
 }
 
+func TestAPartThatRunsNoGateOnARunnerIsNeitherNamedNorNeeded(t *testing.T) {
+	cfg := staticConfig
+	cfg.GateRunners = map[Runner][]string{X86_64: {"vet", "lint", "build"}, AArch64: {"vet", "test", "build"}}
+	cfg.GoJobs = map[Runner][][]Target{
+		X86_64:  {{target("a/1:race"), target("a/2")}, {target("a/3")}, {target("b/1"), target("b/2")}, {target("c")}},
+		AArch64: staticConfig.GoJobs[AArch64],
+	}
+	if err := validate(cfg); err != nil {
+		t.Fatalf("validate refused go-jobs that skip the parts running no gate: %v", err)
+	}
+	if got := cfg.running(cfg.Components["a"], GoGates, X86_64); !slices.Equal(got, []int{2, 3}) {
+		t.Errorf("a's gates suite runs in parts %v on x86_64, want 2 and 3", got)
+	}
+	if got := cfg.running(cfg.Components["a"], Race, X86_64); !slices.Equal(got, []int{1, 2}) {
+		t.Errorf("a's race suite runs in parts %v on x86_64, want 1 and 2", got)
+	}
+	var runs []string
+	for _, m := range plan(cfg, []string{"a", "b", "c"}, everything).Jobs {
+		if m.Runner == runnerLabels[X86_64] {
+			runs = append(runs, m.Run)
+		}
+	}
+	if want := []string{"just gates a/1:race a/2", "just gates a/3", "just gates b/1 b/2", "just gates c"}; !slices.Equal(runs, want) {
+		t.Errorf("x86_64 jobs %q, want %q", runs, want)
+	}
+
+	cfg.GoJobs = map[Runner][][]Target{
+		X86_64:  {{target("a/1:gates"), target("a/1:race"), target("a/2:race")}, {target("a/3:gates")}, {target("b/1:gates"), target("b:race")}, {target("c")}},
+		AArch64: staticConfig.GoJobs[AArch64],
+	}
+	wantErrors(t, validate(cfg), []string{
+		"go-jobs on x86_64 names a/1:gates, but a/1 runs none of a's gates on x86_64",
+		"a's gates suite runs on x86_64 as a/3:gates, not once whole or once in each of its parts 2, 3",
+		"go-jobs on x86_64 names b/1:gates, but b/1 runs none of b's gates on x86_64",
+		"b's gates suite runs in no Go job on x86_64",
+	})
+}
+
 func TestValidateRefusesAStaticGateNoComponentRunsOrOneShardsSplit(t *testing.T) {
 	cfg := staticConfig
 	cfg.StaticGates = []string{"vet", "lnit", "test"}

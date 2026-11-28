@@ -214,6 +214,37 @@ func (cfg Config) parts(c Component, s Suite, r Runner) int {
 	return len(c.Shards) + 1
 }
 
+// running is the parts of c's suite s on r that run something: every
+// part of the race suite, and the parts of the gates suite partGates
+// gives a gate.
+func (cfg Config) running(c Component, s Suite, r Runner) []int {
+	n := cfg.parts(c, s, r)
+	var out []int
+	for part := 1; part <= n; part++ {
+		if s == Race || len(cfg.partGates(c, r, part)) > 0 {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+// partGates is the gates of c that part runs on r: a part below the
+// shards runs those sharded-gates splits, the part after them every
+// other gate but the static ones, and the last part those.
+func (cfg Config) partGates(c Component, r Runner, part int) []string {
+	shards := len(c.Shards)
+	return slices.DeleteFunc(slices.Clone(cfg.gates(c, r)), func(g string) bool {
+		switch {
+		case part <= shards:
+			return !slices.Contains(cfg.ShardedGates, g)
+		case part == shards+1:
+			return cfg.static(g)
+		default:
+			return !cfg.static(g)
+		}
+	})
+}
+
 func (c Component) vmChecks(r Runner) []string {
 	if r != vmRunner {
 		return nil
@@ -447,6 +478,11 @@ func validateGoJobs(cfg Config) []error {
 					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s", r, t, cfg.partsOfSuites(t.Component, c, named, r)))
 					continue
 				}
+				runs = slices.DeleteFunc(runs, func(s Suite) bool { return t.Part > 0 && !slices.Contains(cfg.running(c, s, r), t.Part) })
+				if len(runs) == 0 {
+					errs = append(errs, fmt.Errorf("go-jobs on %s names %s, but %s/%d runs none of %s's gates on %s", r, t, t.Component, t.Part, t.Component, r))
+					continue
+				}
 				if t.Part > 0 {
 					split[t.Component] = true
 				}
@@ -458,7 +494,7 @@ func validateGoJobs(cfg Config) []error {
 		for _, name := range slices.Sorted(maps.Keys(cfg.Components)) {
 			c := cfg.Components[name]
 			for _, s := range cfg.suites(c, r) {
-				if err := coverage(r, name, s, cfg.parts(c, s, r), covered[suiteOf{name, s}]); err != nil {
+				if err := coverage(r, name, s, cfg.running(c, s, r), covered[suiteOf{name, s}]); err != nil {
 					errs = append(errs, err)
 				}
 			}
@@ -472,18 +508,13 @@ func validateGoJobs(cfg Config) []error {
 	return errs
 }
 
-func coverage(r Runner, name string, s Suite, n int, targets []Target) error {
+func coverage(r Runner, name string, s Suite, every []int, targets []Target) error {
 	parts := make([]int, len(targets))
 	for i, t := range targets {
 		parts[i] = t.Part
 	}
 	slices.Sort(parts)
-	whole := []int{0}
-	every := make([]int, n)
-	for i := range every {
-		every[i] = i + 1
-	}
-	if slices.Equal(parts, whole) || n > 0 && slices.Equal(parts, every) {
+	if slices.Equal(parts, []int{0}) || len(every) > 0 && slices.Equal(parts, every) {
 		return nil
 	}
 	if len(targets) == 0 {
@@ -493,7 +524,21 @@ func coverage(r Runner, name string, s Suite, n int, targets []Target) error {
 	for i, t := range targets {
 		names[i] = t.String()
 	}
-	return fmt.Errorf("%s's %s suite runs on %s as %s, not once whole or once in each of its %s", name, s, r, strings.Join(names, ", "), partsOf(n))
+	return fmt.Errorf("%s's %s suite runs on %s as %s, not once whole or once in each of its %s", name, s, r, strings.Join(names, ", "), runningParts(every))
+}
+
+func runningParts(every []int) string {
+	if len(every) == 0 {
+		return "no parts"
+	}
+	if every[0] == 1 && every[len(every)-1] == len(every) {
+		return partsOf(len(every))
+	}
+	named := make([]string, len(every))
+	for i, part := range every {
+		named[i] = strconv.Itoa(part)
+	}
+	return "parts " + strings.Join(named, ", ")
 }
 
 func partsOf(n int) string {
