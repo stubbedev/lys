@@ -22,6 +22,7 @@ Editor intellisense via JSON Schema. Install the [YAML extension](https://market
 | [`clipboard`](/shell/config/clipboard) | Clipboard history settings. |
 | [`colorpicker`](/shell/config/colorpicker) | Color picker settings. |
 | [`dock`](/shell/config/dock) | A dock of pinned apps and open windows, on its own surface beside the bar. |
+| [`drives`](/shell/config/drives) | Removable drives. |
 | [`dropdowns`](/shell/config/dropdowns) | Per-dropdown foldout panel sizing. |
 | [`general`](/shell/config/general) | Shell-wide settings that don't belong to any specific module. |
 | [`idle`](/shell/config/idle) | Built-in idle policy: keyboard backlight off, dim, lock, screens off, suspend, lock before sleep. |

@@ -44,6 +44,7 @@ var i18nPrefixes = map[string]string{
 	"DynamicLauncherConfig":     "settings-portal-dynamic-launcher",
 	"ClipboardConfig":           "settings-clipboard",
 	"ColorPickerConfig":         "settings-colorpicker",
+	"DrivesConfig":              "settings-drives",
 	"LauncherSearchConfig":      "settings-launcher-search",
 	"LauncherQuicklink":         "settings-launcher-quicklink",
 	"LauncherSnippet":           "settings-launcher-snippet",

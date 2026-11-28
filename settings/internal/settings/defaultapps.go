@@ -45,9 +45,10 @@ var appCategories = []appCategory{
 func defaultAppsPage(*config.Config) pageSpec {
 	return pageSpec{
 		id: defaultAppsID, navKey: "settings-nav-default-apps", icon: "ld-app-window-symbolic",
-		header: "settings-page-default-apps",
-		footer: defaultAppsFooter,
-		panel:  []panelSetting{{terminalPath, "settings-default-terminal", "settings-section-default-categories"}},
+		header:   "settings-page-default-apps",
+		sections: []sectionSpec{{title: "settings-section-removable-drives", rows: fields("drives.automount")}},
+		footer:   defaultAppsFooter,
+		panel:    []panelSetting{{terminalPath, "settings-default-terminal", "settings-section-default-categories"}},
 	}
 }
 

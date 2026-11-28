@@ -791,6 +791,7 @@ settings-login-services-nix = Von deiner Nix-Konfiguration verwaltet
 settings-nav-default-apps = Standard-Apps
 settings-page-default-apps = Standard-Apps
 settings-section-default-categories = Kategorien
+settings-section-removable-drives = Wechseldatenträger
     .description = Die App, mit der sich jede Art von Link und Datei öffnet, geschrieben nach ~/.config/mimeapps.list, und das Terminal, das der Starter öffnet
 settings-section-default-types = Dateitypen
     .description = Jeder Typ, den eine installierte App öffnet, für das, was die Kategorien nicht abdecken

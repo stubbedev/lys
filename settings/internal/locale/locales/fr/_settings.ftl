@@ -794,6 +794,7 @@ settings-login-services-nix = Géré par votre configuration Nix
 settings-nav-default-apps = Applications par défaut
 settings-page-default-apps = Applications par défaut
 settings-section-default-categories = Catégories
+settings-section-removable-drives = Lecteurs amovibles
     .description = L'application qui ouvre chaque genre de lien et de fichier, écrite dans ~/.config/mimeapps.list, et le terminal qu'ouvre le lanceur
 settings-section-default-types = Types de fichiers
     .description = Chaque type qu'une application installée ouvre, pour ce que les catégories laissent de côté

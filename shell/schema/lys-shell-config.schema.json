@@ -3096,6 +3096,17 @@
         }
       ]
     },
+    "DrivesConfig": {
+      "description": "Removable drives.",
+      "properties": {
+        "automount": {
+          "$ref": "#/$defs/boolean",
+          "default": true,
+          "description": "Mount the filesystems on removable drives, such as USB sticks and\nSD cards, as they are plugged in, and those already plugged in at\nlogin, with a notification that opens or ejects each.\n\nInternal drives are never mounted this way, and encrypted volumes\nstay locked until unlocked in the file manager."
+        }
+      },
+      "type": "object"
+    },
     "DropdownSize": {
       "description": "Size override for a dropdown foldout panel.\n\nEach field is optional: when unset the dropdown keeps its built-in default\nwidth (scaled by the global scale) and the height of its content. The\nwidth is a [`Size`]: a scale multiplier of the built-in base (e.g. `1.5`)\nor an absolute pixel length (e.g. `\"480px\"`). The height is a pixel\nlength only.",
       "properties": {
@@ -11426,6 +11437,13 @@
         "pinned": []
       },
       "description": "The standalone dock: pinned apps and open windows on a surface of its own."
+    },
+    "drives": {
+      "$ref": "#/$defs/DrivesConfig",
+      "default": {
+        "automount": true
+      },
+      "description": "Removable drives: mounting them as they are plugged in."
     },
     "dropdowns": {
       "$ref": "#/$defs/DropdownsConfig",

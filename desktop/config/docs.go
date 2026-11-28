@@ -122,6 +122,7 @@ func docSpecs() []docSpec {
 		top("clipboard", docStandard(), func(c *Config) any { return &c.Clipboard }),
 		top("colorpicker", docStandard(), func(c *Config) any { return &c.ColorPicker }),
 		top("dock", docStandard(), func(c *Config) any { return &c.Dock }),
+		top("drives", docStandard(), func(c *Config) any { return &c.Drives }),
 		top("dropdowns", docStandard(), func(c *Config) any { return &c.Dropdowns }),
 		top("general", docStandard(), func(c *Config) any { return &c.General }),
 		top("idle", docStandard(), func(c *Config) any { return &c.Idle }),

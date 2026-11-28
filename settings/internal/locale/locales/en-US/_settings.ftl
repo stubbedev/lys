@@ -791,6 +791,7 @@ settings-login-services-nix = Managed by your Nix configuration
 settings-nav-default-apps = Default Apps
 settings-page-default-apps = Default Apps
 settings-section-default-categories = Categories
+settings-section-removable-drives = Removable Drives
     .description = The app each kind of link and file opens with, written to ~/.config/mimeapps.list, and the terminal the launcher opens
 settings-section-default-types = File Types
     .description = Every type an installed app opens, for what the categories leave out

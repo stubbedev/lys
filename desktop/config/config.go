@@ -70,6 +70,8 @@ type Config struct {
 	Idle IdleConfig `cfg:"idle"`
 	// The Passwords page over the keyring.
 	Passwords PasswordsConfig `cfg:"passwords"`
+	// Removable drives: mounting them as they are plugged in.
+	Drives DrivesConfig `cfg:"drives"`
 }
 
 // Defaults returns the schema defaults for every section.
@@ -94,6 +96,7 @@ func Defaults() *Config {
 		ColorPicker:   DefaultsColorPicker(),
 		Idle:          DefaultsIdle(),
 		Passwords:     DefaultsPasswords(),
+		Drives:        DefaultsDrives(),
 	}
 }
 

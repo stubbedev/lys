@@ -781,6 +781,7 @@ settings-login-services-nix = Beheerd door je Nix-configuratie
 settings-nav-default-apps = Standaardtoepassingen
 settings-page-default-apps = Standaardtoepassingen
 settings-section-default-categories = Categorieën
+settings-section-removable-drives = Verwisselbare schijven
     .description = De toepassing waarmee elk soort link en bestand opent, weggeschreven naar ~/.config/mimeapps.list, en de terminal die de starter opent
 settings-section-default-types = Bestandstypen
     .description = Elk type dat een geïnstalleerde toepassing opent, voor wat de categorieën weglaten

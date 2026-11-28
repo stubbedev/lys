@@ -332,3 +332,36 @@ func TestALookupThatMissesFailsNamingWhatIsMissing(t *testing.T) {
 		}
 	}
 }
+
+func TestTheDefaultAppsPageTurnsRemovableDriveMountingOffAndOn(t *testing.T) {
+	k := testKit(t, "")
+	sw := automountToggle(t, k)
+	if !sw.On() {
+		t.Fatal("the removable drives switch starts off, want on as drives.automount is by default")
+	}
+	sw.Toggle()
+	if got := k.store.value("drives.automount"); got != false {
+		t.Fatalf("turning the switch off stored %v, want false", got)
+	}
+	sw.Toggle()
+	if got := k.store.value("drives.automount"); got != true {
+		t.Errorf("turning the switch on again stored %v, want true", got)
+	}
+}
+
+func TestTheRemovableDrivesSwitchReadsAnAutomountTurnedOff(t *testing.T) {
+	k := testKit(t, "drives:\n  automount: false\n")
+	if automountToggle(t, k).On() {
+		t.Error("the removable drives switch is on with drives.automount: false")
+	}
+}
+
+func automountToggle(t *testing.T, k *kit) *toggle {
+	t.Helper()
+	ctl := fieldControl(k, k.store, pageRow(t, defaultAppsID, "drives.automount"))
+	c, ok := ctl.(*toggle)
+	if !ok {
+		t.Fatalf("drives.automount on the Default Apps page is %T, want a switch", ctl)
+	}
+	return c
+}
