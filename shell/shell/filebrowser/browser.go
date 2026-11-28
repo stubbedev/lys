@@ -184,6 +184,14 @@ type Options struct {
 	// OnDir hears the folder the browse shows (Dir) as it starts and
 	// each time it moves to another; nil ignores it.
 	OnDir func(dir string)
+	// OnSelection hears the selection of the view showing (Selected)
+	// each time it changes, and each time the rows it indexes change;
+	// nil ignores it.
+	OnSelection func(selected []Entry)
+	// OnOpenInNewTab hears a middle click on a folder row, which then
+	// neither selects nor opens it; a middle click on a file does
+	// nothing. nil leaves the middle button to the views.
+	OnOpenInNewTab func(Entry)
 }
 
 // Browser is the file browser: one browse at a time, Begin to End, on
@@ -1004,10 +1012,13 @@ func (c *Browser) views(u *ui) widget.Widget {
 	for _, l := range []*widget.List{u.list, &u.grid.List} {
 		l.SetSelectionMode(c.o.Selection)
 		l.OnActivate = c.activate
-		l.OnSelectionChanged = func([]int) { c.refreshPreview() }
-		if c.o.ContextMenu != nil {
-			l.OnPointer = menuPress(l)
+		l.OnSelectionChanged = func([]int) {
+			c.refreshPreview()
+			if l == c.activeView() {
+				c.selectionChanged()
+			}
 		}
+		l.OnPointer = c.rowPress(l)
 	}
 
 	u.empty = c.Label(i18n.T("file-chooser-empty-folder"), "file-chooser-empty", css.DimLabel)
@@ -1038,15 +1049,32 @@ func (c *Browser) views(u *ui) widget.Widget {
 	return zone
 }
 
-// menuPress selects the row a right click lands on, alone, unless it
-// is selected already; a right click below the rows clears the
-// selection. The press goes on to open the context menu.
-func menuPress(l *widget.List) func(int, widget.PointerEvent) bool {
+// rowPress is what a press on a file view does before the view: with
+// the host's menu, a right click selects the row it lands on, alone,
+// unless it is selected already, and one below the rows clears the
+// selection, the press going on to open the menu; with the host's new
+// tabs, a middle click is theirs, a folder row's opening in one.
+func (c *Browser) rowPress(l *widget.List) func(int, widget.PointerEvent) bool {
 	return func(row int, e widget.PointerEvent) bool {
-		if e.Button == widget.BTNRight && !slices.Contains(l.Selection(), row) {
-			l.Select(row)
+		switch {
+		case e.Button == widget.BTNRight && c.o.ContextMenu != nil:
+			if !slices.Contains(l.Selection(), row) {
+				l.Select(row)
+			}
+		case e.Button == widget.BTNMiddle && c.o.OnOpenInNewTab != nil:
+			if c.active && row >= 0 && row < len(c.s.entries) && c.s.entries[row].IsDir {
+				c.o.OnOpenInNewTab(c.s.entries[row])
+			}
+			return true
 		}
 		return false
+	}
+}
+
+// selectionChanged tells the host the selection (OnSelection).
+func (c *Browser) selectionChanged() {
+	if c.o.OnSelection != nil {
+		c.o.OnSelection(c.Selected())
 	}
 }
 
@@ -1378,6 +1406,7 @@ func (c *Browser) relist() {
 	u.empty.SetVisible(len(c.s.entries) == 0)
 	c.closeQuicklook()
 	c.refreshPreview()
+	c.selectionChanged()
 }
 
 // relistKeeping repaints a listing read again where it stands: the
@@ -1397,6 +1426,7 @@ func (c *Browser) relistKeeping(kept string) {
 	u.empty.SetVisible(len(c.s.entries) == 0)
 	view.Select(slices.IndexFunc(c.s.entries, func(e Entry) bool { return e.Path == kept }))
 	c.refreshPreview()
+	c.selectionChanged()
 }
 
 // selectedPath is the path of the first entry selected, "" for none.

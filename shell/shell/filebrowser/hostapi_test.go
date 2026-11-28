@@ -8,9 +8,12 @@ import (
 
 	"github.com/stubbedev/lys/desktop/shell/treetest"
 	"github.com/stubbedev/lys/lib/render"
+	"github.com/stubbedev/lys/lib/waittest"
 	"github.com/stubbedev/lys/lib/xkb"
 	"github.com/stubbedev/lys/ui/transfer"
 	"github.com/stubbedev/lys/ui/widget"
+
+	"github.com/stubbedev/lys/shell/shell/filebrowser/browsertest"
 )
 
 // surfaceHost records the menus the tree opens.
@@ -30,6 +33,13 @@ func (h *surfaceHost) Focus(widget.Widget) error { return nil }
 // name, or below the rows for "".
 func (hs *harness) rightClick(t *testing.T, name string) {
 	t.Helper()
+	hs.clickRow(t, widget.BTNRight, name)
+}
+
+// clickRow lays the window out and clicks button on the list row
+// reading name, or below the rows for "".
+func (hs *harness) clickRow(t *testing.T, button uint32, name string) {
+	t.Helper()
 	hs.do(func() {
 		lay(hs.cfg.Root, defaultW, defaultH)
 		r := &widget.Router{Root: hs.cfg.Root}
@@ -43,8 +53,8 @@ func (hs *harness) rightClick(t *testing.T, name string) {
 			at.Y = b.Y + i*ListRowH + ListRowH/2
 		}
 		r.Move(at)
-		r.Press(widget.BTNRight, at, 0)
-		r.Release(widget.BTNRight, at)
+		r.Press(button, at, 0)
+		r.Release(button, at)
 	})
 }
 
@@ -401,5 +411,100 @@ func TestStem(t *testing.T) {
 		if got := stem(tc.name, tc.dir); got != tc.want {
 			t.Errorf("stem(%q, %v) = %q, want %q", tc.name, tc.dir, got, tc.want)
 		}
+	}
+}
+
+// The host hears the selection each time it changes, and again when
+// the rows change under it; a browse without the hook hears nothing
+// and selects as before.
+func TestTheHostHearsTheSelection(t *testing.T) {
+	hs := newHarness(t, "")
+	var heard [][]string
+	o := openFiles
+	o.OnSelection = func(sel []Entry) { heard = append(heard, names(sel)) }
+	hs.open(t, o)
+	if len(heard) == 0 || len(heard[len(heard)-1]) != 0 {
+		t.Fatalf("the first listing told the host %v, want an empty selection last", heard)
+	}
+	heard = nil
+	hs.clickRow(t, widget.BTNLeft, "b.txt")
+	if !slices.EqualFunc(heard, [][]string{{"b.txt"}}, slices.Equal) {
+		t.Errorf("a click on b.txt told the host %v", heard)
+	}
+	heard = nil
+	browsertest.Touch(t, hs.root, "c.txt")
+	waittest.Until(t, func() bool {
+		var n int
+		hs.run(func() { n = len(heard) })
+		return n > 0
+	}, "the host to hear the listing change")
+	hs.run(func() {
+		if got := heard[len(heard)-1]; !slices.Equal(got, []string{"b.txt"}) {
+			t.Errorf("after c.txt appeared the host heard %v, want b.txt still selected", got)
+		}
+	})
+	heard = nil
+	hs.do(func() { hs.c.activate(slices.Index(names(hs.c.s.entries), "docs")) })
+	if len(heard) == 0 || len(heard[len(heard)-1]) != 0 {
+		t.Errorf("entering docs told the host %v, want an empty selection last", heard)
+	}
+
+	hs.hide()
+	heard = nil
+	hs.open(t, openFiles)
+	hs.clickRow(t, widget.BTNLeft, "b.txt")
+	if got := hs.selectedNames(); len(heard) != 0 || !slices.Equal(got, []string{"b.txt"}) {
+		t.Errorf("without the hook the host heard %v and a click on b.txt selected %v", heard, got)
+	}
+}
+
+// A middle click on a folder row hands it to the host's new tab and
+// neither selects nor enters it; one on a file does nothing. Without
+// the hook a middle click opens no tab and leaves the folder shown.
+func TestMiddleClickOpensAFolderInANewTab(t *testing.T) {
+	hs := newHarness(t, "")
+	var opened []string
+	o := openFiles
+	o.OnOpenInNewTab = func(e Entry) { opened = append(opened, e.Name()) }
+	hs.open(t, o)
+	hs.clickRow(t, widget.BTNMiddle, "docs")
+	if !slices.Equal(opened, []string{"docs"}) || hs.dir() != hs.root || len(hs.selectedNames()) != 0 {
+		t.Errorf("a middle click on docs opened %v, showed %s and selected %v; want docs in a new tab, the root shown, nothing selected", opened, hs.dir(), hs.selectedNames())
+	}
+	opened = nil
+	hs.clickRow(t, widget.BTNMiddle, "b.txt")
+	if len(opened) != 0 || len(hs.selectedNames()) != 0 {
+		t.Errorf("a middle click on b.txt opened %v and selected %v", opened, hs.selectedNames())
+	}
+	hs.do(hs.c.toggleView)
+	hs.do(func() {
+		lay(hs.cfg.Root, defaultW, defaultH)
+		g := hs.c.ui.grid
+		i := slices.Index(names(hs.c.s.entries), "docs")
+		var at widget.Point
+		for y := g.Bounds().Y; y < g.Bounds().Y+g.Bounds().H && at == (widget.Point{}); y += 4 {
+			for x := g.Bounds().X; x < g.Bounds().X+g.Bounds().W; x += 4 {
+				if g.IndexAt(widget.Point{X: x, Y: y}) == i {
+					at = widget.Point{X: x + 8, Y: y + 8}
+					break
+				}
+			}
+		}
+		r := &widget.Router{Root: hs.cfg.Root}
+		r.Move(at)
+		r.Press(widget.BTNMiddle, at, 0)
+		r.Release(widget.BTNMiddle, at)
+	})
+	if !slices.Equal(opened, []string{"docs"}) {
+		t.Errorf("a middle click on docs in the grid opened %v", opened)
+	}
+	hs.do(hs.c.toggleView)
+
+	hs.hide()
+	opened = nil
+	hs.open(t, openFiles)
+	hs.clickRow(t, widget.BTNMiddle, "docs")
+	if len(opened) != 0 || hs.dir() != hs.root {
+		t.Errorf("without the hook a middle click on docs opened %v and moved to %s", opened, hs.dir())
 	}
 }
