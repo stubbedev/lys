@@ -2477,6 +2477,44 @@ func TestAnOutputLitInAModeNotPreferredKeepsItsFrame(t *testing.T) {
 	}
 }
 
+// logind pauses and resumes a session's card as the session becomes
+// active on its VT, which on the xe laptop lands just after lys-wm
+// took the greeter's frame over. Resuming forgot the frame, so the
+// session drew its empty background over it at once: the black frame
+// between the greeter and the session (#348). A frame still on screen
+// after the resume stays inherited; one something else replaced while
+// the card was paused does not.
+func TestAResumedCardKeepsTheFrameItInheritedWhileItStillShows(t *testing.T) {
+	t.Run("still on screen", func(t *testing.T) {
+		r := bootLit(t, &splash{crtc: 10, plane: 40, mode: modes[0]}, false)
+		o := r.b.Outputs()[0]
+		r.b.Pause()
+		if err := r.b.Resume(); err != nil {
+			t.Fatal(err)
+		}
+		if !o.Inherited() {
+			t.Fatal("resuming the card forgot the frame it inherited, though the frame still shows")
+		}
+		for i, c := range r.firstFrame(o) {
+			if c.flags&kdrm.AtomicAllowModeset != 0 {
+				t.Fatalf("commit %d of the first frame after the resume allows a modeset: %+v", i, c)
+			}
+		}
+	})
+	t.Run("replaced while paused", func(t *testing.T) {
+		r := bootLit(t, &splash{crtc: 10, plane: 40, mode: modes[0]}, false)
+		o := r.b.Outputs()[0]
+		r.b.Pause()
+		r.dev.splash = nil
+		if err := r.b.Resume(); err != nil {
+			t.Fatal(err)
+		}
+		if o.Inherited() {
+			t.Fatal("a card resumed over a screen something else replaced still claims the inherited frame")
+		}
+	})
+}
+
 func TestTheFrameAnOutputInheritedIsExportedWithItsLayout(t *testing.T) {
 	r := bootLit(t, &splash{crtc: 10, plane: 40, mode: modes[0]}, false)
 	o := r.b.Outputs()[0]

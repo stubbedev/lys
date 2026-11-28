@@ -769,6 +769,17 @@ func (b *Backend) reportDeclined(o *Output, routed uint32) error {
 	return nil
 }
 
+func (b *Backend) resumedKMS(o *Output) (kmsState, error) {
+	if o.kms != kmsInherited {
+		return kmsModeset, nil
+	}
+	shown, err := b.shows(o, o.crtc.id, o.mode)
+	if err != nil || !shown {
+		return kmsModeset, err
+	}
+	return kmsInherited, nil
+}
+
 func sameTimings(a, b kdrm.Mode) bool {
 	a.Type, a.Name, b.Type, b.Name = 0, [32]byte{}, 0, [32]byte{}
 	return a == b
@@ -942,7 +953,9 @@ func (b *Backend) Resume() error {
 	b.paused = false
 	var errs []error
 	for _, o := range b.outputs {
-		o.kms, o.flipping, o.busy, o.planesBusy, o.offDue, o.offBusy = kmsModeset, false, nil, false, o.offDue || o.offBusy, false
+		kms, err := b.resumedKMS(o)
+		errs = append(errs, err)
+		o.kms, o.flipping, o.busy, o.planesBusy, o.offDue, o.offBusy = kms, false, nil, false, o.offDue || o.offBusy, false
 		errs = append(errs, o.dropLate(), o.dropScanout(o.queued))
 		o.queued = nil
 		if o.cursor != nil {
